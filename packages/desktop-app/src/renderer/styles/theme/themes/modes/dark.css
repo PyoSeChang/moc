@@ -1,0 +1,43 @@
+:root[data-mode="dark"] {
+    /* Surface */
+    --surface-base: var(--palette-neutral-950);
+    --surface-panel: var(--palette-neutral-900);
+    --surface-card: var(--palette-neutral-800);
+    --surface-hover: var(--palette-neutral-700);
+    --surface-modal: var(--palette-neutral-800);
+    /* Cards and Modals share similar elevation in dark mode usually, or lighter */
+    --surface-overlay: rgba(0, 0, 0, 0.7);
+
+    /* Text */
+    --text-default: var(--palette-neutral-50);
+    --text-secondary: var(--palette-neutral-300);
+    --text-muted: var(--palette-neutral-500);
+    --text-on-accent: white;
+    /* Always white on primary usually */
+
+    /* Border */
+    --border-subtle: var(--palette-neutral-800);
+    --border-default: var(--palette-neutral-700);
+    --border-strong: var(--palette-neutral-500);
+
+    /* Accent */
+    --accent: var(--palette-primary-500);
+    --accent-hover: var(--palette-primary-400);
+    --accent-muted: var(--palette-primary-900);
+    /* Background for badges etc */
+
+    /* Status Colors (Hardcoded or potentially another palette axis, keeping simple for now) */
+    --status-success: #22c55e;
+    --status-warning: #eab308;
+    --status-error: #ef4444;
+    --status-info: #3b82f6;
+
+    /* Input/Form Specifics */
+    --input-bg: var(--palette-neutral-900);
+    --input-border: var(--border-default);
+    --input-placeholder: var(--text-muted);
+
+    /* Canvas Edge (Synapse visualization) */
+    --edge-default: var(--palette-neutral-500);
+    --edge-hover: var(--accent);
+}

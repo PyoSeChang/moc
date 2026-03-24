@@ -1,0 +1,33 @@
+:root[data-concept="sand"] {
+    /*
+     * Sand ← lase "sand"
+     * Warm sandy desert tones. Cozy and natural.
+     * H≈30-40 S≈5-30%
+     */
+
+    /* Primary Scale (Earth/Orange) */
+    --palette-primary-50: hsl(30, 80%, 96%);
+    --palette-primary-100: hsl(30, 70%, 90%);
+    --palette-primary-200: hsl(30, 60%, 80%);
+    --palette-primary-300: hsl(30, 55%, 65%);
+    --palette-primary-400: hsl(30, 50%, 50%);
+    --palette-primary-500: hsl(30, 50%, 40%);
+    --palette-primary-600: hsl(30, 55%, 32%);
+    --palette-primary-700: hsl(30, 50%, 24%);
+    --palette-primary-800: hsl(30, 45%, 18%);
+    --palette-primary-900: hsl(30, 40%, 12%);
+    --palette-primary-950: hsl(30, 35%, 7%);
+
+    /* Neutral Scale (Warm Sand — from lase) */
+    --palette-neutral-50: hsl(40, 30%, 97%);
+    --palette-neutral-100: hsl(40, 20%, 94%);
+    --palette-neutral-200: hsl(40, 15%, 88%);
+    --palette-neutral-300: hsl(40, 10%, 80%);
+    --palette-neutral-400: hsl(30, 5%, 60%);
+    --palette-neutral-500: hsl(30, 5%, 40%);
+    --palette-neutral-600: hsl(30, 6%, 22%);
+    --palette-neutral-700: hsl(30, 8%, 17%);
+    --palette-neutral-800: hsl(30, 8%, 14%);
+    --palette-neutral-900: hsl(30, 10%, 11%);
+    --palette-neutral-950: hsl(30, 10%, 7%);
+}

@@ -1,0 +1,33 @@
+:root[data-concept="slate"] {
+    /*
+     * Slate ← lase "slate"
+     * Classic blue-tinted professional dark. shadcn default.
+     * H≈210-222 S≈20-84%
+     */
+
+    /* Primary Scale (Slate Blue) */
+    --palette-primary-50: hsl(210, 40%, 98%);
+    --palette-primary-100: hsl(210, 40%, 96.1%);
+    --palette-primary-200: hsl(214.3, 31.8%, 91.4%);
+    --palette-primary-300: hsl(212.7, 26.8%, 83.9%);
+    --palette-primary-400: hsl(215, 20.2%, 65.1%);
+    --palette-primary-500: hsl(215.4, 16.3%, 46.9%);
+    --palette-primary-600: hsl(215.3, 25%, 36.8%);
+    --palette-primary-700: hsl(217.2, 32.6%, 17.5%);
+    --palette-primary-800: hsl(222.2, 47.4%, 11.2%);
+    --palette-primary-900: hsl(222.2, 84%, 6.5%);
+    --palette-primary-950: hsl(222.2, 84%, 4.9%);
+
+    /* Neutral Scale (Blue-tinted Slate) */
+    --palette-neutral-50: hsl(210, 40%, 98%);
+    --palette-neutral-100: hsl(210, 40%, 96.1%);
+    --palette-neutral-200: hsl(214.3, 31.8%, 91.4%);
+    --palette-neutral-300: hsl(212.7, 26.8%, 83.9%);
+    --palette-neutral-400: hsl(215, 20.2%, 65.1%);
+    --palette-neutral-500: hsl(215.4, 16.3%, 46.9%);
+    --palette-neutral-600: hsl(215.3, 25%, 36.8%);
+    --palette-neutral-700: hsl(217.2, 32.6%, 17.5%);
+    --palette-neutral-800: hsl(222.2, 47.4%, 11.2%);
+    --palette-neutral-900: hsl(222.2, 84%, 6.5%);
+    --palette-neutral-950: hsl(222.2, 84%, 4.9%);
+}

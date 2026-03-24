@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+out/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Electron
+release/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/neuroplasticity/
+
+# Misc
+*.local

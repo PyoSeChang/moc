@@ -1,0 +1,33 @@
+:root[data-concept="forest"] {
+    /*
+     * Forest ← lase "forest"
+     * Organic green tones. Deep forest dark, minty light.
+     * H≈140-150 S≈5-20%
+     */
+
+    /* Primary Scale (Green) */
+    --palette-primary-50: hsl(140, 60%, 96%);
+    --palette-primary-100: hsl(141, 52%, 90%);
+    --palette-primary-200: hsl(141, 48%, 80%);
+    --palette-primary-300: hsl(142, 45%, 65%);
+    --palette-primary-400: hsl(142.1, 70.6%, 45.3%);
+    --palette-primary-500: hsl(142.1, 76.2%, 36.3%);
+    --palette-primary-600: hsl(142.4, 71.8%, 29.2%);
+    --palette-primary-700: hsl(143, 64%, 24%);
+    --palette-primary-800: hsl(144, 60%, 18%);
+    --palette-primary-900: hsl(145, 55%, 12%);
+    --palette-primary-950: hsl(146, 50%, 7%);
+
+    /* Neutral Scale (Green-tinted — from lase) */
+    --palette-neutral-50: hsl(140, 20%, 98%);
+    --palette-neutral-100: hsl(140, 20%, 95%);
+    --palette-neutral-200: hsl(140, 15%, 90%);
+    --palette-neutral-300: hsl(140, 10%, 82%);
+    --palette-neutral-400: hsl(150, 5%, 60%);
+    --palette-neutral-500: hsl(150, 5%, 40%);
+    --palette-neutral-600: hsl(150, 6%, 20%);
+    --palette-neutral-700: hsl(150, 8%, 16%);
+    --palette-neutral-800: hsl(150, 8%, 13%);
+    --palette-neutral-900: hsl(150, 10%, 10%);
+    --palette-neutral-950: hsl(150, 10%, 7%);
+}

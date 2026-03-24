@@ -1,0 +1,46 @@
+/* === MoC Desktop — Global Styles === */
+
+/* 1. Shared token system (tokens + themes + reset + base) */
+@import './theme/index.css';
+
+/* 2. Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 3. App-level overrides */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Default theme attributes (fallback) */
+:root {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar for Electron */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply rounded-full;
+  background: var(--border-default);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

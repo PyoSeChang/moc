@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@moc/shared": ["packages/shared/src"],
+      "@moc/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/desktop-app" }
+  ]
+}

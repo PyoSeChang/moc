@@ -1,0 +1,39 @@
+{
+  "common": {
+    "create": "Create",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "search": "Search",
+    "rename": "Rename",
+    "open": "Open",
+    "close": "Close",
+    "confirm": "Confirm"
+  },
+  "project": {
+    "create": "Create Project",
+    "name": "Project Name",
+    "selectFolder": "Select Folder",
+    "noProjects": "No projects",
+    "deleteConfirm": "Delete this project?"
+  },
+  "canvas": {
+    "create": "Create Canvas",
+    "name": "Canvas Name",
+    "defaultName": "New Canvas"
+  },
+  "concept": {
+    "create": "Create Concept",
+    "defaultTitle": "New Concept",
+    "attachFile": "Attach File",
+    "detachFile": "Detach File"
+  },
+  "edge": {
+    "connect": "Connect",
+    "delete": "Delete Connection"
+  },
+  "editor": {
+    "unsaved": "Unsaved changes",
+    "openExternal": "Open in External App"
+  }
+}

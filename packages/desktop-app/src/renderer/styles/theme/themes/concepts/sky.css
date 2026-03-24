@@ -1,0 +1,33 @@
+:root[data-concept="sky"] {
+    /*
+     * Sky ← lase "sky"
+     * Light blue, airy. Clear sky and open water.
+     * H≈200-210 S≈8-30%
+     */
+
+    /* Primary Scale (Sky Blue) */
+    --palette-primary-50: hsl(199, 89%, 96%);
+    --palette-primary-100: hsl(199, 89%, 88%);
+    --palette-primary-200: hsl(199, 89%, 76%);
+    --palette-primary-300: hsl(199, 89%, 63%);
+    --palette-primary-400: hsl(199, 89%, 48%);
+    --palette-primary-500: hsl(199, 89%, 40%);
+    --palette-primary-600: hsl(199, 85%, 33%);
+    --palette-primary-700: hsl(199, 80%, 26%);
+    --palette-primary-800: hsl(199, 75%, 20%);
+    --palette-primary-900: hsl(199, 70%, 14%);
+    --palette-primary-950: hsl(199, 65%, 8%);
+
+    /* Neutral Scale (Pale Blue — from lase) */
+    --palette-neutral-50: hsl(200, 30%, 98%);
+    --palette-neutral-100: hsl(200, 20%, 96%);
+    --palette-neutral-200: hsl(200, 15%, 92%);
+    --palette-neutral-300: hsl(200, 10%, 82%);
+    --palette-neutral-400: hsl(210, 8%, 60%);
+    --palette-neutral-500: hsl(210, 10%, 45%);
+    --palette-neutral-600: hsl(210, 10%, 20%);
+    --palette-neutral-700: hsl(210, 12%, 16%);
+    --palette-neutral-800: hsl(210, 12%, 13%);
+    --palette-neutral-900: hsl(210, 15%, 10%);
+    --palette-neutral-950: hsl(210, 15%, 7%);
+}

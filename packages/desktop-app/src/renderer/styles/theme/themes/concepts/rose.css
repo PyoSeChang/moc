@@ -1,0 +1,33 @@
+:root[data-concept="rose"] {
+    /*
+     * Rose — Culturium original (lase에 없음)
+     * Soft pink warmth. Emotional, creative.
+     * H≈350 S≈10-80%
+     */
+
+    /* Primary Scale (Rose Pink) */
+    --palette-primary-50: hsl(350, 80%, 97%);
+    --palette-primary-100: hsl(350, 80%, 92%);
+    --palette-primary-200: hsl(350, 80%, 85%);
+    --palette-primary-300: hsl(350, 80%, 80%);
+    --palette-primary-400: hsl(350, 70%, 65%);
+    --palette-primary-500: hsl(350, 65%, 52%);
+    --palette-primary-600: hsl(350, 60%, 42%);
+    --palette-primary-700: hsl(350, 55%, 32%);
+    --palette-primary-800: hsl(350, 50%, 24%);
+    --palette-primary-900: hsl(350, 45%, 16%);
+    --palette-primary-950: hsl(350, 40%, 9%);
+
+    /* Neutral Scale (Pink-warm gray) */
+    --palette-neutral-50: hsl(350, 15%, 98%);
+    --palette-neutral-100: hsl(350, 12%, 95%);
+    --palette-neutral-200: hsl(350, 8%, 90%);
+    --palette-neutral-300: hsl(350, 6%, 82%);
+    --palette-neutral-400: hsl(350, 5%, 60%);
+    --palette-neutral-500: hsl(350, 5%, 44%);
+    --palette-neutral-600: hsl(350, 6%, 22%);
+    --palette-neutral-700: hsl(350, 8%, 17%);
+    --palette-neutral-800: hsl(350, 8%, 14%);
+    --palette-neutral-900: hsl(350, 10%, 11%);
+    --palette-neutral-950: hsl(350, 10%, 7%);
+}

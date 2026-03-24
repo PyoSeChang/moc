@@ -1,0 +1,41 @@
+:root[data-mode="light"] {
+    /* Surface */
+    --surface-base: var(--palette-neutral-50);
+    --surface-panel: #ffffff;
+    --surface-card: #ffffff;
+    --surface-hover: var(--palette-neutral-100);
+    --surface-modal: #ffffff;
+    --surface-overlay: rgba(0, 0, 0, 0.4);
+
+    /* Text */
+    --text-default: var(--palette-neutral-900);
+    --text-secondary: var(--palette-neutral-600);
+    --text-muted: var(--palette-neutral-400);
+    --text-on-accent: white;
+
+    /* Border */
+    --border-subtle: var(--palette-neutral-100);
+    --border-default: var(--palette-neutral-200);
+    --border-strong: var(--palette-neutral-300);
+
+    /* Accent */
+    --accent: var(--palette-primary-600);
+    /* Slightly darker for contrast on light bg */
+    --accent-hover: var(--palette-primary-700);
+    --accent-muted: var(--palette-primary-100);
+
+    /* Status Colors */
+    --status-success: #16a34a;
+    --status-warning: #ca8a04;
+    --status-error: #dc2626;
+    --status-info: #2563eb;
+
+    /* Input/Form Specifics */
+    --input-bg: #ffffff;
+    --input-border: var(--border-default);
+    --input-placeholder: var(--text-muted);
+
+    /* Canvas Edge (Synapse visualization) */
+    --edge-default: var(--palette-neutral-400);
+    --edge-hover: var(--accent);
+}

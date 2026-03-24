@@ -1,18 +1,72 @@
+import { useProjectStore } from './stores/project-store';
+import { ProjectHome } from './components/home/ProjectHome';
+import { ToastContainer } from './components/ui/Toast';
+
+function TitleBar(): JSX.Element {
+  const { currentProject, closeProject } = useProjectStore();
+
+  return (
+    <div
+      className="flex h-9 shrink-0 items-center justify-between border-b border-subtle px-4"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-secondary">MoC</span>
+        {currentProject && (
+          <>
+            <span className="text-xs text-muted">/</span>
+            <span className="text-sm text-default">{currentProject.name}</span>
+          </>
+        )}
+      </div>
+      <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {currentProject && (
+          <button
+            className="rounded px-2 py-0.5 text-xs text-muted hover:bg-surface-hover hover:text-default"
+            onClick={closeProject}
+          >
+            Close Project
+          </button>
+        )}
+        <button
+          className="rounded p-1 text-muted hover:bg-surface-hover"
+          onClick={() => window.electron.window.minimize()}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor" /></svg>
+        </button>
+        <button
+          className="rounded p-1 text-muted hover:bg-surface-hover"
+          onClick={() => window.electron.window.maximize()}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" /></svg>
+        </button>
+        <button
+          className="rounded p-1 text-muted hover:bg-surface-hover hover:text-status-error"
+          onClick={() => window.electron.window.close()}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" /><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App(): JSX.Element {
+  const { currentProject } = useProjectStore();
+
   return (
     <div className="flex h-full flex-col bg-surface-base text-default">
-      {/* Title bar */}
-      <div
-        className="flex h-9 shrink-0 items-center border-b border-subtle px-4"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <span className="text-sm font-medium text-secondary">MoC</span>
+      <TitleBar />
+      <div className="flex-1 overflow-hidden">
+        {currentProject ? (
+          <div className="flex h-full items-center justify-center text-muted">
+            Workspace — Phase 5에서 캔버스 구현
+          </div>
+        ) : (
+          <ProjectHome />
+        )}
       </div>
-
-      {/* Main content */}
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted">Map of Concepts</p>
-      </div>
+      <ToastContainer />
     </div>
   );
 }

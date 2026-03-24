@@ -1,5 +1,6 @@
 import { useProjectStore } from './stores/project-store';
 import { ProjectHome } from './components/home/ProjectHome';
+import { WorkspaceShell } from './components/workspace/WorkspaceShell';
 import { ToastContainer } from './components/ui/Toast';
 
 function TitleBar(): JSX.Element {
@@ -59,9 +60,7 @@ export default function App(): JSX.Element {
       <TitleBar />
       <div className="flex-1 overflow-hidden">
         {currentProject ? (
-          <div className="flex h-full items-center justify-center text-muted">
-            Workspace — Phase 5에서 캔버스 구현
-          </div>
+          <WorkspaceShell project={currentProject} />
         ) : (
           <ProjectHome />
         )}

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-type CanvasMode = 'browse' | 'edit';
+export type CanvasMode = 'browse' | 'edit';
+export type RenderingMode = 'canvas';
 type SidebarView = 'canvases' | 'files' | 'search';
 
 interface UIStore {

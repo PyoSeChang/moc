@@ -1,0 +1,230 @@
+/**
+ * NodeCardDefault
+ *
+ * Default node rendering component with shape-based layout.
+ * Shape determines both the outline (border, clip-path) and the internal layout.
+ * Internal rendering is delegated to shape-specific layout components in ./layouts/.
+ */
+
+import React, { useCallback, useMemo } from 'react';
+import type { NodeComponentProps } from './types';
+import type { NodeShape } from './types';
+import { getShapeLayout } from './layouts';
+
+// --- Gear clip-path (6-tooth cog) ---
+const GEAR_CLIP_PATH =
+  'polygon(50% 0%, 61% 4%, 65% 0%, 75% 10%, 82% 7%, 85% 19%, 93% 21%, 90% 33%, 97% 40%, 90% 50%, 97% 60%, 90% 67%, 93% 79%, 85% 81%, 82% 93%, 75% 90%, 65% 100%, 61% 96%, 50% 100%, 39% 96%, 35% 100%, 25% 90%, 18% 93%, 15% 81%, 7% 79%, 10% 67%, 3% 60%, 10% 50%, 3% 40%, 10% 33%, 7% 21%, 15% 19%, 18% 7%, 25% 10%, 35% 0%, 39% 4%)';
+
+/**
+ * shape → outline CSS class
+ */
+function getShapeOutline(shape: NodeShape): string {
+  switch (shape) {
+    case 'stadium':
+    case 'circle':
+      return 'rounded-full';
+    case 'dashed':
+      return 'rounded-lg border-dashed border-2';
+    case 'gear':
+      return '';
+    case 'portrait':
+    case 'wide':
+    case 'rectangle':
+    case 'square':
+    default:
+      return 'rounded-lg';
+  }
+}
+
+export const NodeCardDefault: React.FC<NodeComponentProps> = ({
+  id,
+  x,
+  y,
+  label,
+  updatedAt,
+  icon,
+  semanticType,
+  semanticTypeLabel,
+  systemType,
+  selected,
+  highlighted,
+  mode = 'browse',
+  width = 160,
+  height = 60,
+  shape = 'rectangle',
+  content,
+  metadata,
+  spanInfo,
+  onSpanResizeStart,
+  onClick,
+  onDoubleClick,
+  onDragStart,
+  onContextMenu,
+}) => {
+  // --- Event handlers ---
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      onDragStart(id, e.clientX, e.clientY);
+    },
+    [id, onDragStart],
+  );
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onClick(id, e);
+    },
+    [id, onClick],
+  );
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDoubleClick(id);
+    },
+    [id, onDoubleClick],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onContextMenu?.('node', e.clientX, e.clientY, id);
+    },
+    [id, onContextMenu],
+  );
+
+  const isGear = shape === 'gear';
+  const outlineClass = getShapeOutline(shape);
+
+  const cardClassName = useMemo(() => {
+    const parts = [
+      'bg-surface-card shadow-sm',
+      'transition-[border-color,box-shadow] duration-fast',
+      'select-none overflow-hidden',
+    ];
+
+    if (isGear) {
+      // gear uses clip-path, no border
+    } else {
+      parts.push('border border-subtle');
+      parts.push('hover:border-default hover:shadow-md');
+      parts.push(outlineClass);
+    }
+
+    if (selected) {
+      parts.push('border-accent shadow-[0_0_0_2px_var(--accent-muted)]');
+    }
+    if (highlighted) {
+      parts.push('border-status-warning shadow-[0_0_0_2px_color-mix(in_srgb,var(--status-warning)_30%,transparent)]');
+    }
+
+    return parts.filter(Boolean).join(' ');
+  }, [shape, isGear, outlineClass, selected, highlighted]);
+
+  const cardStyle: React.CSSProperties = {
+    width,
+    height,
+  };
+  if (isGear) {
+    cardStyle.clipPath = GEAR_CLIP_PATH;
+  }
+
+  const Layout = getShapeLayout(shape);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width,
+        height,
+        transform: `translate(${x - width / 2}px, ${y - height / 2}px)`,
+        cursor: mode === 'edit' ? 'move' : 'pointer',
+      }}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
+    >
+      {/* Card body */}
+      <div className={cardClassName} style={cardStyle}>
+        <Layout
+          label={label}
+          icon={icon}
+          semanticTypeLabel={semanticTypeLabel}
+          systemType={systemType}
+          updatedAt={updatedAt}
+          content={content}
+          metadata={metadata}
+        />
+      </div>
+
+      {/* Span resize handles (edit mode only) */}
+      {mode === 'edit' && spanInfo && onSpanResizeStart && (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              left: -3,
+              top: 0,
+              width: 6,
+              height: '100%',
+              cursor: 'ew-resize',
+              zIndex: 1,
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onSpanResizeStart(id, 'start', e.clientX, spanInfo.startValue);
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              left: 1,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 4,
+              height: 24,
+              borderRadius: 2,
+              backgroundColor: 'var(--accent)',
+              opacity: 0.5,
+            }} />
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              right: -3,
+              top: 0,
+              width: 6,
+              height: '100%',
+              cursor: 'ew-resize',
+              zIndex: 1,
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onSpanResizeStart(id, 'end', e.clientX, spanInfo.endValue);
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              right: 1,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 4,
+              height: 24,
+              borderRadius: 2,
+              backgroundColor: 'var(--accent)',
+              opacity: 0.5,
+            }} />
+          </div>
+        </>
+      )}
+
+    </div>
+  );
+};

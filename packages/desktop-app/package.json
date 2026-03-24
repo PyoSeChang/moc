@@ -10,7 +10,9 @@
     "package": "electron-builder",
     "package:win": "electron-builder --win",
     "clean": "rimraf out release",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@moc/shared": "workspace:*",
@@ -20,6 +22,8 @@
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.8",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
@@ -28,6 +32,7 @@
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
     "electron-vite": "^2.0.0",
+    "jsdom": "^29.0.1",
     "lucide-react": "^0.563.0",
     "postcss": "^8.4.33",
     "react": "^18.2.0",
@@ -35,6 +40,7 @@
     "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "vite": "^5.0.12",
+    "vitest": "^2.1.9"
   }
 }

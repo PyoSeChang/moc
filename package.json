@@ -9,7 +9,8 @@
     "dev:desktop": "pnpm --filter @moc/desktop-app dev",
     "lint": "turbo run lint",
     "clean": "turbo run clean && rimraf node_modules",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

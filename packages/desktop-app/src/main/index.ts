@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './db/connection';
+import { registerAllIpc } from './ipc';
 
 // Force userData to %APPDATA%/moc
 app.name = 'moc';
@@ -51,6 +52,7 @@ app.whenReady().then(async () => {
   });
 
   await initDatabase();
+  registerAllIpc();
 
   // Window control IPC
   ipcMain.on('window:minimize', (event) => {

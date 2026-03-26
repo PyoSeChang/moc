@@ -5,6 +5,7 @@ import type {
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate,
   Concept,
+  CanvasBreadcrumbItem,
 } from '@moc/shared/types';
 
 // ── Canvas ──
@@ -15,17 +16,63 @@ export function createCanvas(data: CanvasCreate): Canvas {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO canvases (id, project_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, data.project_id, data.name, now, now);
+    `INSERT INTO canvases (id, project_id, name, concept_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, data.project_id, data.name, data.concept_id ?? null, now, now);
 
   return db.prepare('SELECT * FROM canvases WHERE id = ?').get(id) as Canvas;
 }
 
-export function listCanvases(projectId: string): Canvas[] {
+export function listCanvases(projectId: string, rootOnly = false): Canvas[] {
+  const db = getDatabase();
+  const sql = rootOnly
+    ? 'SELECT * FROM canvases WHERE project_id = ? AND concept_id IS NULL ORDER BY created_at'
+    : 'SELECT * FROM canvases WHERE project_id = ? ORDER BY created_at';
+  return db.prepare(sql).all(projectId) as Canvas[];
+}
+
+export function getCanvasByConceptId(conceptId: string): Canvas | undefined {
   const db = getDatabase();
   return db
-    .prepare('SELECT * FROM canvases WHERE project_id = ? ORDER BY created_at')
-    .all(projectId) as Canvas[];
+    .prepare('SELECT * FROM canvases WHERE concept_id = ?')
+    .get(conceptId) as Canvas | undefined;
+}
+
+export function getCanvasAncestors(canvasId: string): CanvasBreadcrumbItem[] {
+  const db = getDatabase();
+  const breadcrumbs: CanvasBreadcrumbItem[] = [];
+  const visited = new Set<string>();
+  let currentId: string | null = canvasId;
+
+  while (currentId) {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+
+    const canvas = db.prepare('SELECT * FROM canvases WHERE id = ?').get(currentId) as Canvas | undefined;
+    if (!canvas) break;
+
+    let conceptTitle: string | null = null;
+    if (canvas.concept_id) {
+      const concept = db.prepare('SELECT title FROM concepts WHERE id = ?').get(canvas.concept_id) as { title: string } | undefined;
+      conceptTitle = concept?.title ?? null;
+    }
+
+    breadcrumbs.unshift({
+      canvasId: canvas.id,
+      canvasName: canvas.name,
+      conceptTitle,
+    });
+
+    if (!canvas.concept_id) break;
+
+    // Find parent canvas: which canvas contains this concept as a node?
+    const parentNode = db.prepare(
+      'SELECT canvas_id FROM canvas_nodes WHERE concept_id = ? LIMIT 1',
+    ).get(canvas.concept_id) as { canvas_id: string } | undefined;
+
+    currentId = parentNode?.canvas_id ?? null;
+  }
+
+  return breadcrumbs;
 }
 
 export function updateCanvas(id: string, data: CanvasUpdate): Canvas | undefined {
@@ -58,7 +105,7 @@ export function deleteCanvas(id: string): boolean {
 
 export interface CanvasFullData {
   canvas: Canvas;
-  nodes: (CanvasNode & { concept: Concept })[];
+  nodes: (CanvasNode & { concept: Concept; has_sub_canvas: boolean })[];
   edges: Edge[];
 }
 
@@ -69,7 +116,8 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
 
   const nodes = db.prepare(
     `SELECT cn.*, c.title, c.color, c.icon, c.project_id as concept_project_id,
-            c.created_at as concept_created_at, c.updated_at as concept_updated_at
+            c.created_at as concept_created_at, c.updated_at as concept_updated_at,
+            (EXISTS(SELECT 1 FROM canvases sub WHERE sub.concept_id = cn.concept_id)) as has_sub_canvas
      FROM canvas_nodes cn
      JOIN concepts c ON cn.concept_id = c.id
      WHERE cn.canvas_id = ?`,
@@ -92,6 +140,7 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
       created_at: row.concept_created_at as string,
       updated_at: row.concept_updated_at as string,
     },
+    has_sub_canvas: !!(row.has_sub_canvas as number),
   }));
 
   const edges = db

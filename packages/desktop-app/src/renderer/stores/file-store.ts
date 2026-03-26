@@ -32,7 +32,7 @@ interface FileStore {
   activeFilePath: string | null;
   loading: boolean;
 
-  loadFileTree: (rootDir: string) => Promise<void>;
+  loadFileTree: (rootDirs: string | string[]) => Promise<void>;
   openFile: (relativePath: string, rootDir: string) => Promise<void>;
   closeFile: (filePath: string) => void;
   setActiveFile: (filePath: string) => void;
@@ -47,11 +47,24 @@ export const useFileStore = create<FileStore>((set, get) => ({
   activeFilePath: null,
   loading: false,
 
-  loadFileTree: async (rootDir) => {
+  loadFileTree: async (rootDirs) => {
     set({ loading: true });
     try {
-      const tree = await fsService.readDir(rootDir);
-      set({ fileTree: tree });
+      const dirs = Array.isArray(rootDirs) ? rootDirs : [rootDirs];
+      const trees = await Promise.all(dirs.map((d) => fsService.readDir(d)));
+      // Merge: each directory becomes a top-level node
+      const fileTree = dirs.length === 1
+        ? trees[0]
+        : dirs.map((dirPath, i) => {
+            const name = dirPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || dirPath;
+            return {
+              name,
+              path: dirPath,
+              type: 'directory' as const,
+              children: trees[i],
+            };
+          });
+      set({ fileTree });
     } finally {
       set({ loading: false });
     }

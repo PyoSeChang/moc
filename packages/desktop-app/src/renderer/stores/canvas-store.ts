@@ -3,11 +3,14 @@ import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate, Concept,
+  CanvasBreadcrumbItem,
 } from '@moc/shared/types';
 import { canvasService } from '../services';
+import type { CanvasFullData } from '../services/canvas-service';
 
 export interface CanvasNodeWithConcept extends CanvasNode {
   concept: Concept;
+  has_sub_canvas: boolean;
 }
 
 interface CanvasStore {
@@ -17,12 +20,21 @@ interface CanvasStore {
   edges: Edge[];
   loading: boolean;
 
+  // Navigation
+  breadcrumbs: CanvasBreadcrumbItem[];
+  canvasHistory: string[];
+
   // Canvas CRUD
-  loadCanvases: (projectId: string) => Promise<void>;
+  loadCanvases: (projectId: string, rootOnly?: boolean) => Promise<void>;
   createCanvas: (data: CanvasCreate) => Promise<Canvas>;
   openCanvas: (canvasId: string) => Promise<void>;
   updateCanvas: (id: string, data: CanvasUpdate) => Promise<void>;
   deleteCanvas: (id: string) => Promise<void>;
+
+  // Hierarchical navigation
+  drillInto: (conceptId: string) => Promise<void>;
+  navigateBack: () => Promise<void>;
+  navigateToBreadcrumb: (canvasId: string) => Promise<void>;
 
   // Node
   addNode: (data: CanvasNodeCreate) => Promise<CanvasNode>;
@@ -45,27 +57,34 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   nodes: [],
   edges: [],
   loading: false,
+  breadcrumbs: [],
+  canvasHistory: [],
 
-  loadCanvases: async (projectId) => {
-    const canvases = await canvasService.list(projectId);
+  loadCanvases: async (projectId, rootOnly = true) => {
+    const canvases = await canvasService.list(projectId, rootOnly);
     set({ canvases });
   },
 
   createCanvas: async (data) => {
     const canvas = await canvasService.create(data);
-    set((s) => ({ canvases: [...s.canvases, canvas] }));
+    // Only add to sidebar list if it's a root canvas
+    if (!data.concept_id) {
+      set((s) => ({ canvases: [...s.canvases, canvas] }));
+    }
     return canvas;
   },
 
   openCanvas: async (canvasId) => {
     set({ loading: true });
     try {
-      const full = await canvasService.getFull(canvasId);
+      const full = await canvasService.getFull(canvasId) as CanvasFullData | undefined;
       if (!full) return;
+      const breadcrumbs = await canvasService.getAncestors(canvasId);
       set({
         currentCanvas: full.canvas,
         nodes: full.nodes,
         edges: full.edges,
+        breadcrumbs,
       });
     } finally {
       set({ loading: false });
@@ -88,6 +107,39 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       nodes: s.currentCanvas?.id === id ? [] : s.nodes,
       edges: s.currentCanvas?.id === id ? [] : s.edges,
     }));
+  },
+
+  drillInto: async (conceptId) => {
+    const subCanvas = await canvasService.getByConcept(conceptId);
+    if (!subCanvas) return;
+
+    const { currentCanvas } = get();
+    if (currentCanvas) {
+      set((s) => ({ canvasHistory: [...s.canvasHistory, currentCanvas.id] }));
+    }
+    await get().openCanvas(subCanvas.id);
+  },
+
+  navigateBack: async () => {
+    const { canvasHistory } = get();
+    if (canvasHistory.length === 0) return;
+
+    const previousId = canvasHistory[canvasHistory.length - 1];
+    set((s) => ({ canvasHistory: s.canvasHistory.slice(0, -1) }));
+    await get().openCanvas(previousId);
+  },
+
+  navigateToBreadcrumb: async (canvasId) => {
+    const { breadcrumbs, canvasHistory } = get();
+    const targetIdx = breadcrumbs.findIndex((b) => b.canvasId === canvasId);
+    if (targetIdx < 0) return;
+
+    // Truncate history: keep only entries up to the point that matches
+    // The breadcrumb at targetIdx means we go back (breadcrumbs.length - 1 - targetIdx) levels
+    const levelsBack = breadcrumbs.length - 1 - targetIdx;
+    const newHistory = canvasHistory.slice(0, canvasHistory.length - levelsBack);
+    set({ canvasHistory: newHistory });
+    await get().openCanvas(canvasId);
   },
 
   addNode: async (data) => {
@@ -140,5 +192,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     await get().updateCanvas(currentCanvas.id, viewport);
   },
 
-  clear: () => set({ canvases: [], currentCanvas: null, nodes: [], edges: [] }),
+  clear: () => set({
+    canvases: [], currentCanvas: null, nodes: [], edges: [],
+    breadcrumbs: [], canvasHistory: [],
+  }),
 }));

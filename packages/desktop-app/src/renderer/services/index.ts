@@ -3,4 +3,6 @@ export { conceptService } from './concept-service';
 export { canvasService } from './canvas-service';
 export { conceptFileService } from './concept-file-service';
 export { fsService } from './fs-service';
+export { moduleService } from './module-service';
+export { editorPrefsService } from './editor-prefs-service';
 export { unwrapIpc } from './ipc';

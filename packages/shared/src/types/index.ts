@@ -49,6 +49,7 @@ export interface ConceptUpdate {
 export interface Canvas {
   id: string;
   project_id: string;
+  concept_id: string | null;
   name: string;
   viewport_x: number;
   viewport_y: number;
@@ -60,6 +61,7 @@ export interface Canvas {
 export interface CanvasCreate {
   project_id: string;
   name: string;
+  concept_id?: string;
 }
 
 export interface CanvasUpdate {
@@ -151,4 +153,95 @@ export interface FileTreeNode {
   type: 'file' | 'directory';
   children?: FileTreeNode[];
   extension?: string;
+}
+
+// ============================================
+// Module
+// ============================================
+
+export interface Module {
+  id: string;
+  project_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModuleCreate {
+  project_id: string;
+  name: string;
+}
+
+export interface ModuleUpdate {
+  name?: string;
+}
+
+// ============================================
+// Module Directory
+// ============================================
+
+export interface ModuleDirectory {
+  id: string;
+  module_id: string;
+  dir_path: string;
+  created_at: string;
+}
+
+export interface ModuleDirectoryCreate {
+  module_id: string;
+  dir_path: string;
+}
+
+// ============================================
+// Canvas Breadcrumb
+// ============================================
+
+export interface CanvasBreadcrumbItem {
+  canvasId: string;
+  canvasName: string;
+  conceptTitle: string | null;
+}
+
+// ============================================
+// Editor System
+// ============================================
+
+export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
+export type EditorTabType = 'concept' | 'file';
+
+export interface EditorTab {
+  id: string;
+  type: EditorTabType;
+  /** Display name for tab bar */
+  title: string;
+  /** Target entity identifier: conceptId for concept tabs, absolutePath for file tabs */
+  targetId: string;
+  viewMode: EditorViewMode;
+  floatRect: { x: number; y: number; width: number; height: number };
+  isMinimized: boolean;
+  sideSplitRatio: number;
+  isDirty: boolean;
+  /** Active sub-file within a concept editor */
+  activeFilePath: string | null;
+}
+
+export interface ConceptEditorPrefs {
+  id: string;
+  concept_id: string;
+  view_mode: EditorViewMode;
+  float_x: number | null;
+  float_y: number | null;
+  float_width: number;
+  float_height: number;
+  side_split_ratio: number;
+  updated_at: string;
+}
+
+export interface ConceptEditorPrefsUpdate {
+  view_mode?: EditorViewMode;
+  float_x?: number;
+  float_y?: number;
+  float_width?: number;
+  float_height?: number;
+  side_split_ratio?: number;
 }

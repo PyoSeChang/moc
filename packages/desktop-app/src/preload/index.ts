@@ -21,11 +21,14 @@ const electronAPI = {
   },
   canvas: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('canvas:create', data),
-    list: (projectId: string) => ipcRenderer.invoke('canvas:list', projectId),
+    list: (projectId: string, rootOnly?: boolean) =>
+      ipcRenderer.invoke('canvas:list', projectId, rootOnly),
     update: (id: string, data: Record<string, unknown>) =>
       ipcRenderer.invoke('canvas:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('canvas:delete', id),
     getFull: (canvasId: string) => ipcRenderer.invoke('canvas:getFull', canvasId),
+    getByConcept: (conceptId: string) => ipcRenderer.invoke('canvas:getByConcept', conceptId),
+    getAncestors: (canvasId: string) => ipcRenderer.invoke('canvas:getAncestors', canvasId),
   },
   canvasNode: {
     add: (data: Record<string, unknown>) => ipcRenderer.invoke('canvasNode:add', data),
@@ -41,6 +44,23 @@ const electronAPI = {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('conceptFile:create', data),
     getByConcept: (conceptId: string) => ipcRenderer.invoke('conceptFile:getByConcept', conceptId),
     delete: (id: string) => ipcRenderer.invoke('conceptFile:delete', id),
+  },
+  module: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('module:create', data),
+    list: (projectId: string) => ipcRenderer.invoke('module:list', projectId),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('module:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('module:delete', id),
+  },
+  moduleDir: {
+    add: (data: Record<string, unknown>) => ipcRenderer.invoke('moduleDir:add', data),
+    list: (moduleId: string) => ipcRenderer.invoke('moduleDir:list', moduleId),
+    remove: (id: string) => ipcRenderer.invoke('moduleDir:remove', id),
+  },
+  editorPrefs: {
+    get: (conceptId: string) => ipcRenderer.invoke('editorPrefs:get', conceptId),
+    upsert: (conceptId: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('editorPrefs:upsert', conceptId, data),
   },
   fs: {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),

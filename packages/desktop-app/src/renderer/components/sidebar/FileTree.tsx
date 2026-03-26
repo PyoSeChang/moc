@@ -54,7 +54,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     <div className="flex flex-col gap-0.5 px-1">
       <span className="px-2 py-1 text-xs font-medium text-secondary">Files</span>
       {nodes.length === 0 ? (
-        <span className="px-2 text-xs text-muted">Empty folder</span>
+        <span className="px-2 text-xs text-muted">Add directories to a module</span>
       ) : (
         nodes.map((node) => (
           <FileTreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} />

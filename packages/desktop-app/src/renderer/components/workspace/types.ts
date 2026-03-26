@@ -16,6 +16,8 @@ export interface RenderNode {
   semanticTypeLabel: string;
   width?: number;
   height?: number;
+  conceptId: string;
+  hasSubCanvas: boolean;
 }
 
 /** Edge data for rendering */

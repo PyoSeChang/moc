@@ -4,6 +4,7 @@
  */
 import Database from 'better-sqlite3';
 import { migrate001 } from '../migrations/001-initial';
+import { migrate002 } from '../migrations/002-modules-and-hierarchical-canvas';
 
 let testDb: Database.Database | null = null;
 
@@ -12,6 +13,7 @@ export function setupTestDb(): Database.Database {
   testDb.pragma('journal_mode = WAL');
   testDb.pragma('foreign_keys = ON');
   migrate001(testDb);
+  migrate002(testDb);
   return testDb;
 }
 

@@ -21,6 +21,8 @@ export const IPC_CHANNELS = {
   CANVAS_UPDATE: 'canvas:update',
   CANVAS_DELETE: 'canvas:delete',
   CANVAS_GET_FULL: 'canvas:getFull',
+  CANVAS_GET_BY_CONCEPT: 'canvas:getByConcept',
+  CANVAS_GET_ANCESTORS: 'canvas:getAncestors',
 
   // Canvas Node
   CANVAS_NODE_ADD: 'canvasNode:add',
@@ -35,6 +37,21 @@ export const IPC_CHANNELS = {
   CONCEPT_FILE_CREATE: 'conceptFile:create',
   CONCEPT_FILE_GET_BY_CONCEPT: 'conceptFile:getByConcept',
   CONCEPT_FILE_DELETE: 'conceptFile:delete',
+
+  // Module
+  MODULE_CREATE: 'module:create',
+  MODULE_LIST: 'module:list',
+  MODULE_UPDATE: 'module:update',
+  MODULE_DELETE: 'module:delete',
+
+  // Module Directory
+  MODULE_DIR_ADD: 'moduleDir:add',
+  MODULE_DIR_LIST: 'moduleDir:list',
+  MODULE_DIR_REMOVE: 'moduleDir:remove',
+
+  // Editor Prefs
+  EDITOR_PREFS_GET: 'editorPrefs:get',
+  EDITOR_PREFS_UPSERT: 'editorPrefs:upsert',
 
   // File System
   FS_READ_DIR: 'fs:readDir',

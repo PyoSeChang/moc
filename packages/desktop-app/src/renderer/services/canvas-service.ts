@@ -2,37 +2,52 @@ import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate,
+  Concept, CanvasBreadcrumbItem,
 } from '@moc/shared/types';
+
+export interface CanvasFullData {
+  canvas: Canvas;
+  nodes: (CanvasNode & { concept: Concept; has_sub_canvas: boolean })[];
+  edges: Edge[];
+}
 import { unwrapIpc } from './ipc';
 
 // Canvas
 export async function createCanvas(data: CanvasCreate): Promise<Canvas> {
-  return unwrapIpc(await window.electron.canvas.create(data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.canvas.create(data as unknown as Record<string, unknown>));
 }
 
-export async function listCanvases(projectId: string): Promise<Canvas[]> {
-  return unwrapIpc(await window.electron.canvas.list(projectId));
+export async function listCanvases(projectId: string, rootOnly?: boolean): Promise<Canvas[]> {
+  return unwrapIpc(await window.electron.canvas.list(projectId, rootOnly));
 }
 
 export async function updateCanvas(id: string, data: CanvasUpdate): Promise<Canvas> {
-  return unwrapIpc(await window.electron.canvas.update(id, data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.canvas.update(id, data as unknown as Record<string, unknown>));
 }
 
 export async function deleteCanvas(id: string): Promise<boolean> {
   return unwrapIpc(await window.electron.canvas.delete(id));
 }
 
-export async function getCanvasFull(canvasId: string) {
+export async function getCanvasFull(canvasId: string): Promise<CanvasFullData | undefined> {
   return unwrapIpc(await window.electron.canvas.getFull(canvasId));
+}
+
+export async function getCanvasByConcept(conceptId: string): Promise<Canvas | undefined> {
+  return unwrapIpc(await window.electron.canvas.getByConcept(conceptId));
+}
+
+export async function getCanvasAncestors(canvasId: string): Promise<CanvasBreadcrumbItem[]> {
+  return unwrapIpc(await window.electron.canvas.getAncestors(canvasId));
 }
 
 // Canvas Node
 export async function addCanvasNode(data: CanvasNodeCreate): Promise<CanvasNode> {
-  return unwrapIpc(await window.electron.canvasNode.add(data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.canvasNode.add(data as unknown as Record<string, unknown>));
 }
 
 export async function updateCanvasNode(id: string, data: CanvasNodeUpdate): Promise<CanvasNode> {
-  return unwrapIpc(await window.electron.canvasNode.update(id, data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.canvasNode.update(id, data as unknown as Record<string, unknown>));
 }
 
 export async function removeCanvasNode(id: string): Promise<boolean> {
@@ -41,7 +56,7 @@ export async function removeCanvasNode(id: string): Promise<boolean> {
 
 // Edge
 export async function createEdge(data: EdgeCreate): Promise<Edge> {
-  return unwrapIpc(await window.electron.edge.create(data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.edge.create(data as unknown as Record<string, unknown>));
 }
 
 export async function deleteEdge(id: string): Promise<boolean> {
@@ -51,6 +66,7 @@ export async function deleteEdge(id: string): Promise<boolean> {
 export const canvasService = {
   create: createCanvas, list: listCanvases, update: updateCanvas,
   delete: deleteCanvas, getFull: getCanvasFull,
+  getByConcept: getCanvasByConcept, getAncestors: getCanvasAncestors,
   node: { add: addCanvasNode, update: updateCanvasNode, remove: removeCanvasNode },
   edge: { create: createEdge, delete: deleteEdge },
 };

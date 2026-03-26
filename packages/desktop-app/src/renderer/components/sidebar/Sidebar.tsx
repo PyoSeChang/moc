@@ -3,10 +3,15 @@ import { Layout, FolderTree, Search } from 'lucide-react';
 import type { Project } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useFileStore } from '../../stores/file-store';
+import { useModuleStore } from '../../stores/module-store';
+import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
+// Note: EditorDock is replaced by the generic editor system (editor-store + EditorContent)
 import { CanvasList } from './CanvasList';
 import { FileTree } from './FileTree';
 import { ConceptSearch } from './ConceptSearch';
+import { ModuleSelector } from './ModuleSelector';
+import { ModuleManager } from './ModuleManager';
 import { ScrollArea } from '../ui/ScrollArea';
 
 interface SidebarProps {
@@ -17,15 +22,27 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { sidebarView, setSidebarView } = useUIStore();
   const { loadFileTree, fileTree } = useFileStore();
   const { loadCanvases } = useCanvasStore();
+  const { loadModules, directories } = useModuleStore();
 
   useEffect(() => {
     loadCanvases(project.id);
-    loadFileTree(project.root_dir);
-  }, [project.id, project.root_dir, loadCanvases, loadFileTree]);
+    loadModules(project.id);
+  }, [project.id, loadCanvases, loadModules]);
 
-  const handleFileClick = (relativePath: string) => {
-    useFileStore.getState().openFile(relativePath, project.root_dir);
-    useUIStore.getState().setEditorDockOpen(true);
+  // Reload file trees when active module's directories change
+  useEffect(() => {
+    if (directories.length > 0) {
+      loadFileTree(directories.map((d) => d.dir_path));
+    }
+  }, [directories, loadFileTree]);
+
+  const handleFileClick = (absolutePath: string) => {
+    const fileName = absolutePath.replace(/\\/g, '/').split('/').pop() ?? absolutePath;
+    useEditorStore.getState().openTab({
+      type: 'file',
+      targetId: absolutePath,
+      title: fileName,
+    });
   };
 
   const tabs = [
@@ -57,7 +74,14 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
       <ScrollArea>
         <div className="py-2">
           {sidebarView === 'canvases' && <CanvasList projectId={project.id} />}
-          {sidebarView === 'files' && <FileTree nodes={fileTree} onFileClick={handleFileClick} />}
+          {sidebarView === 'files' && (
+            <>
+              <ModuleSelector projectId={project.id} />
+              <ModuleManager />
+              <div className="my-1 border-t border-subtle" />
+              <FileTree nodes={fileTree} onFileClick={handleFileClick} />
+            </>
+          )}
           {sidebarView === 'search' && <ConceptSearch />}
         </div>
       </ScrollArea>

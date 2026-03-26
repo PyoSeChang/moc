@@ -18,7 +18,7 @@ interface UIStore {
 }
 
 export const useUIStore = create<UIStore>((set) => ({
-  canvasMode: 'edit',
+  canvasMode: 'browse',
   sidebarView: 'canvases',
   sidebarOpen: true,
   editorDockOpen: false,

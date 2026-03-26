@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { Project } from '@moc/shared/types';
+import { ActivityBar } from '../sidebar/ActivityBar';
 import { Sidebar } from '../sidebar/Sidebar';
 import { ConceptWorkspace } from './ConceptWorkspace';
 import { CanvasBreadcrumb } from './CanvasBreadcrumb';
@@ -21,7 +21,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const tabs = useEditorStore((s) => s.tabs);
   const { setActiveTab, closeTab, setViewMode, toggleMinimize, updateSideSplitRatio } = useEditorStore();
-  const { sidebarOpen, toggleSidebar, setSidebarWidth } = useUIStore();
+  const { sidebarOpen, setSidebarWidth } = useUIStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -64,6 +64,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
   // Sidebar resize drag
   const sidebarDraggingRef = useRef(false);
+  const activityBarWidth = 40; // w-10
 
   const handleSidebarResizeStart = useCallback(
     (e: React.MouseEvent) => {
@@ -72,7 +73,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
       const handleMove = (ev: MouseEvent) => {
         if (!sidebarDraggingRef.current) return;
-        setSidebarWidth(ev.clientX);
+        setSidebarWidth(ev.clientX - activityBarWidth);
       };
 
       const handleUp = () => {
@@ -91,7 +92,10 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
   return (
     <div className="relative flex h-full">
-      {/* Sidebar + resize handle */}
+      {/* Activity bar (always visible) */}
+      <ActivityBar />
+
+      {/* Sidebar panel (collapsible) */}
       {sidebarOpen && (
         <>
           <Sidebar project={project} />
@@ -102,15 +106,6 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
           />
         </>
       )}
-
-      {/* Sidebar toggle */}
-      <button
-        className="absolute left-1 top-1 z-20 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
-        style={sidebarOpen ? { left: useUIStore.getState().sidebarWidth + 4 } : undefined}
-        onClick={toggleSidebar}
-      >
-        {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-      </button>
 
       {/* Main content */}
       <div ref={editorContainerRef} className="flex flex-1 overflow-hidden">

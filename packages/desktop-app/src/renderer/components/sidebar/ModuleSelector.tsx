@@ -109,9 +109,16 @@ export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProp
         </button>
       )}
 
-      {/* Dropdown */}
+      {/* Dropdown — uses fixed positioning to avoid parent overflow clipping */}
       {open && (
-        <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-md border border-subtle bg-surface-card shadow-lg">
+        <div
+          className="fixed z-50 rounded-md border border-subtle bg-surface-card shadow-lg"
+          style={{
+            top: (dropdownRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+            left: dropdownRef.current?.getBoundingClientRect().left ?? 0,
+            width: dropdownRef.current?.getBoundingClientRect().width ?? 200,
+          }}
+        >
           {/* Module list */}
           <div className="max-h-48 overflow-y-auto py-1">
             {modules.map((m) => (

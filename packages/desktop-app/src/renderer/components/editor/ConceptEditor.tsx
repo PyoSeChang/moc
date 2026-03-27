@@ -11,45 +11,11 @@ import { Badge } from '../ui/Badge';
 import { ConceptPropertiesPanel } from './ConceptPropertiesPanel';
 import { ConceptBodyEditor } from './ConceptBodyEditor';
 import { ConceptAgentView } from './ConceptAgentView';
-import { ContentEditableEditor } from './ContentEditableEditor';
-
 type ConceptViewMode = 'human' | 'agent';
 
 interface ConceptEditorProps {
   tab: EditorTab;
 }
-
-// --- Title editor (inline contentEditable) ---
-
-function ConceptTitleEditor({ conceptId, title }: { conceptId: string; title: string }): JSX.Element {
-  const updateConcept = useConceptStore((s) => s.updateConcept);
-  const { updateTitle } = useEditorStore();
-
-  const handleChange = useCallback(
-    (newTitle: string) => {
-      const trimmed = newTitle.trim();
-      if (trimmed && trimmed !== title) {
-        updateConcept(conceptId, { title: trimmed });
-        // Sync editor tab title
-        const tabId = `concept:${conceptId}`;
-        updateTitle(tabId, trimmed);
-      }
-    },
-    [conceptId, title, updateConcept, updateTitle],
-  );
-
-  return (
-    <ContentEditableEditor
-      value={title}
-      onChange={handleChange}
-      placeholder="Untitled"
-      className="text-2xl font-bold text-default"
-      singleLine
-    />
-  );
-}
-
-// --- Main editor ---
 
 export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const [viewMode, setViewMode] = useState<ConceptViewMode>('human');
@@ -134,11 +100,8 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
       {/* Human View */}
       {viewMode === 'human' && (
-        <ScrollArea className="flex-1">
-          <div className="mx-auto max-w-[720px] px-6 py-6 flex flex-col gap-6">
-            {/* Title */}
-            <ConceptTitleEditor conceptId={concept.id} title={concept.title} />
-
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="mx-auto max-w-[720px] px-6 py-4 flex flex-col gap-4">
             {/* Archetype badge */}
             {archetype && (
               <div>

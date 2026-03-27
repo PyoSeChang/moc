@@ -11,7 +11,7 @@ function TitleBar({ onOpenSettings }: { onOpenSettings: () => void }): JSX.Eleme
 
   return (
     <div
-      className="flex h-9 shrink-0 items-center justify-between border-b border-subtle px-4"
+      className="relative z-20 flex h-9 shrink-0 items-center justify-between border-b border-subtle px-4"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div className="flex items-center gap-2">

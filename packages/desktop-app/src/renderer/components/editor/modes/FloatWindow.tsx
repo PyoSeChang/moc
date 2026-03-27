@@ -91,7 +91,7 @@ export function FloatWindow({ tab, isActive, onActivate }: FloatWindowProps): JS
 
   return (
     <div
-      className={`fixed flex flex-col overflow-hidden rounded-lg shadow-lg ${
+      className={`fixed flex flex-col overflow-hidden rounded-lg border border-subtle shadow-lg ${
         isActive ? 'z-50 shadow-xl' : 'z-40'
       } bg-surface-panel`}
       style={{
@@ -100,12 +100,13 @@ export function FloatWindow({ tab, isActive, onActivate }: FloatWindowProps): JS
         width: tab.floatRect.width,
         height: tab.floatRect.height,
         pointerEvents: 'auto',
-      }}
+        WebkitAppRegion: 'no-drag',
+      } as React.CSSProperties}
       onMouseDown={onActivate}
     >
       {/* Title bar */}
       <div
-        className="flex shrink-0 cursor-grab items-center gap-1 border-b border-subtle bg-surface-card px-2 py-1.5 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab items-center gap-1 border-b border-subtle bg-surface-card px-1.5 active:cursor-grabbing"
         onMouseDown={handleDragStart}
       >
         {/* Drag handle for tab mode conversion (float → side/full) */}

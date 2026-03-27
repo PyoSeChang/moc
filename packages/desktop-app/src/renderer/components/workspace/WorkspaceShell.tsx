@@ -280,7 +280,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                   onMouseDown={handleEditorSplitDragStart}
                 />
                 <div
-                  className="flex flex-col overflow-hidden bg-surface-panel"
+                  className="flex flex-col overflow-hidden border-l border-subtle bg-surface-panel"
                   style={{ width: `${(1 - splitRatio) * 100}%` }}
                 >
                   <SplitPaneRenderer

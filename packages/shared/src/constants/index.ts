@@ -49,6 +49,25 @@ export const IPC_CHANNELS = {
   MODULE_DIR_LIST: 'moduleDir:list',
   MODULE_DIR_REMOVE: 'moduleDir:remove',
 
+  // Archetype
+  ARCHETYPE_CREATE: 'archetype:create',
+  ARCHETYPE_LIST: 'archetype:list',
+  ARCHETYPE_GET: 'archetype:get',
+  ARCHETYPE_UPDATE: 'archetype:update',
+  ARCHETYPE_DELETE: 'archetype:delete',
+
+  // Archetype Field
+  ARCHETYPE_FIELD_CREATE: 'archetypeField:create',
+  ARCHETYPE_FIELD_LIST: 'archetypeField:list',
+  ARCHETYPE_FIELD_UPDATE: 'archetypeField:update',
+  ARCHETYPE_FIELD_DELETE: 'archetypeField:delete',
+  ARCHETYPE_FIELD_REORDER: 'archetypeField:reorder',
+
+  // Concept Property
+  CONCEPT_PROP_UPSERT: 'conceptProp:upsert',
+  CONCEPT_PROP_GET_BY_CONCEPT: 'conceptProp:getByConcept',
+  CONCEPT_PROP_DELETE: 'conceptProp:delete',
+
   // Editor Prefs
   EDITOR_PREFS_GET: 'editorPrefs:get',
   EDITOR_PREFS_UPSERT: 'editorPrefs:upsert',

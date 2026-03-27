@@ -7,10 +7,21 @@ export function createConcept(data: ConceptCreate): Concept {
   const id = randomUUID();
   const now = new Date().toISOString();
 
+  // If archetype_id provided and color/icon not specified, use archetype defaults
+  let color = data.color ?? null;
+  let icon = data.icon ?? null;
+  if (data.archetype_id && (!data.color || !data.icon)) {
+    const archetype = db.prepare('SELECT color, icon FROM archetypes WHERE id = ?').get(data.archetype_id) as { color: string | null; icon: string | null } | undefined;
+    if (archetype) {
+      if (!data.color && archetype.color) color = archetype.color;
+      if (!data.icon && archetype.icon) icon = archetype.icon;
+    }
+  }
+
   db.prepare(
-    `INSERT INTO concepts (id, project_id, title, color, icon, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, data.project_id, data.title, data.color ?? null, data.icon ?? null, now, now);
+    `INSERT INTO concepts (id, project_id, archetype_id, title, color, icon, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, data.project_id, data.archetype_id ?? null, data.title, color, icon, now, now);
 
   return db.prepare('SELECT * FROM concepts WHERE id = ?').get(id) as Concept;
 }
@@ -29,8 +40,9 @@ export function updateConcept(id: string, data: ConceptUpdate): Concept | undefi
 
   const now = new Date().toISOString();
   db.prepare(
-    `UPDATE concepts SET title = ?, color = ?, icon = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE concepts SET archetype_id = ?, title = ?, color = ?, icon = ?, updated_at = ? WHERE id = ?`,
   ).run(
+    data.archetype_id !== undefined ? data.archetype_id : existing.archetype_id,
     data.title !== undefined ? data.title : existing.title,
     data.color !== undefined ? data.color : existing.color,
     data.icon !== undefined ? data.icon : existing.icon,

@@ -115,7 +115,7 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
   if (!canvas) return undefined;
 
   const nodes = db.prepare(
-    `SELECT cn.*, c.title, c.color, c.icon, c.project_id as concept_project_id,
+    `SELECT cn.*, c.title, c.color, c.icon, c.archetype_id, c.project_id as concept_project_id,
             c.created_at as concept_created_at, c.updated_at as concept_updated_at,
             (EXISTS(SELECT 1 FROM canvases sub WHERE sub.concept_id = cn.concept_id)) as has_sub_canvas
      FROM canvas_nodes cn
@@ -134,6 +134,7 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
     concept: {
       id: row.concept_id as string,
       project_id: row.concept_project_id as string,
+      archetype_id: row.archetype_id as string | null ?? null,
       title: row.title as string,
       color: row.color as string | null,
       icon: row.icon as string | null,

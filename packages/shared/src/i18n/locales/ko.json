@@ -65,7 +65,33 @@
     "editTitleHint": "더블 클릭하여 제목 편집",
     "noFiles": "이 개념에 연결된 파일이 없습니다",
     "selectFile": "파일을 선택하세요",
-    "searchPlaceholder": "개념 검색..."
+    "searchPlaceholder": "개념 검색...",
+    "archetype": "Archetype",
+    "selectArchetype": "Archetype 선택",
+    "properties": "속성"
+  },
+  "archetype": {
+    "title": "Archetype",
+    "create": "Archetype 생성",
+    "edit": "Archetype 편집",
+    "delete": "Archetype 삭제",
+    "name": "이름",
+    "description": "설명",
+    "icon": "아이콘",
+    "color": "색상",
+    "nodeShape": "노드 형태",
+    "fileTemplate": "파일 템플릿",
+    "fields": "필드 스키마",
+    "addField": "필드 추가",
+    "noArchetypes": "아직 Archetype이 없습니다",
+    "deleteConfirm": "이 Archetype을 삭제하시겠습니까? 연결된 Concept은 삭제되지 않습니다."
+  },
+  "field": {
+    "name": "필드 이름",
+    "type": "타입",
+    "required": "필수",
+    "defaultValue": "기본값",
+    "options": "옵션"
   },
   "edge": {
     "connect": "연결",

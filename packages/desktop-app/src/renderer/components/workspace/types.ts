@@ -12,6 +12,7 @@ export interface RenderNode {
   y: number;
   label: string;
   icon: string;
+  shape?: string;
   semanticType: string;
   semanticTypeLabel: string;
   width?: number;

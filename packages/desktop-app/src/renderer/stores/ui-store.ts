@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type CanvasMode = 'browse' | 'edit';
 export type RenderingMode = 'canvas';
-type SidebarView = 'canvases' | 'files';
+type SidebarView = 'canvases' | 'files' | 'archetypes';
 
 interface UIStore {
   canvasMode: CanvasMode;

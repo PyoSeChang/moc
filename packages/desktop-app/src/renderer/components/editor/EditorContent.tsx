@@ -2,6 +2,7 @@ import React from 'react';
 import type { EditorTab } from '@moc/shared/types';
 import { ConceptEditor } from './ConceptEditor';
 import { FileEditor } from './FileEditor';
+import { ArchetypeEditor } from './ArchetypeEditor';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -18,6 +19,8 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       return <ConceptEditor tab={tab} />;
     case 'file':
       return <FileEditor tab={tab} />;
+    case 'archetype':
+      return <ArchetypeEditor tab={tab} />;
     default:
       return (
         <div className="flex h-full items-center justify-center text-xs text-muted">

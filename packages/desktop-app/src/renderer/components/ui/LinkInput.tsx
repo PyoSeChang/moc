@@ -1,0 +1,38 @@
+import React from 'react';
+import { ExternalLink } from 'lucide-react';
+
+export interface LinkInputProps {
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+export const LinkInput: React.FC<LinkInputProps> = ({ value, onChange, placeholder = 'https://', disabled }) => {
+  const openExternal = () => {
+    if (value) window.open(value, '_blank');
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="url"
+        value={value || ''}
+        onChange={(e) => onChange?.(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="flex-1 px-3 py-1.5 text-sm text-default bg-input border border-subtle rounded-lg outline-none transition-all duration-fast placeholder:text-muted hover:border-default focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={openExternal}
+          className="p-1.5 text-muted hover:text-default transition-colors"
+          title="Open link"
+        >
+          <ExternalLink size={14} />
+        </button>
+      )}
+    </div>
+  );
+};

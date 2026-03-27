@@ -2,7 +2,7 @@ import type { ConceptFile, ConceptFileCreate } from '@moc/shared/types';
 import { unwrapIpc } from './ipc';
 
 export async function createConceptFile(data: ConceptFileCreate): Promise<ConceptFile> {
-  return unwrapIpc(await window.electron.conceptFile.create(data as Record<string, unknown>));
+  return unwrapIpc(await window.electron.conceptFile.create(data as unknown as Record<string, unknown>));
 }
 
 export async function getConceptFilesByConcept(conceptId: string): Promise<ConceptFile[]> {

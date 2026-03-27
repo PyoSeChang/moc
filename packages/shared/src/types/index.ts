@@ -22,6 +22,7 @@ export interface ProjectCreate {
 export interface Concept {
   id: string;
   project_id: string;
+  archetype_id: string | null;
   title: string;
   color: string | null;
   icon: string | null;
@@ -32,12 +33,14 @@ export interface Concept {
 export interface ConceptCreate {
   project_id: string;
   title: string;
+  archetype_id?: string;
   color?: string;
   icon?: string;
 }
 
 export interface ConceptUpdate {
   title?: string;
+  archetype_id?: string | null;
   color?: string | null;
   icon?: string | null;
 }
@@ -193,6 +196,111 @@ export interface ModuleDirectoryCreate {
 }
 
 // ============================================
+// Archetype
+// ============================================
+
+export interface Archetype {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  node_shape: string | null;
+  file_template: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArchetypeCreate {
+  project_id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  node_shape?: string;
+  file_template?: string;
+}
+
+export interface ArchetypeUpdate {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  node_shape?: string | null;
+  file_template?: string | null;
+}
+
+// ============================================
+// Archetype Field
+// ============================================
+
+export type FieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'select'
+  | 'multi-select'
+  | 'radio'
+  | 'relation'
+  | 'file'
+  | 'url'
+  | 'color'
+  | 'rating'
+  | 'tags';
+
+export interface ArchetypeField {
+  id: string;
+  archetype_id: string;
+  name: string;
+  field_type: FieldType;
+  options: string | null;
+  sort_order: number;
+  required: boolean;
+  default_value: string | null;
+  created_at: string;
+}
+
+export interface ArchetypeFieldCreate {
+  archetype_id: string;
+  name: string;
+  field_type: FieldType;
+  options?: string;
+  sort_order: number;
+  required?: boolean;
+  default_value?: string;
+}
+
+export interface ArchetypeFieldUpdate {
+  name?: string;
+  field_type?: FieldType;
+  options?: string | null;
+  sort_order?: number;
+  required?: boolean;
+  default_value?: string | null;
+}
+
+// ============================================
+// Concept Property
+// ============================================
+
+export interface ConceptProperty {
+  id: string;
+  concept_id: string;
+  field_id: string;
+  value: string | null;
+}
+
+export interface ConceptPropertyUpsert {
+  concept_id: string;
+  field_id: string;
+  value: string | null;
+}
+
+// ============================================
 // Canvas Breadcrumb
 // ============================================
 
@@ -207,7 +315,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file';
+export type EditorTabType = 'concept' | 'file' | 'archetype';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';

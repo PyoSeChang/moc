@@ -5,6 +5,8 @@ import { registerConceptFileIpc } from './concept-file-ipc';
 import { registerFsIpc } from './fs-ipc';
 import { registerModuleIpc } from './module-ipc';
 import { registerEditorPrefsIpc } from './editor-prefs-ipc';
+import { registerArchetypeIpc } from './archetype-ipc';
+import { registerConceptPropertyIpc } from './concept-property-ipc';
 
 export function registerAllIpc(): void {
   registerProjectIpc();
@@ -14,4 +16,6 @@ export function registerAllIpc(): void {
   registerFsIpc();
   registerModuleIpc();
   registerEditorPrefsIpc();
+  registerArchetypeIpc();
+  registerConceptPropertyIpc();
 }

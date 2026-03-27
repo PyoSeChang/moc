@@ -1,6 +1,7 @@
 import React from 'react';
-import { Layout, FolderTree, Shapes, Settings } from 'lucide-react';
+import { Layout, FolderTree, Shapes, Settings, Terminal } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
+import { useEditorStore } from '../../stores/editor-store';
 import { Tooltip } from '../ui/Tooltip';
 
 const ITEMS = [
@@ -48,7 +49,22 @@ export function ActivityBar(): JSX.Element {
         })}
       </div>
 
-      {/* Bottom: settings */}
+      {/* Bottom: terminal + settings */}
+      <Tooltip content="Terminal" position="right">
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-surface-hover hover:text-default"
+          onClick={() => {
+            const sessionId = `term-${Date.now()}`;
+            useEditorStore.getState().openTab({
+              type: 'terminal',
+              targetId: sessionId,
+              title: 'Terminal',
+            });
+          }}
+        >
+          <Terminal size={18} />
+        </button>
+      </Tooltip>
       <Tooltip content="Settings" position="right">
         <button className="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-surface-hover hover:text-default">
           <Settings size={18} />

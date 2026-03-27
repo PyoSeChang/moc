@@ -77,6 +77,11 @@ const electronAPI = {
     getByConcept: (conceptId: string) => ipcRenderer.invoke('conceptProp:getByConcept', conceptId),
     delete: (id: string) => ipcRenderer.invoke('conceptProp:delete', id),
   },
+  conceptContent: {
+    syncToAgent: (conceptId: string) => ipcRenderer.invoke('concept:syncToAgent', conceptId),
+    syncFromAgent: (conceptId: string, agentContent: string) =>
+      ipcRenderer.invoke('concept:syncFromAgent', conceptId, agentContent),
+  },
   editorPrefs: {
     get: (conceptId: string) => ipcRenderer.invoke('editorPrefs:get', conceptId),
     upsert: (conceptId: string, data: Record<string, unknown>) =>
@@ -93,6 +98,25 @@ const electronAPI = {
   config: {
     get: (key: string) => ipcRenderer.invoke('config:get', key),
     set: (key: string, value: unknown) => ipcRenderer.invoke('config:set', key, value),
+  },
+  terminal: {
+    spawn: (sessionId: string, cwd: string) => ipcRenderer.invoke('pty:spawn', sessionId, cwd),
+    input: (sessionId: string, data: string) => ipcRenderer.send('pty:input', sessionId, data),
+    resize: (sessionId: string, cols: number, rows: number) =>
+      ipcRenderer.send('pty:resize', sessionId, cols, rows),
+    kill: (sessionId: string) => ipcRenderer.invoke('pty:kill', sessionId),
+    onOutput: (callback: (sessionId: string, data: string) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { sessionId: string; data: string }) =>
+        callback(payload.sessionId, payload.data);
+      ipcRenderer.on('pty:output', handler);
+      return () => { ipcRenderer.removeListener('pty:output', handler); };
+    },
+    onExit: (callback: (sessionId: string, exitCode: number) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { sessionId: string; exitCode: number }) =>
+        callback(payload.sessionId, payload.exitCode);
+      ipcRenderer.on('pty:exit', handler);
+      return () => { ipcRenderer.removeListener('pty:exit', handler); };
+    },
   },
   editor: {
     detach: (tabId: string, title: string) => ipcRenderer.invoke('editor:detach', tabId, title),

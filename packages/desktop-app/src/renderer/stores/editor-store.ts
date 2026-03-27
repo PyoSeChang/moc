@@ -206,19 +206,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       activeFilePath: null,
     };
 
-    // Add to layout if side/full
-    const layoutUpdate: Partial<EditorStore> = {};
-    if (resolvedMode === 'side') {
-      layoutUpdate.sideLayout = addTabToLayout(get().sideLayout, tabId);
-    } else if (resolvedMode === 'full') {
-      layoutUpdate.fullLayout = addTabToLayout(get().fullLayout, tabId);
-    }
-
-    set((s) => ({ ...layoutUpdate, tabs: [...s.tabs, tab], activeTabId: tabId }));
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tabId }));
   },
 
   closeTab: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId);
+    // Kill PTY session for terminal tabs
+    if (tab && tab.type === 'terminal') {
+      window.electron.terminal.kill(tab.targetId).catch(() => {});
+    }
     // Save prefs before closing (concept tabs)
     if (tab && tab.type === 'concept') {
       editorPrefsService.upsert(tab.targetId, {
@@ -333,15 +329,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
 
     // Default: single tab joining side or full from float/detached/other
-    const layoutUpdate: Partial<EditorStore> = {};
-    if (mode === 'side') {
-      layoutUpdate.sideLayout = addTabToLayout(get().sideLayout, tabId);
-    } else if (mode === 'full') {
-      layoutUpdate.fullLayout = addTabToLayout(get().fullLayout, tabId);
-    }
-
     set((s) => ({
-      ...layoutUpdate,
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode } : t)),
     }));
 

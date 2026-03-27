@@ -7,6 +7,8 @@ import { registerModuleIpc } from './module-ipc';
 import { registerEditorPrefsIpc } from './editor-prefs-ipc';
 import { registerArchetypeIpc } from './archetype-ipc';
 import { registerConceptPropertyIpc } from './concept-property-ipc';
+import { registerConceptContentIpc } from './concept-content-ipc';
+import { registerPtyIpc } from './pty-ipc';
 
 export function registerAllIpc(): void {
   registerProjectIpc();
@@ -18,4 +20,6 @@ export function registerAllIpc(): void {
   registerEditorPrefsIpc();
   registerArchetypeIpc();
   registerConceptPropertyIpc();
+  registerConceptContentIpc();
+  registerPtyIpc();
 }

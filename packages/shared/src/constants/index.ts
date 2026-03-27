@@ -14,6 +14,8 @@ export const IPC_CHANNELS = {
   CONCEPT_UPDATE: 'concept:update',
   CONCEPT_DELETE: 'concept:delete',
   CONCEPT_SEARCH: 'concept:search',
+  CONCEPT_SYNC_TO_AGENT: 'concept:syncToAgent',
+  CONCEPT_SYNC_FROM_AGENT: 'concept:syncFromAgent',
 
   // Canvas
   CANVAS_CREATE: 'canvas:create',
@@ -82,6 +84,14 @@ export const IPC_CHANNELS = {
   // Config
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
+
+  // PTY (terminal)
+  PTY_SPAWN: 'pty:spawn',
+  PTY_INPUT: 'pty:input',
+  PTY_OUTPUT: 'pty:output',
+  PTY_RESIZE: 'pty:resize',
+  PTY_EXIT: 'pty:exit',
+  PTY_KILL: 'pty:kill',
 } as const;
 
 // ============================================

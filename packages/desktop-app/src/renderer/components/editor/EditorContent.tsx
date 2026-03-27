@@ -3,6 +3,7 @@ import type { EditorTab } from '@moc/shared/types';
 import { ConceptEditor } from './ConceptEditor';
 import { FileEditor } from './FileEditor';
 import { ArchetypeEditor } from './ArchetypeEditor';
+import { TerminalEditor } from './TerminalEditor';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -21,6 +22,8 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       return <FileEditor tab={tab} />;
     case 'archetype':
       return <ArchetypeEditor tab={tab} />;
+    case 'terminal':
+      return <TerminalEditor tab={tab} />;
     default:
       return (
         <div className="flex h-full items-center justify-center text-xs text-muted">

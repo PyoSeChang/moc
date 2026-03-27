@@ -3,6 +3,7 @@ import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './db/connection';
 import { registerAllIpc } from './ipc';
+import { ptyManager } from './pty/pty-manager';
 
 // Force userData to %APPDATA%/moc
 app.name = 'moc';
@@ -114,6 +115,7 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
+  ptyManager.init(mainWindow!);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -121,6 +123,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  ptyManager.killAll();
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();
 });

@@ -26,6 +26,8 @@ export interface Concept {
   title: string;
   color: string | null;
   icon: string | null;
+  content: string | null;
+  agent_content: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +38,8 @@ export interface ConceptCreate {
   archetype_id?: string;
   color?: string;
   icon?: string;
+  content?: string;
+  agent_content?: string;
 }
 
 export interface ConceptUpdate {
@@ -43,6 +47,8 @@ export interface ConceptUpdate {
   archetype_id?: string | null;
   color?: string | null;
   icon?: string | null;
+  content?: string | null;
+  agent_content?: string | null;
 }
 
 // ============================================
@@ -315,7 +321,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';

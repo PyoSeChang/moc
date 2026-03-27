@@ -8,7 +8,6 @@ import { useUIStore } from '../../stores/ui-store';
 import { CanvasList } from './CanvasList';
 import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
-import { ModuleManager } from './ModuleManager';
 import { ScrollArea } from '../ui/ScrollArea';
 
 interface SidebarProps {
@@ -52,9 +51,17 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
           {sidebarView === 'files' && (
             <>
               <ModuleSelector projectId={project.id} />
-              <ModuleManager />
-              <div className="my-1 border-t border-subtle" />
-              <FileTree nodes={fileTree} onFileClick={handleFileClick} />
+              <FileTree
+                nodes={fileTree}
+                onFileClick={handleFileClick}
+                onAddDirectory={async () => {
+                  const { activeModuleId, addDirectory } = useModuleStore.getState();
+                  if (!activeModuleId) return;
+                  const { fsService } = await import('../../services');
+                  const dirPath = await fsService.openFolderDialog();
+                  if (dirPath) await addDirectory({ module_id: activeModuleId, dir_path: dirPath });
+                }}
+              />
             </>
           )}
         </div>

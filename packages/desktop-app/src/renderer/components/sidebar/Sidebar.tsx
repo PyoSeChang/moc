@@ -1,17 +1,13 @@
 import React, { useEffect } from 'react';
-import { Layout, FolderTree, Search } from 'lucide-react';
 import type { Project } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useFileStore } from '../../stores/file-store';
 import { useModuleStore } from '../../stores/module-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
-// Note: EditorDock is replaced by the generic editor system (editor-store + EditorContent)
 import { CanvasList } from './CanvasList';
 import { FileTree } from './FileTree';
-import { ConceptSearch } from './ConceptSearch';
 import { ModuleSelector } from './ModuleSelector';
-import { ModuleManager } from './ModuleManager';
 import { ScrollArea } from '../ui/ScrollArea';
 
 interface SidebarProps {
@@ -19,7 +15,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ project }: SidebarProps): JSX.Element {
-  const { sidebarView, setSidebarView } = useUIStore();
+  const { sidebarView, sidebarWidth } = useUIStore();
   const { loadFileTree, fileTree } = useFileStore();
   const { loadCanvases } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
@@ -29,7 +25,6 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     loadModules(project.id);
   }, [project.id, loadCanvases, loadModules]);
 
-  // Reload file trees when active module's directories change
   useEffect(() => {
     if (directories.length > 0) {
       loadFileTree(directories.map((d) => d.dir_path));
@@ -45,44 +40,29 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     });
   };
 
-  const tabs = [
-    { key: 'canvases' as const, icon: Layout, label: 'Canvases' },
-    { key: 'files' as const, icon: FolderTree, label: 'Files' },
-    { key: 'search' as const, icon: Search, label: 'Search' },
-  ];
-
   return (
-    <div className="flex h-full w-56 shrink-0 flex-col border-r border-subtle bg-surface-panel">
-      {/* Tab bar */}
-      <div className="flex border-b border-subtle">
-        {tabs.map(({ key, icon: Icon }) => (
-          <button
-            key={key}
-            className={`flex-1 py-2 text-center transition-colors ${
-              sidebarView === key
-                ? 'border-b-2 border-accent text-accent'
-                : 'text-muted hover:text-default'
-            }`}
-            onClick={() => setSidebarView(key)}
-          >
-            <Icon size={14} className="mx-auto" />
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
+    <div
+      className="flex h-full shrink-0 flex-col bg-surface-panel"
+      style={{ width: sidebarWidth }}
+    >
       <ScrollArea>
         <div className="py-2">
           {sidebarView === 'canvases' && <CanvasList projectId={project.id} />}
           {sidebarView === 'files' && (
             <>
-              <ModuleSelector projectId={project.id} />
-              <ModuleManager />
-              <div className="my-1 border-t border-subtle" />
+              <ModuleSelector
+                projectId={project.id}
+                onAddDirectory={async () => {
+                  const { activeModuleId, addDirectory } = useModuleStore.getState();
+                  if (!activeModuleId) return;
+                  const { fsService } = await import('../../services');
+                  const dirPath = await fsService.openFolderDialog();
+                  if (dirPath) await addDirectory({ module_id: activeModuleId, dir_path: dirPath });
+                }}
+              />
               <FileTree nodes={fileTree} onFileClick={handleFileClick} />
             </>
           )}
-          {sidebarView === 'search' && <ConceptSearch />}
         </div>
       </ScrollArea>
     </div>

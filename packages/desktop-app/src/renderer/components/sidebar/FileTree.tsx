@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, File, Folder } from 'lucide-react';
+import { ChevronRight, ChevronDown, File, Folder, FolderPlus } from 'lucide-react';
 import type { FileTreeNode } from '@moc/shared/types';
+import { Tooltip } from '../ui/Tooltip';
 
 interface FileTreeProps {
   nodes: FileTreeNode[];
   onFileClick: (relativePath: string) => void;
+  onAddDirectory?: () => void;
 }
 
 function FileTreeItem({
@@ -49,17 +51,12 @@ function FileTreeItem({
   );
 }
 
-export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
+export function FileTree({ nodes, onFileClick, onAddDirectory }: FileTreeProps): JSX.Element {
   return (
     <div className="flex flex-col gap-0.5 px-1">
-      <span className="px-2 py-1 text-xs font-medium text-secondary">Files</span>
-      {nodes.length === 0 ? (
-        <span className="px-2 text-xs text-muted">Add directories to a module</span>
-      ) : (
-        nodes.map((node) => (
-          <FileTreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} />
-        ))
-      )}
+      {nodes.map((node) => (
+        <FileTreeItem key={node.path} node={node} depth={0} onFileClick={onFileClick} />
+      ))}
     </div>
   );
 }

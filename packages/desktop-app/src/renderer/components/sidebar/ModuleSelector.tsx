@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Package, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { Package, Plus, Trash2, ChevronDown, FolderPlus } from 'lucide-react';
 import { useModuleStore } from '../../stores/module-store';
+import { useI18n } from '../../hooks/useI18n';
 
 interface ModuleSelectorProps {
   projectId: string;
+  onAddDirectory?: () => void;
 }
 
-export function ModuleSelector({ projectId }: ModuleSelectorProps): JSX.Element {
+export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProps): JSX.Element {
+  const { t } = useI18n();
   const { modules, activeModuleId, setActiveModule, createModule, deleteModule, updateModule } =
     useModuleStore();
 
@@ -80,25 +83,42 @@ export function ModuleSelector({ projectId }: ModuleSelectorProps): JSX.Element 
   };
 
   return (
-    <div ref={dropdownRef} className="relative px-2 py-1.5">
-      {/* Header / trigger */}
+    <div ref={dropdownRef} className="relative flex items-center gap-0.5 px-2 py-1.5">
+      {/* Module selector */}
       <button
-        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-default transition-colors hover:bg-surface-hover"
+        className="flex flex-1 items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-default transition-colors hover:bg-surface-hover"
         onClick={() => setOpen((v) => !v)}
       >
         <Package size={12} className="shrink-0 text-secondary" />
         <span className="flex-1 truncate text-left">
-          {activeModule ? activeModule.name : 'No module'}
+          {activeModule ? activeModule.name : t('sidebar.noModule')}
         </span>
         <ChevronDown
           size={12}
           className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
+      {/* Add directory */}
+      {onAddDirectory && activeModuleId && (
+        <button
+          className="shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+          onClick={onAddDirectory}
+          title="Add directory"
+        >
+          <FolderPlus size={14} />
+        </button>
+      )}
 
-      {/* Dropdown */}
+      {/* Dropdown — uses fixed positioning to avoid parent overflow clipping */}
       {open && (
-        <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-md border border-subtle bg-surface-card shadow-lg">
+        <div
+          className="fixed z-50 rounded-md border border-subtle bg-surface-card shadow-lg"
+          style={{
+            top: (dropdownRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+            left: dropdownRef.current?.getBoundingClientRect().left ?? 0,
+            width: dropdownRef.current?.getBoundingClientRect().width ?? 200,
+          }}
+        >
           {/* Module list */}
           <div className="max-h-48 overflow-y-auto py-1">
             {modules.map((m) => (
@@ -143,7 +163,7 @@ export function ModuleSelector({ projectId }: ModuleSelectorProps): JSX.Element 
             ))}
 
             {modules.length === 0 && !creating && (
-              <div className="px-2 py-2 text-center text-xs text-muted">No modules</div>
+              <div className="px-2 py-2 text-center text-xs text-muted">{t('sidebar.noModules')}</div>
             )}
           </div>
 
@@ -161,7 +181,7 @@ export function ModuleSelector({ projectId }: ModuleSelectorProps): JSX.Element 
                     setNewName('');
                   }
                 }}
-                placeholder="Module name"
+                placeholder={t('sidebar.moduleName')}
                 autoFocus
               />
             </div>
@@ -171,7 +191,7 @@ export function ModuleSelector({ projectId }: ModuleSelectorProps): JSX.Element 
               onClick={() => setCreating(true)}
             >
               <Plus size={12} />
-              <span>Add module</span>
+              <span>{t('sidebar.addModule')}</span>
             </button>
           )}
         </div>

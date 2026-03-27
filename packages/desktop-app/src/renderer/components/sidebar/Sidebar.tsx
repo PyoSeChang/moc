@@ -8,6 +8,8 @@ import { useUIStore } from '../../stores/ui-store';
 import { CanvasList } from './CanvasList';
 import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
+import { ArchetypeList } from './ArchetypeList';
+import { useArchetypeStore } from '../../stores/archetype-store';
 import { ScrollArea } from '../ui/ScrollArea';
 
 interface SidebarProps {
@@ -19,11 +21,13 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { loadFileTree, fileTree } = useFileStore();
   const { loadCanvases } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
+  const { loadByProject: loadArchetypes } = useArchetypeStore();
 
   useEffect(() => {
     loadCanvases(project.id);
     loadModules(project.id);
-  }, [project.id, loadCanvases, loadModules]);
+    loadArchetypes(project.id);
+  }, [project.id, loadCanvases, loadModules, loadArchetypes]);
 
   useEffect(() => {
     if (directories.length > 0) {
@@ -63,6 +67,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
               <FileTree nodes={fileTree} onFileClick={handleFileClick} />
             </>
           )}
+          {sidebarView === 'archetypes' && <ArchetypeList />}
         </div>
       </ScrollArea>
     </div>

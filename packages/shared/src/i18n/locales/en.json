@@ -65,7 +65,33 @@
     "editTitleHint": "Double-click to edit title",
     "noFiles": "No files linked to this concept",
     "selectFile": "Select a file",
-    "searchPlaceholder": "Search concepts..."
+    "searchPlaceholder": "Search concepts...",
+    "archetype": "Archetype",
+    "selectArchetype": "Select Archetype",
+    "properties": "Properties"
+  },
+  "archetype": {
+    "title": "Archetype",
+    "create": "Create Archetype",
+    "edit": "Edit Archetype",
+    "delete": "Delete Archetype",
+    "name": "Name",
+    "description": "Description",
+    "icon": "Icon",
+    "color": "Color",
+    "nodeShape": "Node Shape",
+    "fileTemplate": "File Template",
+    "fields": "Field Schema",
+    "addField": "Add Field",
+    "noArchetypes": "No archetypes yet",
+    "deleteConfirm": "Delete this archetype? Connected concepts will not be deleted."
+  },
+  "field": {
+    "name": "Field Name",
+    "type": "Type",
+    "required": "Required",
+    "defaultValue": "Default Value",
+    "options": "Options"
   },
   "edge": {
     "connect": "Connect",

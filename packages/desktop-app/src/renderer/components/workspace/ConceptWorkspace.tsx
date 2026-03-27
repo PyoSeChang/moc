@@ -10,26 +10,33 @@ import { useCanvasStore, type CanvasNodeWithConcept } from '../../stores/canvas-
 import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
+import { useArchetypeStore } from '../../stores/archetype-store';
+import type { Archetype } from '@moc/shared/types';
 import type { RenderNode, RenderEdge } from './types';
 
 interface ConceptWorkspaceProps {
   projectId: string;
 }
 
-function toRenderNodes(nodes: CanvasNodeWithConcept[]): RenderNode[] {
-  return nodes.map((n) => ({
-    id: n.id,
-    x: n.position_x,
-    y: n.position_y,
-    label: n.concept.title,
-    icon: n.concept.icon || '📌',
-    semanticType: 'concept',
-    semanticTypeLabel: 'Concept',
-    width: n.width ?? 160,
-    height: n.height ?? 60,
-    conceptId: n.concept_id,
-    hasSubCanvas: n.has_sub_canvas,
-  }));
+function toRenderNodes(nodes: CanvasNodeWithConcept[], archetypes: Archetype[]): RenderNode[] {
+  const archMap = new Map(archetypes.map((a) => [a.id, a]));
+  return nodes.map((n) => {
+    const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
+    return {
+      id: n.id,
+      x: n.position_x,
+      y: n.position_y,
+      label: n.concept.title,
+      icon: n.concept.icon || arch?.icon || '📌',
+      shape: arch?.node_shape ?? undefined,
+      semanticType: arch?.name || 'concept',
+      semanticTypeLabel: arch?.name || 'Concept',
+      width: n.width ?? 160,
+      height: n.height ?? 60,
+      conceptId: n.concept_id,
+      hasSubCanvas: n.has_sub_canvas,
+    };
+  });
 }
 
 interface ContextMenuState {
@@ -118,7 +125,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     return () => observer.disconnect();
   }, []);
 
-  const renderNodes = useMemo(() => toRenderNodes(nodes), [nodes]);
+  const archetypes = useArchetypeStore((s) => s.archetypes);
+  const renderNodes = useMemo(() => toRenderNodes(nodes, archetypes), [nodes, archetypes]);
   const renderEdges = useMemo(() => toRenderEdges(edges), [edges]);
 
   // --- Keyboard shortcuts ---

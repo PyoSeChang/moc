@@ -10,6 +10,8 @@ import { MarkdownEditor } from './MarkdownEditor';
 import { PlainTextEditor } from './PlainTextEditor';
 import { ImageViewer } from './ImageViewer';
 import { UnsupportedFallback } from './UnsupportedFallback';
+import { ConceptPropertiesPanel } from './ConceptPropertiesPanel';
+import { useConceptStore } from '../../stores/concept-store';
 
 interface ConceptEditorProps {
   tab: EditorTab;
@@ -20,6 +22,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const [files, setFiles] = useState<ConceptFile[]>([]);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(tab.title);
+  const concept = useConceptStore((s) => s.concepts.find((c) => c.id === tab.targetId));
 
   const { openFile, openFiles, updateContent, saveFile } = useFileStore();
   const { setActiveFile, setDirty } = useEditorStore();
@@ -94,6 +97,10 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* Properties panel */}
+      {concept?.archetype_id && (
+        <ConceptPropertiesPanel conceptId={tab.targetId} archetypeId={concept.archetype_id} />
+      )}
       {/* File list */}
       {files.length > 0 && (
         <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-subtle bg-surface-panel">

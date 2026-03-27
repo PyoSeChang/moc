@@ -1,17 +1,18 @@
 import React from 'react';
-import { Layout, FolderTree, Settings } from 'lucide-react';
+import { Layout, FolderTree, Shapes, Settings } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 import { Tooltip } from '../ui/Tooltip';
 
 const ITEMS = [
   { key: 'canvases' as const, icon: Layout, label: 'Canvases' },
   { key: 'files' as const, icon: FolderTree, label: 'Files' },
+  { key: 'archetypes' as const, icon: Shapes, label: 'Archetypes' },
 ] as const;
 
 export function ActivityBar(): JSX.Element {
   const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
 
-  const handleClick = (key: 'canvases' | 'files') => {
+  const handleClick = (key: 'canvases' | 'files' | 'archetypes') => {
     if (sidebarOpen && sidebarView === key) {
       // Same tab clicked → close sidebar
       toggleSidebar();

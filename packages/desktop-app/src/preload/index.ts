@@ -57,6 +57,26 @@ const electronAPI = {
     list: (moduleId: string) => ipcRenderer.invoke('moduleDir:list', moduleId),
     remove: (id: string) => ipcRenderer.invoke('moduleDir:remove', id),
   },
+  archetype: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('archetype:create', data),
+    list: (projectId: string) => ipcRenderer.invoke('archetype:list', projectId),
+    get: (id: string) => ipcRenderer.invoke('archetype:get', id),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('archetype:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('archetype:delete', id),
+    createField: (data: Record<string, unknown>) => ipcRenderer.invoke('archetypeField:create', data),
+    listFields: (archetypeId: string) => ipcRenderer.invoke('archetypeField:list', archetypeId),
+    updateField: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('archetypeField:update', id, data),
+    deleteField: (id: string) => ipcRenderer.invoke('archetypeField:delete', id),
+    reorderFields: (archetypeId: string, orderedIds: string[]) =>
+      ipcRenderer.invoke('archetypeField:reorder', archetypeId, orderedIds),
+  },
+  conceptProp: {
+    upsert: (data: Record<string, unknown>) => ipcRenderer.invoke('conceptProp:upsert', data),
+    getByConcept: (conceptId: string) => ipcRenderer.invoke('conceptProp:getByConcept', conceptId),
+    delete: (id: string) => ipcRenderer.invoke('conceptProp:delete', id),
+  },
   editorPrefs: {
     get: (conceptId: string) => ipcRenderer.invoke('editorPrefs:get', conceptId),
     upsert: (conceptId: string, data: Record<string, unknown>) =>

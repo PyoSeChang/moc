@@ -33,7 +33,7 @@
     --status-info: #3b82f6;
 
     /* Input/Form Specifics */
-    --input-bg: var(--palette-neutral-900);
+    --input-bg: var(--palette-neutral-800);
     --input-border: var(--palette-neutral-600);
     --input-placeholder: var(--text-muted);
 

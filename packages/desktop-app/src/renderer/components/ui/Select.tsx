@@ -29,7 +29,7 @@ export const Select: React.FC<SelectProps> = ({
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,23 +84,24 @@ export const Select: React.FC<SelectProps> = ({
 
   return (
     <div className="relative block w-full" ref={ref}>
-      <button
+      <div
         ref={buttonRef}
-        type="button"
         id={id}
-        className={`flex items-center w-full ${sizeStyle} text-default bg-input border border-input rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-ring disabled:opacity-50 disabled:cursor-not-allowed ${open ? 'border-accent ring-2 ring-accent-ring' : ''
+        className={`flex items-center w-full ${sizeStyle} text-default bg-input border border-input rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-strong focus:border-accent ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${open ? 'border-accent' : ''
           }`}
         onClick={handleOpen}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
+        tabIndex={disabled ? -1 : 0}
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-disabled={disabled}
       >
         <span className={`block overflow-hidden text-ellipsis whitespace-nowrap flex-1 ${selectedOption ? '' : 'text-muted'}`}>
           {selectedOption?.label || placeholder || ''}
         </span>
         <ChevronDown size={14} className={`shrink-0 text-muted ml-2 transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </div>
       {open &&
         createPortal(
           <div

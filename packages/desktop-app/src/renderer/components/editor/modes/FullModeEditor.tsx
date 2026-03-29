@@ -45,7 +45,7 @@ export function FullModeEditor(): JSX.Element | null {
               />
             }
           />
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden bg-surface-panel">
             {activeTab && <EditorContent tab={activeTab} />}
             <DropZoneOverlay
               onDrop={(result) => {

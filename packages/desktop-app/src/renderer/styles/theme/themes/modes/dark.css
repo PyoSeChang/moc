@@ -34,8 +34,11 @@
 
     /* Input/Form Specifics */
     --input-bg: var(--palette-neutral-900);
-    --input-border: var(--border-default);
+    --input-border: var(--palette-neutral-600);
     --input-placeholder: var(--text-muted);
+
+    /* Focus Ring */
+    --accent-ring: color-mix(in srgb, var(--accent) 30%, transparent);
 
     /* Canvas Edge (Synapse visualization) */
     --edge-default: var(--palette-neutral-500);

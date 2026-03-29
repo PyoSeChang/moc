@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import type { EditorTab } from '@moc/shared/types';
 import { useModuleStore } from '../../stores/module-store';
+import { getCssColorAsHex } from './editor-utils';
 
 interface TerminalEditorProps {
   tab: EditorTab;
@@ -21,13 +22,14 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     if (!containerRef.current || !sessionId || !cwd) return;
 
     const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
+    const bg = getCssColorAsHex('--surface-panel', isDark ? '#1e1e1e' : '#ffffff');
 
     const terminal = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
       theme: {
-        background: isDark ? '#1e1e1e' : '#ffffff',
+        background: bg,
         foreground: isDark ? '#cccccc' : '#1e1e1e',
         cursor: isDark ? '#cccccc' : '#1e1e1e',
         cursorAccent: isDark ? '#1e1e1e' : '#ffffff',

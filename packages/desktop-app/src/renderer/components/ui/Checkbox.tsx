@@ -31,7 +31,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({ checked, onChange, label, di
             checked
               ? 'bg-accent border-accent text-on-accent'
               : 'bg-input border-subtle hover:border-default'
-          } ${!disabled && 'peer-focus-visible:ring-2 peer-focus-visible:ring-accent/20'}`}
+          } ${!disabled && 'peer-focus-visible:ring-2 peer-focus-visible:ring-accent-ring'}`}
         >
           {checked && <Check size={11} strokeWidth={3} />}
         </div>

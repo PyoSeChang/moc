@@ -14,7 +14,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, include
       value={value || ''}
       onChange={(e) => onChange?.(e.target.value)}
       disabled={disabled}
-      className="block w-full px-3 py-1.5 text-sm text-default bg-input border border-subtle rounded-lg outline-none transition-all duration-fast hover:border-default focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="block w-full px-3 py-1.5 text-sm text-default bg-input border border-input rounded-lg outline-none transition-all duration-fast hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-ring disabled:opacity-50 disabled:cursor-not-allowed"
     />
   );
 };

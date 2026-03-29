@@ -150,7 +150,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               />
             }
           />
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden bg-surface-panel">
             {activeLeafTab && <EditorContent tab={activeLeafTab} />}
             <DropZoneOverlay
               onDrop={(result) => {

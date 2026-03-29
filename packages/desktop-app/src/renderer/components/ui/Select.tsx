@@ -88,7 +88,7 @@ export const Select: React.FC<SelectProps> = ({
         ref={buttonRef}
         type="button"
         id={id}
-        className={`flex items-center w-full ${sizeStyle} text-default bg-input border border-subtle rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-default focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50 disabled:cursor-not-allowed ${open ? 'border-accent ring-2 ring-accent/20' : ''
+        className={`flex items-center w-full ${sizeStyle} text-default bg-input border border-input rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-ring disabled:opacity-50 disabled:cursor-not-allowed ${open ? 'border-accent ring-2 ring-accent-ring' : ''
           }`}
         onClick={handleOpen}
         onKeyDown={handleKeyDown}

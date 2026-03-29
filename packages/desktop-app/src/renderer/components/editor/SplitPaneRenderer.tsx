@@ -101,11 +101,21 @@ function SplitHandle({ direction, mode, path, onRatioChange }: SplitHandleProps)
 
   return (
     <div
-      className={`shrink-0 bg-border-default hover:bg-accent transition-colors ${
-        direction === 'horizontal' ? 'cursor-col-resize border-x border-border-strong' : 'cursor-row-resize border-y border-border-strong'
+      className={`relative z-10 group ${
+        direction === 'horizontal' ? 'cursor-col-resize' : 'cursor-row-resize'
       }`}
-      style={direction === 'horizontal' ? { width: 6 } : { height: 6 }}
+      style={
+        direction === 'horizontal'
+          ? { width: 0, marginLeft: -3, marginRight: -3, paddingLeft: 3, paddingRight: 3 }
+          : { height: 0, marginTop: -3, marginBottom: -3, paddingTop: 3, paddingBottom: 3 }
+      }
       onMouseDown={handleMouseDown}
-    />
+    >
+      <div
+        className={`pointer-events-none bg-surface-base group-hover:bg-accent transition-colors ${
+          direction === 'horizontal' ? 'h-full w-px' : 'w-full h-px'
+        }`}
+      />
+    </div>
   );
 }

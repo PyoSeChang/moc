@@ -36,6 +36,13 @@ module.exports = {
         DEFAULT: 'var(--border-default)',
         default: 'var(--border-default)',
         strong: 'var(--border-strong)',
+        input: 'var(--input-border)',
+      },
+      ringColor: {
+        accent: {
+          DEFAULT: 'var(--accent)',
+          ring: 'var(--accent-ring)',
+        },
       },
       backgroundColor: {
         overlay: 'var(--surface-overlay)',

@@ -45,6 +45,42 @@ body,
   background: var(--text-muted);
 }
 
+/* Chrome-style tab curves */
+.tab-active {
+  position: relative;
+  z-index: 1;
+}
+
+.tab-active::before,
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+
+.tab-active::before {
+  left: -8px;
+  background: radial-gradient(circle at 0 0, transparent 8px, var(--tab-bg) 8px);
+}
+
+.tab-active::after {
+  right: -8px;
+  background: radial-gradient(circle at 100% 0, transparent 8px, var(--tab-bg) 8px);
+}
+
+/* Tab scroll — hidden scrollbar */
+.tab-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* ContentEditable placeholder */
 [data-placeholder]:empty::before {
   content: attr(data-placeholder);

@@ -40,3 +40,28 @@ export function getMonacoLanguage(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   return LANGUAGE_MAP[ext] ?? 'plaintext';
 }
+
+/**
+ * Read a CSS custom property's computed value and return it as a hex color.
+ * Falls back to `fallback` if the property is empty or conversion fails.
+ */
+export function getCssColorAsHex(property: string, fallback: string): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(property).trim();
+  if (!raw) return fallback;
+
+  // Already hex
+  if (raw.startsWith('#')) return raw;
+
+  // Use an off-screen element to resolve any CSS color string to rgb
+  const el = document.createElement('div');
+  el.style.color = raw;
+  document.body.appendChild(el);
+  const computed = getComputedStyle(el).color;
+  document.body.removeChild(el);
+
+  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return fallback;
+
+  const [, r, g, b] = match;
+  return `#${Number(r).toString(16).padStart(2, '0')}${Number(g).toString(16).padStart(2, '0')}${Number(b).toString(16).padStart(2, '0')}`;
+}

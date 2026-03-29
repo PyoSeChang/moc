@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor as monacoEditor } from 'monaco-editor';
+import { getCssColorAsHex } from './editor-utils';
 
 interface CodeEditorProps {
   content: string;
@@ -25,15 +26,31 @@ export function CodeEditor({ content, language, onChange, onSave }: CodeEditorPr
     onChange(value ?? '');
   }, [onChange]);
 
-  // TODO: detect theme from app data-mode attribute
   const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
+  const bg = getCssColorAsHex('--surface-panel', isDark ? '#1e1e1e' : '#ffffff');
+
+  const handleBeforeMount = useCallback((monaco: Parameters<NonNullable<Parameters<typeof Editor>[0]['beforeMount']>>[0]) => {
+    monaco.editor.defineTheme('moc-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: { 'editor.background': bg },
+    });
+    monaco.editor.defineTheme('moc-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: { 'editor.background': bg },
+    });
+  }, [bg]);
 
   return (
     <Editor
       height="100%"
       language={language}
       value={content}
-      theme={isDark ? 'vs-dark' : 'vs'}
+      theme={isDark ? 'moc-dark' : 'moc-light'}
+      beforeMount={handleBeforeMount}
       onChange={handleChange}
       onMount={handleMount}
       options={{

@@ -21,7 +21,7 @@ export const LinkInput: React.FC<LinkInputProps> = ({ value, onChange, placehold
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="flex-1 px-3 py-1.5 text-sm text-default bg-input border border-subtle rounded-lg outline-none transition-all duration-fast placeholder:text-muted hover:border-default focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50"
+        className="flex-1 px-3 py-1.5 text-sm text-default bg-input border border-input rounded-lg outline-none transition-all duration-fast placeholder:text-muted hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent-ring disabled:opacity-50"
       />
       {value && (
         <button

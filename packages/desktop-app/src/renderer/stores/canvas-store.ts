@@ -2,22 +2,24 @@ import { create } from 'zustand';
 import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
-  Edge, EdgeCreate, Concept,
+  Edge, EdgeCreate, Concept, RelationType,
   CanvasBreadcrumbItem,
 } from '@moc/shared/types';
 import { canvasService } from '../services';
 import type { CanvasFullData } from '../services/canvas-service';
 
 export interface CanvasNodeWithConcept extends CanvasNode {
-  concept: Concept;
-  has_sub_canvas: boolean;
+  concept?: Concept;
+  canvas_count: number;
 }
+
+export type EdgeWithRelationType = Edge & { relation_type?: RelationType };
 
 interface CanvasStore {
   canvases: Canvas[];
   currentCanvas: Canvas | null;
   nodes: CanvasNodeWithConcept[];
-  edges: Edge[];
+  edges: EdgeWithRelationType[];
   loading: boolean;
 
   // Navigation
@@ -110,14 +112,14 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
 
   drillInto: async (conceptId) => {
-    const subCanvas = await canvasService.getByConcept(conceptId);
-    if (!subCanvas) return;
+    const canvases = await canvasService.getCanvasesByConcept(conceptId);
+    if (canvases.length === 0) return;
 
     const { currentCanvas } = get();
     if (currentCanvas) {
       set((s) => ({ canvasHistory: [...s.canvasHistory, currentCanvas.id] }));
     }
-    await get().openCanvas(subCanvas.id);
+    await get().openCanvas(canvases[0].id);
   },
 
   navigateBack: async () => {

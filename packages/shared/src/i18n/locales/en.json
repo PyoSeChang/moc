@@ -51,7 +51,12 @@
     "navigateBack": "Navigate back",
     "createConcept": "Create Concept",
     "openSubCanvas": "Open Sub Canvas",
-    "createSubCanvas": "Create Sub Canvas"
+    "createSubCanvas": "Create Sub Canvas",
+    "switchCanvas": "Switch Canvas",
+    "canvasesForConcept": "Canvases",
+    "selectTarget": "Click a node to connect",
+    "addFileNode": "Add File Node",
+    "addDirNode": "Add Directory Node"
   },
   "concept": {
     "create": "Create Concept",
@@ -95,7 +100,43 @@
   },
   "edge": {
     "connect": "Connect",
-    "delete": "Delete Connection"
+    "delete": "Delete Connection",
+    "addConnection": "Add Connection",
+    "relationType": "Relation Type",
+    "noRelationType": "No type",
+    "source": "Source",
+    "target": "Target",
+    "deleteConfirm": "Delete this connection?"
+  },
+  "canvasType": {
+    "title": "Canvas Types",
+    "newDefault": "New Canvas Type",
+    "name": "Name",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe this canvas type...",
+    "visual": "Visual",
+    "icon": "Icon",
+    "color": "Color",
+    "allowedRelations": "Allowed Relation Types",
+    "notFound": "Canvas type not found",
+    "noCanvasTypes": "No canvas types yet",
+    "noType": "None"
+  },
+  "relationType": {
+    "title": "Relation Types",
+    "newDefault": "New Relation Type",
+    "name": "Name",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe this relation type...",
+    "visual": "Visual",
+    "color": "Color",
+    "lineStyle": "Line Style",
+    "solid": "Solid",
+    "dashed": "Dashed",
+    "dotted": "Dotted",
+    "directed": "Directed",
+    "notFound": "Relation type not found",
+    "noRelationTypes": "No relation types yet"
   },
   "editor": {
     "unsaved": "Unsaved changes",

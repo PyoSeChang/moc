@@ -60,6 +60,8 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
   onDoubleClick,
   onDragStart,
   onContextMenu,
+  onMouseEnter,
+  onMouseLeave,
 }) => {
   // --- Event handlers ---
   const handleMouseDown = useCallback(
@@ -149,6 +151,8 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave ? () => onMouseLeave() : undefined}
     >
       {/* Card body */}
       <div className={cardClassName} style={cardStyle}>

@@ -59,6 +59,8 @@ export interface NodeComponentProps {
   onDoubleClick: (id: string) => void;
   onDragStart: (id: string, startX: number, startY: number) => void;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
+  onMouseEnter?: (e: React.MouseEvent) => void;
+  onMouseLeave?: () => void;
 }
 
 /** Node component type */

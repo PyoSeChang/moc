@@ -7,12 +7,16 @@ import { CanvasContextMenu } from './CanvasContextMenu';
 import { CanvasControls } from './CanvasControls';
 import { ConceptCreateModal } from './ConceptCreateModal';
 import { useInteraction } from './InteractionLayer';
-import { useCanvasStore, type CanvasNodeWithConcept } from '../../stores/canvas-store';
+import { NodeCanvasOverlay } from './NodeCanvasOverlay';
+import { EdgeContextMenu } from './EdgeContextMenu';
+import { FileNodeAddModal } from './FileNodeAddModal';
+import { useCanvasStore, type CanvasNodeWithConcept, type EdgeWithRelationType } from '../../stores/canvas-store';
 import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import type { Archetype } from '@moc/shared/types';
+import { useI18n } from '../../hooks/useI18n';
 import type { RenderNode, RenderEdge } from './types';
 
 interface ConceptWorkspaceProps {
@@ -22,20 +26,40 @@ interface ConceptWorkspaceProps {
 function toRenderNodes(nodes: CanvasNodeWithConcept[], archetypes: Archetype[]): RenderNode[] {
   const archMap = new Map(archetypes.map((a) => [a.id, a]));
   return nodes.map((n) => {
-    const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
+    if (n.concept) {
+      const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
+      return {
+        id: n.id,
+        x: n.position_x,
+        y: n.position_y,
+        label: n.concept.title,
+        icon: n.concept.icon || arch?.icon || '📌',
+        shape: arch?.node_shape ?? undefined,
+        semanticType: arch?.name || 'concept',
+        semanticTypeLabel: arch?.name || 'Concept',
+        width: n.width ?? 160,
+        height: n.height ?? 60,
+        conceptId: n.concept_id ?? undefined,
+        canvasCount: n.canvas_count,
+        nodeType: 'concept' as const,
+      };
+    }
+    // file or dir node
+    const isFile = !!n.file_path;
     return {
       id: n.id,
       x: n.position_x,
       y: n.position_y,
-      label: n.concept.title,
-      icon: n.concept.icon || arch?.icon || '📌',
-      shape: arch?.node_shape ?? undefined,
-      semanticType: arch?.name || 'concept',
-      semanticTypeLabel: arch?.name || 'Concept',
-      width: n.width ?? 160,
-      height: n.height ?? 60,
-      conceptId: n.concept_id,
-      hasSubCanvas: n.has_sub_canvas,
+      label: (isFile ? n.file_path : n.dir_path)?.split('/').pop() || '?',
+      icon: isFile ? '📄' : '📁',
+      semanticType: isFile ? 'file' : 'directory',
+      semanticTypeLabel: isFile ? 'File' : 'Directory',
+      width: n.width ?? 140,
+      height: n.height ?? 50,
+      canvasCount: 0,
+      nodeType: isFile ? 'file' as const : 'dir' as const,
+      filePath: n.file_path ?? undefined,
+      dirPath: n.dir_path ?? undefined,
     };
   });
 }
@@ -44,17 +68,19 @@ interface ContextMenuState {
   x: number;
   y: number;
   nodeId: string;
-  conceptId: string;
-  hasSubCanvas: boolean;
+  conceptId?: string;
+  canvasCount: number;
 }
 
-function toRenderEdges(edges: { id: string; source_node_id: string; target_node_id: string }[]): RenderEdge[] {
+function toRenderEdges(edges: EdgeWithRelationType[]): RenderEdge[] {
   return edges.map((e) => ({
     id: e.id,
     sourceId: e.source_node_id,
     targetId: e.target_node_id,
-    directed: false,
-    label: '',
+    directed: e.relation_type?.directed ?? false,
+    label: e.relation_type?.name ?? '',
+    color: e.relation_type?.color ?? undefined,
+    lineStyle: (e.relation_type?.line_style as 'solid' | 'dashed' | 'dotted') ?? undefined,
   }));
 }
 
@@ -63,10 +89,12 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     currentCanvas, nodes, edges,
     loadCanvases, openCanvas,
     addNode, updateNode, removeNode,
-    removeEdge, saveViewport,
+    addEdge, removeEdge, saveViewport,
+    drillInto, navigateBack,
   } = useCanvasStore();
   const { createConcept } = useConceptStore();
   const { canvasMode } = useUIStore();
+  const { t } = useI18n();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -78,6 +106,11 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number; worldX: number; worldY: number } | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createPosition, setCreatePosition] = useState({ x: 0, y: 0 });
+  const [hoverOverlay, setHoverOverlay] = useState<{ conceptId: string; x: number; y: number } | null>(null);
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
+  const [edgeLinkingState, setEdgeLinkingState] = useState<{ sourceNodeId: string } | null>(null);
+  const [fileNodeModalOpen, setFileNodeModalOpen] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load canvases and open first one
   useEffect(() => {
@@ -88,6 +121,11 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
       }
     });
   }, [projectId, loadCanvases]);
+
+  // Cancel edge linking when mode changes
+  useEffect(() => {
+    setEdgeLinkingState(null);
+  }, [canvasMode]);
 
   // Restore viewport from canvas
   useEffect(() => {
@@ -128,6 +166,11 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
   // --- Keyboard shortcuts ---
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Escape: cancel edge linking
+      if (e.key === 'Escape' && edgeLinkingState) {
+        setEdgeLinkingState(null);
+        return;
+      }
       // Delete selected nodes
       if (e.key === 'Delete' && selectedIds.size > 0) {
         e.preventDefault();
@@ -142,12 +185,44 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedIds, renderNodes, removeNode]);
+  }, [selectedIds, renderNodes, removeNode, edgeLinkingState]);
 
   // --- Mouse interaction (via useInteraction, same pattern as Culturium) ---
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
+
+    // Ctrl+wheel: canvas hierarchy navigation
+    if (e.ctrlKey) {
+      if (e.deltaY < 0) {
+        // Ctrl+wheel up: drill into node under cursor
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const worldX = (e.clientX - rect.left - panX) / zoom;
+        const worldY = (e.clientY - rect.top - panY) / zoom;
+        // Find node under cursor
+        const hitNode = nodes.find((n) => {
+          const w = n.width ?? 160;
+          const h = n.height ?? 60;
+          return (
+            n.concept_id &&
+            n.canvas_count > 0 &&
+            worldX >= n.position_x - w / 2 &&
+            worldX <= n.position_x + w / 2 &&
+            worldY >= n.position_y - h / 2 &&
+            worldY <= n.position_y + h / 2
+          );
+        });
+        if (hitNode?.concept_id) {
+          drillInto(hitNode.concept_id);
+        }
+      } else {
+        // Ctrl+wheel down: navigate back
+        navigateBack();
+      }
+      return;
+    }
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -162,7 +237,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     setZoom(newZoom);
     setPanX(newPanX);
     setPanY(newPanY);
-  }, [zoom, panX, panY]);
+  }, [zoom, panX, panY, nodes, drillInto, navigateBack]);
 
   const handleNodeDragEnd = useCallback(async (nodeId: string, x: number, y: number) => {
     await updateNode(nodeId, { position_x: x, position_y: y });
@@ -177,6 +252,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     setSelectedIds(new Set());
     setContextMenu(null);
     setCanvasContextMenu(null);
+    setEdgeLinkingState(null);
+    setEdgeContextMenu(null);
   }, []);
 
   const handleSelectionBox = useCallback((nodeIds: string[]) => {
@@ -269,6 +346,28 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
       style={{ cursor: dragState.type === 'pan' ? 'grabbing' : dragState.type === 'node' ? 'move' : 'default' }}
       onMouseDown={handleCanvasMouseDown}
       onContextMenu={handleContextMenu}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('application/moc-node')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={async (e) => {
+        const raw = e.dataTransfer.getData('application/moc-node');
+        if (!raw || !currentCanvas) return;
+        e.preventDefault();
+        const data = JSON.parse(raw) as { type: 'file' | 'dir'; path: string };
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const worldX = (e.clientX - rect.left - panX) / zoom;
+        const worldY = (e.clientY - rect.top - panY) / zoom;
+        await addNode({
+          canvas_id: currentCanvas.id,
+          ...(data.type === 'file' ? { file_path: data.path } : { dir_path: data.path }),
+          position_x: worldX,
+          position_y: worldY,
+        });
+      }}
     >
       <CanvasControls
         mode={canvasMode}
@@ -298,26 +397,86 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
         panX={panX}
         panY={panY}
         nodeDragOffset={nodeDragOffset}
+        onContextMenu={(type, x, y, targetId) => {
+          if (type === 'edge' && targetId && canvasMode === 'edit') {
+            setEdgeContextMenu({ x, y, edgeId: targetId });
+          }
+        }}
+        onDoubleClick={(edgeId) => {
+          const edge = edges.find((e) => e.id === edgeId);
+          if (!edge) return;
+          const srcNode = nodes.find((n) => n.id === edge.source_node_id);
+          const tgtNode = nodes.find((n) => n.id === edge.target_node_id);
+          const srcLabel = srcNode?.concept?.title ?? srcNode?.file_path?.split('/').pop() ?? '?';
+          const tgtLabel = tgtNode?.concept?.title ?? tgtNode?.file_path?.split('/').pop() ?? '?';
+          useEditorStore.getState().openTab({
+            type: 'edge',
+            targetId: edgeId,
+            title: `${srcLabel} → ${tgtLabel}`,
+          });
+        }}
       />
+
+      {edgeLinkingState && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-accent/90 text-text-on-accent px-4 py-1.5 rounded-full text-xs flex items-center gap-2 shadow-lg">
+          <span>{t('canvas.selectTarget') ?? 'Click a node to connect'}</span>
+          <button
+            type="button"
+            className="underline opacity-80 hover:opacity-100"
+            onClick={() => setEdgeLinkingState(null)}
+          >
+            {t('common.cancel') ?? 'Cancel'}
+          </button>
+        </div>
+      )}
 
       <NodeLayer
         nodes={renderNodes}
         selectedIds={selectedIds}
+        highlightedIds={edgeLinkingState ? new Set(renderNodes.filter((n) => n.id !== edgeLinkingState.sourceNodeId).map((n) => n.id)) : undefined}
         mode={canvasMode}
         zoom={zoom}
         panX={panX}
         panY={panY}
         nodeDragOffset={nodeDragOffset}
         onNodeClick={(id) => {
+          if (edgeLinkingState) {
+            if (id !== edgeLinkingState.sourceNodeId && currentCanvas) {
+              addEdge({
+                canvas_id: currentCanvas.id,
+                source_node_id: edgeLinkingState.sourceNodeId,
+                target_node_id: id,
+              }).then((edge) => {
+                openCanvas(currentCanvas.id);
+                const srcNode = nodes.find((n) => n.id === edgeLinkingState.sourceNodeId);
+                const tgtNode = nodes.find((n) => n.id === id);
+                const srcLabel = srcNode?.concept?.title ?? '?';
+                const tgtLabel = tgtNode?.concept?.title ?? '?';
+                useEditorStore.getState().openTab({
+                  type: 'edge',
+                  targetId: edge.id,
+                  title: `${srcLabel} → ${tgtLabel}`,
+                });
+              });
+            }
+            setEdgeLinkingState(null);
+            return;
+          }
           setSelectedIds(new Set([id]));
         }}
         onNodeDoubleClick={(id) => {
           const node = nodes.find((n) => n.id === id);
-          if (node) {
+          if (node?.concept_id && node.concept) {
             useEditorStore.getState().openTab({
               type: 'concept',
               targetId: node.concept_id,
               title: node.concept.title,
+            });
+          } else if (node?.file_path) {
+            useEditorStore.getState().openTab({
+              type: 'file',
+              targetId: node.file_path,
+              title: node.file_path.split('/').pop() || 'File',
             });
           }
         }}
@@ -330,13 +489,37 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
                 x,
                 y,
                 nodeId: targetId,
-                conceptId: node.concept_id,
-                hasSubCanvas: node.has_sub_canvas,
+                conceptId: node.concept_id ?? undefined,
+                canvasCount: node.canvas_count,
               });
             }
           }
         }}
+        onNodeMouseEnter={(id, screenX, screenY) => {
+          const node = nodes.find((n) => n.id === id);
+          if (node?.concept_id && node.canvas_count > 0) {
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = setTimeout(() => {
+              setHoverOverlay({ conceptId: node.concept_id!, x: screenX, y: screenY });
+            }, 500);
+          }
+        }}
+        onNodeMouseLeave={() => {
+          if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+          }
+        }}
       />
+
+      {hoverOverlay && (
+        <NodeCanvasOverlay
+          conceptId={hoverOverlay.conceptId}
+          x={hoverOverlay.x}
+          y={hoverOverlay.y}
+          onClose={() => setHoverOverlay(null)}
+        />
+      )}
 
       {contextMenu && (
         <NodeContextMenu
@@ -344,8 +527,22 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
           y={contextMenu.y}
           nodeId={contextMenu.nodeId}
           conceptId={contextMenu.conceptId}
-          hasSubCanvas={contextMenu.hasSubCanvas}
+          canvasCount={contextMenu.canvasCount}
+          mode={canvasMode}
+          onAddConnection={(nodeId) => {
+            setEdgeLinkingState({ sourceNodeId: nodeId });
+            setContextMenu(null);
+          }}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {edgeContextMenu && (
+        <EdgeContextMenu
+          x={edgeContextMenu.x}
+          y={edgeContextMenu.y}
+          edgeId={edgeContextMenu.edgeId}
+          onClose={() => setEdgeContextMenu(null)}
         />
       )}
 
@@ -358,9 +555,28 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
             setCreateModalOpen(true);
             setCanvasContextMenu(null);
           }}
+          onAddFileNode={() => {
+            setFileNodeModalOpen(true);
+            setCanvasContextMenu(null);
+          }}
           onClose={() => setCanvasContextMenu(null)}
         />
       )}
+
+      <FileNodeAddModal
+        open={fileNodeModalOpen}
+        onClose={() => setFileNodeModalOpen(false)}
+        onSelect={async (path, type) => {
+          if (!currentCanvas) return;
+          await addNode({
+            canvas_id: currentCanvas.id,
+            ...(type === 'file' ? { file_path: path } : { dir_path: path }),
+            position_x: canvasContextMenu?.worldX ?? 0,
+            position_y: canvasContextMenu?.worldY ?? 0,
+          });
+          setFileNodeModalOpen(false);
+        }}
+      />
 
       <ConceptCreateModal
         open={createModalOpen}

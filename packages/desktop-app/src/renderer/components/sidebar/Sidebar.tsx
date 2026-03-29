@@ -9,7 +9,12 @@ import { CanvasList } from './CanvasList';
 import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
 import { ArchetypeList } from './ArchetypeList';
+import { RelationTypeList } from './RelationTypeList';
+import { CanvasTypeList } from './CanvasTypeList';
 import { useArchetypeStore } from '../../stores/archetype-store';
+import { useRelationTypeStore } from '../../stores/relation-type-store';
+import { useCanvasTypeStore } from '../../stores/canvas-type-store';
+import { Divider } from '../ui/Divider';
 import { ScrollArea } from '../ui/ScrollArea';
 
 interface SidebarProps {
@@ -22,12 +27,16 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { loadCanvases } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
   const { loadByProject: loadArchetypes } = useArchetypeStore();
+  const { loadByProject: loadRelationTypes } = useRelationTypeStore();
+  const { loadByProject: loadCanvasTypes } = useCanvasTypeStore();
 
   useEffect(() => {
     loadCanvases(project.id);
     loadModules(project.id);
     loadArchetypes(project.id);
-  }, [project.id, loadCanvases, loadModules, loadArchetypes]);
+    loadRelationTypes(project.id);
+    loadCanvasTypes(project.id);
+  }, [project.id, loadCanvases, loadModules, loadArchetypes, loadRelationTypes, loadCanvasTypes]);
 
   useEffect(() => {
     if (directories.length > 0) {
@@ -67,7 +76,15 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
               <FileTree nodes={fileTree} onFileClick={handleFileClick} />
             </>
           )}
-          {sidebarView === 'archetypes' && <ArchetypeList />}
+          {sidebarView === 'archetypes' && (
+            <>
+              <ArchetypeList />
+              <Divider />
+              <RelationTypeList />
+              <Divider />
+              <CanvasTypeList />
+            </>
+          )}
         </div>
       </ScrollArea>
     </div>

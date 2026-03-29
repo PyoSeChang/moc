@@ -8,6 +8,7 @@ import { migrate002 } from '../migrations/002-modules-and-hierarchical-canvas';
 import { migrate003 } from '../migrations/003-archetypes';
 import { migrate004 } from '../migrations/004-concept-content';
 import { migrate005 } from '../migrations/005-app-settings';
+import { migrate006 } from '../migrations/006-canvas-1n-and-types';
 
 let testDb: Database.Database | null = null;
 
@@ -20,6 +21,9 @@ export function setupTestDb(): Database.Database {
   migrate003(testDb);
   migrate004(testDb);
   migrate005(testDb);
+  testDb.pragma('foreign_keys = OFF');
+  migrate006(testDb);
+  testDb.pragma('foreign_keys = ON');
   return testDb;
 }
 

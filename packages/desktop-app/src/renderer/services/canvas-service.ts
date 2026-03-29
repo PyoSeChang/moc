@@ -1,14 +1,14 @@
 import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
-  Edge, EdgeCreate,
-  Concept, CanvasBreadcrumbItem,
+  Edge, EdgeCreate, EdgeUpdate,
+  Concept, RelationType, CanvasBreadcrumbItem,
 } from '@moc/shared/types';
 
 export interface CanvasFullData {
   canvas: Canvas;
-  nodes: (CanvasNode & { concept: Concept; has_sub_canvas: boolean })[];
-  edges: Edge[];
+  nodes: (CanvasNode & { concept?: Concept; canvas_count: number })[];
+  edges: (Edge & { relation_type?: RelationType })[];
 }
 import { unwrapIpc } from './ipc';
 
@@ -33,7 +33,7 @@ export async function getCanvasFull(canvasId: string): Promise<CanvasFullData | 
   return unwrapIpc(await window.electron.canvas.getFull(canvasId));
 }
 
-export async function getCanvasByConcept(conceptId: string): Promise<Canvas | undefined> {
+export async function getCanvasesByConcept(conceptId: string): Promise<Canvas[]> {
   return unwrapIpc(await window.electron.canvas.getByConcept(conceptId));
 }
 
@@ -59,6 +59,14 @@ export async function createEdge(data: EdgeCreate): Promise<Edge> {
   return unwrapIpc(await window.electron.edge.create(data as unknown as Record<string, unknown>));
 }
 
+export async function getEdge(id: string): Promise<Edge | undefined> {
+  return unwrapIpc(await window.electron.edge.get(id));
+}
+
+export async function updateEdge(id: string, data: EdgeUpdate): Promise<Edge> {
+  return unwrapIpc(await window.electron.edge.update(id, data as unknown as Record<string, unknown>));
+}
+
 export async function deleteEdge(id: string): Promise<boolean> {
   return unwrapIpc(await window.electron.edge.delete(id));
 }
@@ -66,7 +74,7 @@ export async function deleteEdge(id: string): Promise<boolean> {
 export const canvasService = {
   create: createCanvas, list: listCanvases, update: updateCanvas,
   delete: deleteCanvas, getFull: getCanvasFull,
-  getByConcept: getCanvasByConcept, getAncestors: getCanvasAncestors,
+  getCanvasesByConcept, getAncestors: getCanvasAncestors,
   node: { add: addCanvasNode, update: updateCanvasNode, remove: removeCanvasNode },
-  edge: { create: createEdge, delete: deleteEdge },
+  edge: { create: createEdge, get: getEdge, update: updateEdge, delete: deleteEdge },
 };

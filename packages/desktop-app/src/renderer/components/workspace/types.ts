@@ -5,6 +5,8 @@ export interface Viewport {
   panY: number;
 }
 
+export type CanvasNodeType = 'concept' | 'file' | 'dir';
+
 /** Node data for rendering */
 export interface RenderNode {
   id: string;
@@ -17,8 +19,11 @@ export interface RenderNode {
   semanticTypeLabel: string;
   width?: number;
   height?: number;
-  conceptId: string;
-  hasSubCanvas: boolean;
+  conceptId?: string;
+  canvasCount: number;
+  nodeType: CanvasNodeType;
+  filePath?: string;
+  dirPath?: string;
 }
 
 /** Edge data for rendering */
@@ -28,6 +33,8 @@ export interface RenderEdge {
   targetId: string;
   directed: boolean;
   label: string;
+  color?: string;
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
 }
 
 /** Layout input node */

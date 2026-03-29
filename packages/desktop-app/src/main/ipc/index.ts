@@ -10,6 +10,8 @@ import { registerConceptPropertyIpc } from './concept-property-ipc';
 import { registerConceptContentIpc } from './concept-content-ipc';
 import { registerPtyIpc } from './pty-ipc';
 import { registerConfigIpc } from './config-ipc';
+import { registerRelationTypeIpc } from './relation-type-ipc';
+import { registerCanvasTypeIpc } from './canvas-type-ipc';
 
 export function registerAllIpc(): void {
   registerProjectIpc();
@@ -24,4 +26,6 @@ export function registerAllIpc(): void {
   registerConceptContentIpc();
   registerPtyIpc();
   registerConfigIpc();
+  registerRelationTypeIpc();
+  registerCanvasTypeIpc();
 }

@@ -8,7 +8,10 @@ export interface EdgeLineProps {
   targetY: number;
   directed: boolean;
   label: string;
+  color?: string;
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
+  onDoubleClick?: (edgeId: string) => void;
 }
 
 const ARROW_SIZE = 8;
@@ -21,12 +24,22 @@ export const EdgeLine: React.FC<EdgeLineProps> = ({
   targetY,
   directed,
   label,
+  color,
+  lineStyle,
   onContextMenu,
+  onDoubleClick,
 }) => {
   const [hovered, setHovered] = useState(false);
 
   const handleMouseEnter = useCallback(() => setHovered(true), []);
   const handleMouseLeave = useCallback(() => setHovered(false), []);
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDoubleClick?.(id);
+    },
+    [id, onDoubleClick],
+  );
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -54,15 +67,18 @@ export const EdgeLine: React.FC<EdgeLineProps> = ({
   // 화살표 방향 계산
   const angle = Math.atan2(ty - sy, tx - sx);
 
-  const lineStroke = hovered ? 'var(--edge-hover)' : 'var(--edge-default)';
+  const defaultColor = color || 'var(--edge-default)';
+  const lineStroke = hovered ? 'var(--edge-hover)' : defaultColor;
   const lineWidth = hovered ? 2 : 1.5;
-  const arrowFill = hovered ? 'var(--edge-hover)' : 'var(--edge-default)';
+  const arrowFill = hovered ? 'var(--edge-hover)' : defaultColor;
+  const dashArray = lineStyle === 'dashed' ? '8,4' : lineStyle === 'dotted' ? '2,2' : undefined;
 
   return (
     <g
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}
+      onDoubleClick={handleDoubleClick}
     >
       {/* 히트 영역 (투명, 넓은 클릭 영역) */}
       <line
@@ -81,6 +97,7 @@ export const EdgeLine: React.FC<EdgeLineProps> = ({
         y2={ty}
         stroke={lineStroke}
         strokeWidth={lineWidth}
+        strokeDasharray={dashArray}
       />
       {/* 화살표 (directed일 때만) */}
       {directed && (

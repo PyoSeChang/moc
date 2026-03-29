@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Layers, Plus, Trash2 } from 'lucide-react';
+import { Layers, Link, Trash2 } from 'lucide-react';
 import { useCanvasStore } from '../../stores/canvas-store';
-import { canvasService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
+import type { CanvasMode } from '../../stores/ui-store';
 
 interface NodeContextMenuProps {
   x: number;
   y: number;
   nodeId: string;
-  conceptId: string;
-  hasSubCanvas: boolean;
+  conceptId?: string;
+  canvasCount: number;
+  mode: CanvasMode;
+  onAddConnection?: (nodeId: string) => void;
   onClose: () => void;
 }
 
@@ -18,15 +20,15 @@ export function NodeContextMenu({
   y,
   nodeId,
   conceptId,
-  hasSubCanvas,
+  canvasCount,
+  mode,
+  onAddConnection,
   onClose,
 }: NodeContextMenuProps): JSX.Element {
   const { t } = useI18n();
   const menuRef = useRef<HTMLDivElement>(null);
-  const { drillInto, removeNode, currentCanvas, openCanvas, nodes } =
-    useCanvasStore();
+  const { drillInto, removeNode } = useCanvasStore();
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -37,7 +39,6 @@ export function NodeContextMenu({
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose]);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -47,25 +48,14 @@ export function NodeContextMenu({
   }, [onClose]);
 
   const handleDrillInto = useCallback(async () => {
-    await drillInto(conceptId);
+    if (conceptId) await drillInto(conceptId);
     onClose();
   }, [drillInto, conceptId, onClose]);
 
-  const handleCreateSubCanvas = useCallback(async () => {
-    if (!currentCanvas) return;
-    const node = nodes.find((n) => n.id === nodeId);
-    const name = node ? `${node.concept.title} Canvas` : 'Sub Canvas';
-
-    await canvasService.create({
-      project_id: currentCanvas.project_id,
-      name,
-      concept_id: conceptId,
-    });
-
-    // Reload current canvas to update has_sub_canvas flags
-    await openCanvas(currentCanvas.id);
+  const handleAddConnection = useCallback(() => {
+    onAddConnection?.(nodeId);
     onClose();
-  }, [currentCanvas, nodes, nodeId, conceptId, openCanvas, onClose]);
+  }, [onAddConnection, nodeId, onClose]);
 
   const handleDelete = useCallback(async () => {
     await removeNode(nodeId);
@@ -78,7 +68,7 @@ export function NodeContextMenu({
       className="fixed z-50 bg-surface-card border border-subtle rounded shadow-lg py-1 min-w-[160px]"
       style={{ left: x, top: y }}
     >
-      {hasSubCanvas ? (
+      {conceptId && canvasCount > 0 && (
         <button
           className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
           onClick={handleDrillInto}
@@ -86,13 +76,14 @@ export function NodeContextMenu({
           <Layers size={14} />
           {t('canvas.openSubCanvas')}
         </button>
-      ) : (
+      )}
+      {mode === 'edit' && (
         <button
           className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
-          onClick={handleCreateSubCanvas}
+          onClick={handleAddConnection}
         >
-          <Plus size={14} />
-          {t('canvas.createSubCanvas')}
+          <Link size={14} />
+          {t('edge.addConnection')}
         </button>
       )}
       <button

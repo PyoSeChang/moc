@@ -7,6 +7,7 @@ import { migrate002 } from './migrations/002-modules-and-hierarchical-canvas';
 import { migrate003 } from './migrations/003-archetypes';
 import { migrate004 } from './migrations/004-concept-content';
 import { migrate005 } from './migrations/005-app-settings';
+import { migrate006 } from './migrations/006-canvas-1n-and-types';
 
 let db: Database.Database | null = null;
 
@@ -21,6 +22,7 @@ const migrations: Migration[] = [
   { version: 3, migrate: migrate003 },
   { version: 4, migrate: migrate004 },
   { version: 5, migrate: migrate005 },
+  { version: 6, migrate: migrate006 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {

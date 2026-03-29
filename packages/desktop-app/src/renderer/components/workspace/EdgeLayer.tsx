@@ -10,6 +10,7 @@ interface EdgeLayerProps {
   panY: number;
   nodeDragOffset: { id: string; dx: number; dy: number } | null;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
+  onDoubleClick?: (edgeId: string) => void;
 }
 
 /**
@@ -26,6 +27,7 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
   panY,
   nodeDragOffset,
   onContextMenu,
+  onDoubleClick,
 }) => {
   // Build node position map (with drag offset)
   const nodePositionMap = new Map<string, { x: number; y: number }>();
@@ -70,7 +72,10 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
               targetY={target.y}
               directed={edge.directed}
               label={edge.label}
+              color={edge.color}
+              lineStyle={edge.lineStyle}
               onContextMenu={onContextMenu}
+              onDoubleClick={onDoubleClick}
             />
           );
         })}

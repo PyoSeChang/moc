@@ -33,6 +33,8 @@ export const IPC_CHANNELS = {
 
   // Edge
   EDGE_CREATE: 'edge:create',
+  EDGE_GET: 'edge:get',
+  EDGE_UPDATE: 'edge:update',
   EDGE_DELETE: 'edge:delete',
 
   // Concept File
@@ -64,6 +66,23 @@ export const IPC_CHANNELS = {
   ARCHETYPE_FIELD_UPDATE: 'archetypeField:update',
   ARCHETYPE_FIELD_DELETE: 'archetypeField:delete',
   ARCHETYPE_FIELD_REORDER: 'archetypeField:reorder',
+
+  // RelationType
+  RELATION_TYPE_CREATE: 'relationType:create',
+  RELATION_TYPE_LIST: 'relationType:list',
+  RELATION_TYPE_GET: 'relationType:get',
+  RELATION_TYPE_UPDATE: 'relationType:update',
+  RELATION_TYPE_DELETE: 'relationType:delete',
+
+  // CanvasType
+  CANVAS_TYPE_CREATE: 'canvasType:create',
+  CANVAS_TYPE_LIST: 'canvasType:list',
+  CANVAS_TYPE_GET: 'canvasType:get',
+  CANVAS_TYPE_UPDATE: 'canvasType:update',
+  CANVAS_TYPE_DELETE: 'canvasType:delete',
+  CANVAS_TYPE_ADD_RELATION: 'canvasType:addRelation',
+  CANVAS_TYPE_REMOVE_RELATION: 'canvasType:removeRelation',
+  CANVAS_TYPE_LIST_RELATIONS: 'canvasType:listRelations',
 
   // Concept Property
   CONCEPT_PROP_UPSERT: 'conceptProp:upsert',

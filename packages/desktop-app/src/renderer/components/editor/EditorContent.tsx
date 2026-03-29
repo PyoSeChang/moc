@@ -4,6 +4,9 @@ import { ConceptEditor } from './ConceptEditor';
 import { FileEditor } from './FileEditor';
 import { ArchetypeEditor } from './ArchetypeEditor';
 import { TerminalEditor } from './TerminalEditor';
+import { RelationTypeEditor } from './RelationTypeEditor';
+import { CanvasTypeEditor } from './CanvasTypeEditor';
+import { EdgeEditor } from './EdgeEditor';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -24,6 +27,12 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       return <ArchetypeEditor tab={tab} />;
     case 'terminal':
       return <TerminalEditor tab={tab} />;
+    case 'relationType':
+      return <RelationTypeEditor tab={tab} />;
+    case 'canvasType':
+      return <CanvasTypeEditor tab={tab} />;
+    case 'edge':
+      return <EdgeEditor tab={tab} />;
     default:
       return (
         <div className="flex h-full items-center justify-center text-xs text-muted">

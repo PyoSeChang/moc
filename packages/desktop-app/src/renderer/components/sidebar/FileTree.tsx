@@ -175,6 +175,11 @@ function FileTreeItem({
         <div
           className="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs text-default hover:bg-surface-hover"
           style={{ paddingLeft: depth * 12 + 4 }}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/moc-node', JSON.stringify({ type: 'dir', path: node.path }));
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
           onClick={() => setExpanded(!expanded)}
           onContextMenu={(e) => onContextMenu(e, node)}
         >
@@ -231,6 +236,11 @@ function FileTreeItem({
     <div
       className="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs text-secondary hover:bg-surface-hover hover:text-default"
       style={{ paddingLeft: depth * 12 + 20 }}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('application/moc-node', JSON.stringify({ type: 'file', path: node.path }));
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
       onClick={() => onFileClick(node.path)}
       onContextMenu={(e) => onContextMenu(e, node)}
     >

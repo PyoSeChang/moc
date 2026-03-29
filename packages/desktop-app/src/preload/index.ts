@@ -38,6 +38,9 @@ const electronAPI = {
   },
   edge: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('edge:create', data),
+    get: (id: string) => ipcRenderer.invoke('edge:get', id),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('edge:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('edge:delete', id),
   },
   conceptFile: {
@@ -71,6 +74,27 @@ const electronAPI = {
     deleteField: (id: string) => ipcRenderer.invoke('archetypeField:delete', id),
     reorderFields: (archetypeId: string, orderedIds: string[]) =>
       ipcRenderer.invoke('archetypeField:reorder', archetypeId, orderedIds),
+  },
+  canvasType: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('canvasType:create', data),
+    list: (projectId: string) => ipcRenderer.invoke('canvasType:list', projectId),
+    get: (id: string) => ipcRenderer.invoke('canvasType:get', id),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('canvasType:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('canvasType:delete', id),
+    addRelation: (canvasTypeId: string, relationTypeId: string) =>
+      ipcRenderer.invoke('canvasType:addRelation', canvasTypeId, relationTypeId),
+    removeRelation: (canvasTypeId: string, relationTypeId: string) =>
+      ipcRenderer.invoke('canvasType:removeRelation', canvasTypeId, relationTypeId),
+    listRelations: (canvasTypeId: string) => ipcRenderer.invoke('canvasType:listRelations', canvasTypeId),
+  },
+  relationType: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('relationType:create', data),
+    list: (projectId: string) => ipcRenderer.invoke('relationType:list', projectId),
+    get: (id: string) => ipcRenderer.invoke('relationType:get', id),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('relationType:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('relationType:delete', id),
   },
   conceptProp: {
     upsert: (data: Record<string, unknown>) => ipcRenderer.invoke('conceptProp:upsert', data),

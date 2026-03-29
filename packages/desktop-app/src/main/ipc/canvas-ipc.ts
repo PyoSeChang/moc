@@ -2,9 +2,9 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
 import {
   createCanvas, listCanvases, updateCanvas, deleteCanvas, getCanvasFull,
-  getCanvasByConceptId, getCanvasAncestors,
+  getCanvasesByConceptId, getCanvasAncestors,
   addCanvasNode, updateCanvasNode, removeCanvasNode,
-  createEdge, deleteEdge,
+  createEdge, getEdge, updateEdge, deleteEdge,
 } from '../db/repositories/canvas';
 
 export function registerCanvasIpc(): void {
@@ -51,7 +51,7 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('canvas:getByConcept', async (_e, conceptId: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: getCanvasByConceptId(conceptId) };
+      return { success: true, data: getCanvasesByConceptId(conceptId) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -94,6 +94,22 @@ export function registerCanvasIpc(): void {
   ipcMain.handle('edge:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
       return { success: true, data: createEdge(data) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('edge:get', async (_e, id: string): Promise<IpcResult<unknown>> => {
+    try {
+      return { success: true, data: getEdge(id) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('edge:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
+    try {
+      return { success: true, data: updateEdge(id, data) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

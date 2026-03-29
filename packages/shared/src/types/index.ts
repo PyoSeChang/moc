@@ -59,6 +59,7 @@ export interface Canvas {
   id: string;
   project_id: string;
   concept_id: string | null;
+  canvas_type_id: string | null;
   name: string;
   viewport_x: number;
   viewport_y: number;
@@ -71,6 +72,7 @@ export interface CanvasCreate {
   project_id: string;
   name: string;
   concept_id?: string;
+  canvas_type_id?: string;
 }
 
 export interface CanvasUpdate {
@@ -87,7 +89,9 @@ export interface CanvasUpdate {
 export interface CanvasNode {
   id: string;
   canvas_id: string;
-  concept_id: string;
+  concept_id: string | null;
+  file_path: string | null;
+  dir_path: string | null;
   position_x: number;
   position_y: number;
   width: number | null;
@@ -96,7 +100,9 @@ export interface CanvasNode {
 
 export interface CanvasNodeCreate {
   canvas_id: string;
-  concept_id: string;
+  concept_id?: string;
+  file_path?: string;
+  dir_path?: string;
   position_x: number;
   position_y: number;
   width?: number;
@@ -119,6 +125,7 @@ export interface Edge {
   canvas_id: string;
   source_node_id: string;
   target_node_id: string;
+  relation_type_id: string | null;
   created_at: string;
 }
 
@@ -126,6 +133,11 @@ export interface EdgeCreate {
   canvas_id: string;
   source_node_id: string;
   target_node_id: string;
+  relation_type_id?: string;
+}
+
+export interface EdgeUpdate {
+  relation_type_id?: string | null;
 }
 
 // ============================================
@@ -307,6 +319,77 @@ export interface ConceptPropertyUpsert {
 }
 
 // ============================================
+// RelationType
+// ============================================
+
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+
+export interface RelationType {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  line_style: LineStyle;
+  directed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelationTypeCreate {
+  project_id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  line_style?: LineStyle;
+  directed?: boolean;
+}
+
+export interface RelationTypeUpdate {
+  name?: string;
+  description?: string | null;
+  color?: string | null;
+  line_style?: LineStyle;
+  directed?: boolean;
+}
+
+// ============================================
+// CanvasType
+// ============================================
+
+export interface CanvasType {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CanvasTypeCreate {
+  project_id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface CanvasTypeUpdate {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+}
+
+export interface CanvasTypeAllowedRelation {
+  id: string;
+  canvas_type_id: string;
+  relation_type_id: string;
+}
+
+// ============================================
 // Canvas Breadcrumb
 // ============================================
 
@@ -321,7 +404,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';

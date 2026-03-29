@@ -16,6 +16,8 @@ interface NodeLayerProps {
   onNodeDoubleClick: (id: string) => void;
   onNodeDragStart: (nodeId: string, startX: number, startY: number) => void;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
+  onNodeMouseEnter?: (id: string, screenX: number, screenY: number) => void;
+  onNodeMouseLeave?: (id: string) => void;
 }
 
 export const NodeLayer: React.FC<NodeLayerProps> = ({
@@ -31,6 +33,8 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   onNodeDoubleClick,
   onNodeDragStart,
   onContextMenu,
+  onNodeMouseEnter,
+  onNodeMouseLeave,
 }) => {
   const getNodeTransform = (node: RenderNode) => {
     let x = node.x;
@@ -77,6 +81,8 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
             onDoubleClick={onNodeDoubleClick}
             onDragStart={onNodeDragStart}
             onContextMenu={onContextMenu}
+            onMouseEnter={onNodeMouseEnter ? (e: React.MouseEvent) => onNodeMouseEnter(node.id, e.clientX, e.clientY) : undefined}
+            onMouseLeave={onNodeMouseLeave ? () => onNodeMouseLeave(node.id) : undefined}
           />
         );
       })}

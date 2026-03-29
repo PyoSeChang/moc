@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, closeDatabase } from './db/connection';
 import { registerAllIpc } from './ipc';
 import { ptyManager } from './pty/pty-manager';
+import { getSetting, setSetting } from './db/repositories/settings';
 
 // Force userData to %APPDATA%/moc
 app.name = 'moc';
@@ -12,10 +13,31 @@ app.setPath('userData', join(app.getPath('appData'), 'moc'));
 let mainWindow: BrowserWindow | null = null;
 const detachedWindows = new Map<string, BrowserWindow>();
 
+function loadWindowBounds(): { width: number; height: number; x?: number; y?: number; isMaximized?: boolean } {
+  const raw = getSetting('windowBounds');
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch { /* use defaults */ }
+  }
+  return { width: 1200, height: 800 };
+}
+
+function saveWindowBounds(win: BrowserWindow): void {
+  const isMaximized = win.isMaximized();
+  // Save normal (non-maximized) bounds so restore works correctly
+  const bounds = isMaximized ? (win as any)._lastNormalBounds ?? win.getNormalBounds() : win.getBounds();
+  setSetting('windowBounds', JSON.stringify({ ...bounds, isMaximized }));
+}
+
 function createWindow(): void {
+  const saved = loadWindowBounds();
+
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: saved.width,
+    height: saved.height,
+    x: saved.x,
+    y: saved.y,
     minWidth: 800,
     minHeight: 600,
     show: false,
@@ -28,6 +50,26 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  if (saved.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  // Track normal bounds for save when maximized
+  mainWindow.on('resize', () => {
+    if (mainWindow && !mainWindow.isMaximized()) {
+      (mainWindow as any)._lastNormalBounds = mainWindow.getBounds();
+    }
+  });
+  mainWindow.on('move', () => {
+    if (mainWindow && !mainWindow.isMaximized()) {
+      (mainWindow as any)._lastNormalBounds = mainWindow.getBounds();
+    }
+  });
+
+  mainWindow.on('close', () => {
+    if (mainWindow) saveWindowBounds(mainWindow);
   });
 
   mainWindow.on('ready-to-show', () => {
@@ -53,7 +95,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  await initDatabase();
+  await initDatabase(is.dev);
   registerAllIpc();
 
   // Window control IPC

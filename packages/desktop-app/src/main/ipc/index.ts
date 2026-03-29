@@ -9,6 +9,7 @@ import { registerArchetypeIpc } from './archetype-ipc';
 import { registerConceptPropertyIpc } from './concept-property-ipc';
 import { registerConceptContentIpc } from './concept-content-ipc';
 import { registerPtyIpc } from './pty-ipc';
+import { registerConfigIpc } from './config-ipc';
 
 export function registerAllIpc(): void {
   registerProjectIpc();
@@ -22,4 +23,5 @@ export function registerAllIpc(): void {
   registerConceptPropertyIpc();
   registerConceptContentIpc();
   registerPtyIpc();
+  registerConfigIpc();
 }

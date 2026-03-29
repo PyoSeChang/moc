@@ -6,6 +6,7 @@ import { migrate001 } from './migrations/001-initial';
 import { migrate002 } from './migrations/002-modules-and-hierarchical-canvas';
 import { migrate003 } from './migrations/003-archetypes';
 import { migrate004 } from './migrations/004-concept-content';
+import { migrate005 } from './migrations/005-app-settings';
 
 let db: Database.Database | null = null;
 
@@ -19,6 +20,7 @@ const migrations: Migration[] = [
   { version: 2, migrate: migrate002 },
   { version: 3, migrate: migrate003 },
   { version: 4, migrate: migrate004 },
+  { version: 5, migrate: migrate005 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {
@@ -33,11 +35,13 @@ export function tableExists(db: Database.Database, table: string): boolean {
   return !!row;
 }
 
-export async function initDatabase(): Promise<void> {
+export async function initDatabase(isDev = false): Promise<void> {
   const dbDir = join(app.getPath('userData'), 'data');
   mkdirSync(dbDir, { recursive: true });
 
-  const dbPath = join(dbDir, 'moc.db');
+  const dbName = isDev ? 'moc-dev.db' : 'moc.db';
+  const dbPath = join(dbDir, dbName);
+  console.log(`[DB] Using database: ${dbPath}`);
   db = new Database(dbPath);
 
   // Enable WAL mode and foreign keys

@@ -10,14 +10,14 @@ import { Spinner } from '../ui/Spinner';
 
 export function ProjectHome(): JSX.Element {
   const { t } = useI18n();
-  const { projects, loading, loadProjects, createProject, openProject, deleteProject } =
+  const { projects, loading, loadProjects, restoreLastProject, createProject, openProject, deleteProject } =
     useProjectStore();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    loadProjects().then(() => restoreLastProject());
+  }, [loadProjects, restoreLastProject]);
 
   const handleCreate = async (name: string, rootDir: string) => {
     const project = await createProject(name, rootDir);

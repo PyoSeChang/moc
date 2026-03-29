@@ -12,6 +12,7 @@ import { EditorContent } from '../editor/EditorContent';
 import { EditorTabStrip } from '../editor/EditorTabStrip';
 import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
+import { ResizeHandle } from '../ui/ResizeHandle';
 import { useEditorStore, getActiveTabFromLayout } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
@@ -230,11 +231,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
       {sidebarOpen && (
         <>
           <Sidebar project={project} />
-          <div
-            className="shrink-0 cursor-col-resize bg-transparent hover:bg-accent/50"
-            style={{ width: 3 }}
-            onMouseDown={handleSidebarResizeStart}
-          />
+          <ResizeHandle onMouseDown={handleSidebarResizeStart} />
         </>
       )}
 
@@ -274,13 +271,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             {/* Side editor */}
             {hasSideEditor && sideLayout && (
               <>
+                <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
                 <div
-                  className="shrink-0 cursor-col-resize bg-border-subtle hover:bg-accent"
-                  style={{ width: 4 }}
-                  onMouseDown={handleEditorSplitDragStart}
-                />
-                <div
-                  className="flex flex-col overflow-hidden border-l border-subtle bg-surface-panel"
+                  className="flex flex-col overflow-hidden bg-surface-panel"
                   style={{ width: `${(1 - splitRatio) * 100}%` }}
                 >
                   <SplitPaneRenderer

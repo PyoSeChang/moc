@@ -26,3 +26,4 @@ export { DatePicker } from './DatePicker';
 export { LinkInput } from './LinkInput';
 export { RelationPicker } from './RelationPicker';
 export { FilePicker } from './FilePicker';
+export { ResizeHandle } from './ResizeHandle';

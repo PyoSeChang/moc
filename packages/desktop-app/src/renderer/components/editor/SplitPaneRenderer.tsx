@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import type { SplitNode, SplitLeaf } from '@moc/shared/types';
+import { ResizeHandle } from '../ui/ResizeHandle';
 
 interface SplitPaneRendererProps {
   node: SplitNode;
@@ -100,22 +101,6 @@ function SplitHandle({ direction, mode, path, onRatioChange }: SplitHandleProps)
   );
 
   return (
-    <div
-      className={`relative z-10 group ${
-        direction === 'horizontal' ? 'cursor-col-resize' : 'cursor-row-resize'
-      }`}
-      style={
-        direction === 'horizontal'
-          ? { width: 0, marginLeft: -3, marginRight: -3, paddingLeft: 3, paddingRight: 3 }
-          : { height: 0, marginTop: -3, marginBottom: -3, paddingTop: 3, paddingBottom: 3 }
-      }
-      onMouseDown={handleMouseDown}
-    >
-      <div
-        className={`pointer-events-none bg-surface-base group-hover:bg-accent transition-colors ${
-          direction === 'horizontal' ? 'h-full w-px' : 'w-full h-px'
-        }`}
-      />
-    </div>
+    <ResizeHandle direction={direction} onMouseDown={handleMouseDown} />
   );
 }

@@ -326,7 +326,6 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
   }, [renderNodes, containerSize]);
 
   const canvasHistory = useCanvasStore((s) => s.canvasHistory);
-  const navigateBack = useCanvasStore((s) => s.navigateBack);
   const toggleMode = useCallback(() => {
     useUIStore.getState().setCanvasMode(canvasMode === 'browse' ? 'edit' : 'browse');
   }, [canvasMode]);

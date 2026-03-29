@@ -35,6 +35,10 @@ const mockElectron = {
     writeFile: vi.fn(),
     openDialog: vi.fn(),
   },
+  config: {
+    get: vi.fn().mockResolvedValue({ success: true, data: null }),
+    set: vi.fn().mockResolvedValue({ success: true, data: true }),
+  },
 };
 
 Object.defineProperty(globalThis, 'window', {

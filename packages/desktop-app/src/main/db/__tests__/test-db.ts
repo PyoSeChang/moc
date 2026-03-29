@@ -5,6 +5,9 @@
 import Database from 'better-sqlite3';
 import { migrate001 } from '../migrations/001-initial';
 import { migrate002 } from '../migrations/002-modules-and-hierarchical-canvas';
+import { migrate003 } from '../migrations/003-archetypes';
+import { migrate004 } from '../migrations/004-concept-content';
+import { migrate005 } from '../migrations/005-app-settings';
 
 let testDb: Database.Database | null = null;
 
@@ -14,6 +17,9 @@ export function setupTestDb(): Database.Database {
   testDb.pragma('foreign_keys = ON');
   migrate001(testDb);
   migrate002(testDb);
+  migrate003(testDb);
+  migrate004(testDb);
+  migrate005(testDb);
   return testDb;
 }
 

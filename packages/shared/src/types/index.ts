@@ -355,6 +355,8 @@ export interface EditorTab {
   isDirty: boolean;
   /** Active sub-file within a concept editor */
   activeFilePath: string | null;
+  /** Override editor type for file tabs (when user switches via context menu) */
+  editorType?: string;
 }
 
 export interface ConceptEditorPrefs {

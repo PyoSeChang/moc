@@ -7,7 +7,7 @@ const electronAPI = {
     close: () => ipcRenderer.send('window:close'),
   },
   project: {
-    create: (data: { name: string; root_dir: string }) =>
+    create: (data: { name: string; root_dir?: string }) =>
       ipcRenderer.invoke('project:create', data),
     list: () => ipcRenderer.invoke('project:list'),
     delete: (id: string) => ipcRenderer.invoke('project:delete', id),
@@ -29,6 +29,7 @@ const electronAPI = {
     getFull: (canvasId: string) => ipcRenderer.invoke('canvas:getFull', canvasId),
     getByConcept: (conceptId: string) => ipcRenderer.invoke('canvas:getByConcept', conceptId),
     getAncestors: (canvasId: string) => ipcRenderer.invoke('canvas:getAncestors', canvasId),
+    getTree: (projectId: string) => ipcRenderer.invoke('canvas:getTree', projectId),
   },
   canvasNode: {
     add: (data: Record<string, unknown>) => ipcRenderer.invoke('canvasNode:add', data),

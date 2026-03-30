@@ -3,6 +3,7 @@ import type {
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate, EdgeUpdate,
   Concept, RelationType, CanvasBreadcrumbItem,
+  CanvasTreeNode,
 } from '@moc/shared/types';
 
 export interface CanvasFullData {
@@ -41,6 +42,10 @@ export async function getCanvasAncestors(canvasId: string): Promise<CanvasBreadc
   return unwrapIpc(await window.electron.canvas.getAncestors(canvasId));
 }
 
+export async function getCanvasTree(projectId: string): Promise<CanvasTreeNode[]> {
+  return unwrapIpc(await window.electron.canvas.getTree(projectId));
+}
+
 // Canvas Node
 export async function addCanvasNode(data: CanvasNodeCreate): Promise<CanvasNode> {
   return unwrapIpc(await window.electron.canvasNode.add(data as unknown as Record<string, unknown>));
@@ -74,7 +79,7 @@ export async function deleteEdge(id: string): Promise<boolean> {
 export const canvasService = {
   create: createCanvas, list: listCanvases, update: updateCanvas,
   delete: deleteCanvas, getFull: getCanvasFull,
-  getCanvasesByConcept, getAncestors: getCanvasAncestors,
+  getCanvasesByConcept, getAncestors: getCanvasAncestors, getTree: getCanvasTree,
   node: { add: addCanvasNode, update: updateCanvasNode, remove: removeCanvasNode },
   edge: { create: createEdge, get: getEdge, update: updateEdge, delete: deleteEdge },
 };

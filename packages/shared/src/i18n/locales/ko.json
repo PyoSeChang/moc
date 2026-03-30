@@ -56,7 +56,8 @@
     "canvasesForConcept": "캔버스 목록",
     "selectTarget": "연결할 노드를 클릭하세요",
     "addFileNode": "파일 노드 추가",
-    "addDirNode": "디렉터리 노드 추가"
+    "addDirNode": "디렉터리 노드 추가",
+    "createCanvas": "캔버스 추가"
   },
   "concept": {
     "create": "개념 생성",
@@ -106,7 +107,11 @@
     "noRelationType": "유형 없음",
     "source": "시작 노드",
     "target": "대상 노드",
-    "deleteConfirm": "이 연결을 삭제하시겠습니까?"
+    "deleteConfirm": "이 연결을 삭제하시겠습니까?",
+    "descriptionPlaceholder": "이 연결에 대한 설명...",
+    "visualOverride": "시각 설정 (개별)",
+    "resetToDefault": "유형 기본값으로 초기화",
+    "inheritFromType": "유형에서 상속"
   },
   "canvasType": {
     "title": "캔버스 유형",
@@ -141,6 +146,7 @@
   "editor": {
     "unsaved": "저장되지 않은 변경",
     "openExternal": "외부 앱으로 열기",
+    "openInEditor": "에디터에서 열기",
     "noFileSelected": "선택된 파일 없음",
     "cannotPreview": ".{ext} 파일은 미리 볼 수 없습니다",
     "modeFloat": "플로트",

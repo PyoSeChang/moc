@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -13,26 +13,17 @@ interface EdgeContextMenuProps {
 
 export function EdgeContextMenu({ x, y, edgeId, onClose }: EdgeContextMenuProps): JSX.Element {
   const { t } = useI18n();
-  const menuRef = useRef<HTMLDivElement>(null);
   const { removeEdge } = useCanvasStore();
 
   useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
   const handleDelete = useCallback(async () => {
-    // Close any open EdgeEditor tab for this edge
     const tabId = `edge:${edgeId}`;
     const tab = useEditorStore.getState().tabs.find((t) => t.id === tabId);
     if (tab) useEditorStore.getState().closeTab(tabId);
@@ -43,9 +34,9 @@ export function EdgeContextMenu({ x, y, edgeId, onClose }: EdgeContextMenuProps)
 
   return (
     <div
-      ref={menuRef}
       className="fixed z-50 bg-surface-card border border-subtle rounded shadow-lg py-1 min-w-[140px]"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-status-error hover:bg-surface-hover cursor-pointer"

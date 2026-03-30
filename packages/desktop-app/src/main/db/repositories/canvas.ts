@@ -31,6 +31,79 @@ export function listCanvases(projectId: string, rootOnly = false): Canvas[] {
   return db.prepare(sql).all(projectId) as Canvas[];
 }
 
+export interface CanvasTreeNode {
+  canvas: Canvas;
+  conceptTitle: string | null;
+  children: CanvasTreeNode[];
+}
+
+export function getCanvasTree(projectId: string): CanvasTreeNode[] {
+  const db = getDatabase();
+
+  // All canvases for this project
+  const allCanvases = db.prepare('SELECT * FROM canvases WHERE project_id = ? ORDER BY created_at')
+    .all(projectId) as Canvas[];
+
+  // All canvas_nodes: which concept is placed in which canvas
+  const nodeRows = db.prepare(
+    `SELECT cn.canvas_id, cn.concept_id, c.title as concept_title
+     FROM canvas_nodes cn
+     JOIN concepts c ON cn.concept_id = c.id
+     WHERE cn.concept_id IS NOT NULL
+       AND cn.canvas_id IN (SELECT id FROM canvases WHERE project_id = ?)`,
+  ).all(projectId) as { canvas_id: string; concept_id: string; concept_title: string }[];
+
+  // Map: concept_id → which canvas it's placed in (parent canvas)
+  const conceptToParentCanvas = new Map<string, string>();
+  const conceptTitles = new Map<string, string>();
+  for (const row of nodeRows) {
+    conceptToParentCanvas.set(row.concept_id, row.canvas_id);
+    conceptTitles.set(row.concept_id, row.concept_title);
+  }
+
+  // Map: canvas_id → Canvas
+  const canvasMap = new Map(allCanvases.map((c) => [c.id, c]));
+
+  // Group canvases by their parent canvas
+  // A canvas's parent = the canvas that contains its concept_id as a node
+  const childrenOf = new Map<string, CanvasTreeNode[]>(); // parent_canvas_id → children
+  const roots: CanvasTreeNode[] = [];
+
+  for (const canvas of allCanvases) {
+    const node: CanvasTreeNode = {
+      canvas,
+      conceptTitle: canvas.concept_id ? (conceptTitles.get(canvas.concept_id) ?? null) : null,
+      children: [],
+    };
+
+    if (!canvas.concept_id) {
+      // Root canvas
+      roots.push(node);
+    } else {
+      const parentCanvasId = conceptToParentCanvas.get(canvas.concept_id);
+      if (parentCanvasId) {
+        const siblings = childrenOf.get(parentCanvasId) ?? [];
+        siblings.push(node);
+        childrenOf.set(parentCanvasId, siblings);
+      } else {
+        // Concept exists but isn't placed on any canvas — treat as orphan root
+        roots.push(node);
+      }
+    }
+  }
+
+  // Recursively attach children
+  function attachChildren(nodes: CanvasTreeNode[]): void {
+    for (const node of nodes) {
+      node.children = childrenOf.get(node.canvas.id) ?? [];
+      attachChildren(node.children);
+    }
+  }
+  attachChildren(roots);
+
+  return roots;
+}
+
 export function getCanvasesByConceptId(conceptId: string): Canvas[] {
   const db = getDatabase();
   return db
@@ -83,9 +156,10 @@ export function updateCanvas(id: string, data: CanvasUpdate): Canvas | undefined
 
   const now = new Date().toISOString();
   db.prepare(
-    `UPDATE canvases SET name = ?, viewport_x = ?, viewport_y = ?, viewport_zoom = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE canvases SET name = ?, canvas_type_id = ?, viewport_x = ?, viewport_y = ?, viewport_zoom = ?, updated_at = ? WHERE id = ?`,
   ).run(
     data.name !== undefined ? data.name : existing.name,
+    data.canvas_type_id !== undefined ? data.canvas_type_id : existing.canvas_type_id,
     data.viewport_x !== undefined ? data.viewport_x : existing.viewport_x,
     data.viewport_y !== undefined ? data.viewport_y : existing.viewport_y,
     data.viewport_zoom !== undefined ? data.viewport_zoom : existing.viewport_zoom,
@@ -250,9 +324,14 @@ export function createEdge(data: EdgeCreate): Edge {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO edges (id, canvas_id, source_node_id, target_node_id, relation_type_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, data.canvas_id, data.source_node_id, data.target_node_id, data.relation_type_id ?? null, now);
+    `INSERT INTO edges (id, canvas_id, source_node_id, target_node_id, relation_type_id, description, color, line_style, directed, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id, data.canvas_id, data.source_node_id, data.target_node_id,
+    data.relation_type_id ?? null, data.description ?? null,
+    data.color ?? null, data.line_style ?? null, data.directed != null ? (data.directed ? 1 : 0) : null,
+    now,
+  );
 
   return db.prepare('SELECT * FROM edges WHERE id = ?').get(id) as Edge;
 }
@@ -267,8 +346,12 @@ export function updateEdge(id: string, data: EdgeUpdate): Edge | undefined {
   const existing = db.prepare('SELECT * FROM edges WHERE id = ?').get(id) as Edge | undefined;
   if (!existing) return undefined;
 
-  db.prepare('UPDATE edges SET relation_type_id = ? WHERE id = ?').run(
+  db.prepare('UPDATE edges SET relation_type_id = ?, description = ?, color = ?, line_style = ?, directed = ? WHERE id = ?').run(
     data.relation_type_id !== undefined ? data.relation_type_id : existing.relation_type_id,
+    data.description !== undefined ? data.description : existing.description,
+    data.color !== undefined ? data.color : existing.color,
+    data.line_style !== undefined ? data.line_style : existing.line_style,
+    data.directed !== undefined ? (data.directed != null ? (data.directed ? 1 : 0) : null) : existing.directed,
     id,
   );
 

@@ -254,7 +254,6 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               onDragLeave={handleCanvasDragLeave}
               onDrop={handleCanvasDrop}
             >
-              <CanvasBreadcrumb />
               <ConceptWorkspace projectId={project.id} />
 
               {showSideDropHint && !hasSideEditor && (

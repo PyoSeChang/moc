@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Layers, Link, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Layers, Link, Plus, Trash2 } from 'lucide-react';
+import type { Canvas } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
+import { canvasService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import type { CanvasMode } from '../../stores/ui-store';
 
@@ -12,6 +14,7 @@ interface NodeContextMenuProps {
   canvasCount: number;
   mode: CanvasMode;
   onAddConnection?: (nodeId: string) => void;
+  onCreateCanvas?: (conceptId: string) => void;
   onClose: () => void;
 }
 
@@ -23,21 +26,12 @@ export function NodeContextMenu({
   canvasCount,
   mode,
   onAddConnection,
+  onCreateCanvas,
   onClose,
 }: NodeContextMenuProps): JSX.Element {
   const { t } = useI18n();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { drillInto, removeNode } = useCanvasStore();
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
+  const { drillInto, removeNode, currentCanvas } = useCanvasStore();
+  const [canvases, setCanvases] = useState<Canvas[]>([]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -47,10 +41,27 @@ export function NodeContextMenu({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleDrillInto = useCallback(async () => {
-    if (conceptId) await drillInto(conceptId);
+  // Load canvases for this concept
+  useEffect(() => {
+    if (conceptId) {
+      canvasService.getCanvasesByConcept(conceptId).then(setCanvases);
+    }
+  }, [conceptId]);
+
+  const handleNavigateToCanvas = useCallback(async (canvasId: string) => {
+    if (currentCanvas) {
+      useCanvasStore.setState((s) => ({
+        canvasHistory: [...s.canvasHistory, currentCanvas.id],
+      }));
+    }
+    await useCanvasStore.getState().openCanvas(canvasId);
     onClose();
-  }, [drillInto, conceptId, onClose]);
+  }, [currentCanvas, onClose]);
+
+  const handleCreateCanvas = useCallback(() => {
+    if (conceptId) onCreateCanvas?.(conceptId);
+    onClose();
+  }, [onCreateCanvas, conceptId, onClose]);
 
   const handleAddConnection = useCallback(() => {
     onAddConnection?.(nodeId);
@@ -64,19 +75,42 @@ export function NodeContextMenu({
 
   return (
     <div
-      ref={menuRef}
       className="fixed z-50 bg-surface-card border border-subtle rounded shadow-lg py-1 min-w-[160px]"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      {conceptId && canvasCount > 0 && (
+      {/* Canvas list section */}
+      {conceptId && canvases.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] text-muted uppercase tracking-wider flex items-center gap-1">
+            <Layers size={10} />
+            {t('canvas.canvasesForConcept') ?? 'Canvases'}
+          </div>
+          {canvases.map((c) => (
+            <button
+              key={c.id}
+              className="flex w-full items-center gap-2 px-3 py-1 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
+              onClick={() => handleNavigateToCanvas(c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
+          <div className="my-1 border-t border-subtle" />
+        </>
+      )}
+
+      {/* Canvas creation */}
+      {conceptId && (
         <button
           className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
-          onClick={handleDrillInto}
+          onClick={handleCreateCanvas}
         >
-          <Layers size={14} />
-          {t('canvas.openSubCanvas')}
+          <Plus size={14} />
+          {t('canvas.createCanvas')}
         </button>
       )}
+
+      {/* Edge connection (edit mode only) */}
       {mode === 'edit' && (
         <button
           className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
@@ -86,6 +120,8 @@ export function NodeContextMenu({
           {t('edge.addConnection')}
         </button>
       )}
+
+      {/* Delete */}
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
         onClick={handleDelete}

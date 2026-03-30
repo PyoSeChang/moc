@@ -6,6 +6,9 @@ import { useEditorStore } from '../../stores/editor-store';
 import { canvasService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import { Select } from '../ui/Select';
+import { TextArea } from '../ui/TextArea';
+import { ColorPicker } from '../ui/ColorPicker';
+import { Toggle } from '../ui/Toggle';
 import { Button } from '../ui/Button';
 import { ScrollArea } from '../ui/ScrollArea';
 
@@ -33,10 +36,15 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     ...relationTypes.map((rt) => ({ value: rt.id, label: rt.name })),
   ], [relationTypes, t]);
 
-  const handleUpdateRelationType = useCallback(async (relationTypeId: string) => {
-    const data: EdgeUpdate = { relation_type_id: relationTypeId || null };
+  const lineStyleOptions = [
+    { value: '', label: t('edge.inheritFromType') ?? 'Inherit' },
+    { value: 'solid', label: t('relationType.solid') },
+    { value: 'dashed', label: t('relationType.dashed') },
+    { value: 'dotted', label: t('relationType.dotted') },
+  ];
+
+  const handleUpdate = useCallback(async (data: EdgeUpdate) => {
     await canvasService.edge.update(edgeId, data);
-    // Reload canvas to refresh edge data with relation_type join
     if (currentCanvas) await openCanvas(currentCanvas.id);
   }, [edgeId, currentCanvas, openCanvas]);
 
@@ -52,6 +60,12 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
       </div>
     );
   }
+
+  // Resolve effective values (edge override > relation type default)
+  const rt = edge.relation_type;
+  const effectiveColor = edge.color ?? rt?.color ?? null;
+  const effectiveLineStyle = edge.line_style ?? rt?.line_style ?? 'solid';
+  const effectiveDirected = edge.directed != null ? !!edge.directed : (rt?.directed ?? false);
 
   return (
     <ScrollArea>
@@ -79,9 +93,67 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <Select
               options={relationTypeOptions}
               value={edge.relation_type_id ?? ''}
-              onChange={(e) => handleUpdateRelationType(e.target.value)}
+              onChange={(e) => handleUpdate({ relation_type_id: e.target.value || null })}
               selectSize="sm"
             />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted">{t('relationType.description')}</label>
+            <TextArea
+              value={edge.description ?? ''}
+              onChange={(e) => handleUpdate({ description: e.target.value || null })}
+              rows={4}
+              placeholder={t('edge.descriptionPlaceholder')}
+            />
+          </div>
+
+          {/* Visual Overrides */}
+          <div className="flex flex-col gap-3">
+            <label className="text-xs font-medium text-muted">{t('edge.visualOverride') ?? 'Visual Override'}</label>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs text-muted">{t('relationType.color')}</span>
+              <ColorPicker
+                value={edge.color ?? undefined}
+                onChange={(color) => handleUpdate({ color })}
+              />
+              {edge.color && (
+                <button
+                  className="text-[10px] text-muted hover:text-default self-start"
+                  onClick={() => handleUpdate({ color: null })}
+                >
+                  {t('edge.resetToDefault') ?? 'Reset to type default'}
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs text-muted">{t('relationType.lineStyle')}</span>
+              <Select
+                options={lineStyleOptions}
+                value={edge.line_style ?? ''}
+                onChange={(e) => handleUpdate({ line_style: e.target.value || null })}
+                selectSize="sm"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Toggle
+                checked={effectiveDirected}
+                onChange={(checked) => handleUpdate({ directed: checked })}
+              />
+              <span className="text-xs text-muted">{t('relationType.directed')}</span>
+              {edge.directed != null && (
+                <button
+                  className="text-[10px] text-muted hover:text-default"
+                  onClick={() => handleUpdate({ directed: null })}
+                >
+                  {t('edge.resetToDefault') ?? 'Reset'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Delete */}

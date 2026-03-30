@@ -43,8 +43,12 @@ export function migrate006(db: Database.Database): void {
     )
   `);
 
-  // 5. edges에 relation_type_id 추가
+  // 5. edges에 relation_type_id, description, color, line_style, directed 추가
   db.exec(`ALTER TABLE edges ADD COLUMN relation_type_id TEXT REFERENCES relation_types(id) ON DELETE SET NULL`);
+  db.exec(`ALTER TABLE edges ADD COLUMN description TEXT`);
+  db.exec(`ALTER TABLE edges ADD COLUMN color TEXT`);
+  db.exec(`ALTER TABLE edges ADD COLUMN line_style TEXT`);
+  db.exec(`ALTER TABLE edges ADD COLUMN directed INTEGER`);
 
   // 6. canvases에 canvas_type_id 추가
   db.exec(`ALTER TABLE canvases ADD COLUMN canvas_type_id TEXT REFERENCES canvas_types(id) ON DELETE SET NULL`);

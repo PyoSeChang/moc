@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
 import {
   createCanvas, listCanvases, updateCanvas, deleteCanvas, getCanvasFull,
-  getCanvasesByConceptId, getCanvasAncestors,
+  getCanvasesByConceptId, getCanvasAncestors, getCanvasTree,
   addCanvasNode, updateCanvasNode, removeCanvasNode,
   createEdge, getEdge, updateEdge, deleteEdge,
 } from '../db/repositories/canvas';
@@ -60,6 +60,14 @@ export function registerCanvasIpc(): void {
   ipcMain.handle('canvas:getAncestors', async (_e, canvasId: string): Promise<IpcResult<unknown>> => {
     try {
       return { success: true, data: getCanvasAncestors(canvasId) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('canvas:getTree', async (_e, projectId: string): Promise<IpcResult<unknown>> => {
+    try {
+      return { success: true, data: getCanvasTree(projectId) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

@@ -56,7 +56,8 @@
     "canvasesForConcept": "Canvases",
     "selectTarget": "Click a node to connect",
     "addFileNode": "Add File Node",
-    "addDirNode": "Add Directory Node"
+    "addDirNode": "Add Directory Node",
+    "createCanvas": "Create Canvas"
   },
   "concept": {
     "create": "Create Concept",
@@ -106,7 +107,11 @@
     "noRelationType": "No type",
     "source": "Source",
     "target": "Target",
-    "deleteConfirm": "Delete this connection?"
+    "deleteConfirm": "Delete this connection?",
+    "descriptionPlaceholder": "Describe this connection...",
+    "visualOverride": "Visual Override",
+    "resetToDefault": "Reset to type default",
+    "inheritFromType": "Inherit from type"
   },
   "canvasType": {
     "title": "Canvas Types",
@@ -141,6 +146,7 @@
   "editor": {
     "unsaved": "Unsaved changes",
     "openExternal": "Open in External App",
+    "openInEditor": "Open in Editor",
     "noFileSelected": "No file selected",
     "cannotPreview": ".{ext} files cannot be previewed",
     "modeFloat": "Float",

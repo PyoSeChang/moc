@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, ArrowRightLeft, File, Folder } from 'lucide-react';
+import { Plus, ArrowRightLeft, File } from 'lucide-react';
 import type { Canvas } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { canvasService } from '../../services';
@@ -15,19 +15,8 @@ interface CanvasContextMenuProps {
 
 export function CanvasContextMenu({ x, y, onCreateConcept, onAddFileNode, onClose }: CanvasContextMenuProps): JSX.Element {
   const { t } = useI18n();
-  const menuRef = useRef<HTMLDivElement>(null);
   const { currentCanvas, canvases, openCanvas } = useCanvasStore();
   const [siblingCanvases, setSiblingCanvases] = useState<Canvas[]>([]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -41,12 +30,10 @@ export function CanvasContextMenu({ x, y, onCreateConcept, onAddFileNode, onClos
   useEffect(() => {
     if (!currentCanvas) return;
     if (currentCanvas.concept_id) {
-      // Sub-canvas: siblings are canvases with same concept_id
       canvasService.getCanvasesByConcept(currentCanvas.concept_id).then((list) => {
         setSiblingCanvases(list.filter((c) => c.id !== currentCanvas.id));
       });
     } else {
-      // Root canvas: siblings are other root canvases
       setSiblingCanvases(canvases.filter((c) => c.id !== currentCanvas.id));
     }
   }, [currentCanvas, canvases]);
@@ -58,9 +45,9 @@ export function CanvasContextMenu({ x, y, onCreateConcept, onAddFileNode, onClos
 
   return (
     <div
-      ref={menuRef}
       className="fixed z-50 rounded border border-subtle bg-surface-card py-1 shadow-lg min-w-[160px]"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-default hover:bg-surface-hover cursor-pointer"

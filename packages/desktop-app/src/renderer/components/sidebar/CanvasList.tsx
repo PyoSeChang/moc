@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Layout } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Plus, Trash2, Layout, ChevronRight, ChevronDown } from 'lucide-react';
+import type { CanvasTreeNode } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useCanvasTypeStore } from '../../stores/canvas-type-store';
+import { useEditorStore } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
 import { Select } from '../ui/Select';
 
@@ -9,13 +11,141 @@ interface CanvasListProps {
   projectId: string;
 }
 
+// ─── Context Menu ────────────────────────────────────────────────
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  canvasId: string;
+  canvasName: string;
+}
+
+function CanvasItemContextMenu({
+  x, y, canvasId, canvasName, onClose,
+}: ContextMenuState & { onClose: () => void }): JSX.Element {
+  const { t } = useI18n();
+  const { deleteCanvas } = useCanvasStore();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed z-50 bg-surface-card border border-subtle rounded shadow-lg py-1 min-w-[140px]"
+      style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <button
+        className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+        onClick={() => {
+          useEditorStore.getState().openTab({
+            type: 'canvas',
+            targetId: canvasId,
+            title: canvasName,
+          });
+          onClose();
+        }}
+      >
+        {t('editor.openInEditor')}
+      </button>
+      <button
+        className="flex w-full items-center gap-2 px-3 py-1 text-xs text-status-error hover:bg-surface-hover cursor-pointer"
+        onClick={async () => {
+          await deleteCanvas(canvasId);
+          onClose();
+        }}
+      >
+        <Trash2 size={12} />
+        {t('common.delete')}
+      </button>
+    </div>
+  );
+}
+
+// ─── Tree Item ───────────────────────────────────────────────────
+
+function TreeItem({
+  treeNode,
+  depth,
+  currentCanvasId,
+  onOpen,
+  onContextMenu,
+}: {
+  treeNode: CanvasTreeNode;
+  depth: number;
+  currentCanvasId?: string;
+  onOpen: (id: string) => void;
+  onContextMenu: (e: React.MouseEvent, id: string, name: string) => void;
+}): JSX.Element {
+  const [expanded, setExpanded] = useState(depth < 2);
+  const hasChildren = treeNode.children.length > 0;
+  const isActive = currentCanvasId === treeNode.canvas.id;
+  const displayName = treeNode.conceptTitle
+    ? `${treeNode.conceptTitle} / ${treeNode.canvas.name}`
+    : treeNode.canvas.name;
+
+  return (
+    <>
+      <div
+        className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors ${
+          isActive
+            ? 'bg-accent/10 text-accent'
+            : 'text-secondary hover:bg-surface-hover hover:text-default'
+        }`}
+        style={{ paddingLeft: depth * 12 + 4 }}
+        onClick={() => onOpen(treeNode.canvas.id)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu(e, treeNode.canvas.id, treeNode.canvas.name);
+        }}
+      >
+        {hasChildren ? (
+          <button
+            className="shrink-0 p-0.5"
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          >
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+        ) : (
+          <span className="w-5 shrink-0" />
+        )}
+        <Layout size={12} className="shrink-0" />
+        <span className="flex-1 truncate">{displayName}</span>
+      </div>
+      {expanded && treeNode.children.map((child) => (
+        <TreeItem
+          key={child.canvas.id}
+          treeNode={child}
+          depth={depth + 1}
+          currentCanvasId={currentCanvasId}
+          onOpen={onOpen}
+          onContextMenu={onContextMenu}
+        />
+      ))}
+    </>
+  );
+}
+
+// ─── CanvasList Root ─────────────────────────────────────────────
+
 export function CanvasList({ projectId }: CanvasListProps): JSX.Element {
   const { t } = useI18n();
-  const { canvases, currentCanvas, createCanvas, openCanvas, deleteCanvas } = useCanvasStore();
+  const { currentCanvas, createCanvas, openCanvas, loadCanvasTree, canvasTree } = useCanvasStore();
   const canvasTypes = useCanvasTypeStore((s) => s.canvasTypes);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [selectedCanvasTypeId, setSelectedCanvasTypeId] = useState('');
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  useEffect(() => {
+    loadCanvasTree(projectId);
+  }, [projectId, loadCanvasTree]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -25,6 +155,7 @@ export function CanvasList({ projectId }: CanvasListProps): JSX.Element {
       canvas_type_id: selectedCanvasTypeId || undefined,
     });
     await openCanvas(canvas.id);
+    await loadCanvasTree(projectId);
     setNewName('');
     setSelectedCanvasTypeId('');
     setCreating(false);
@@ -36,8 +167,12 @@ export function CanvasList({ projectId }: CanvasListProps): JSX.Element {
     setSelectedCanvasTypeId('');
   };
 
+  const handleContextMenu = useCallback((e: React.MouseEvent, canvasId: string, canvasName: string) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, canvasId, canvasName });
+  }, []);
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" onMouseDown={() => setContextMenu(null)}>
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-secondary">{t('sidebar.canvases')}</span>
         <button
@@ -75,26 +210,29 @@ export function CanvasList({ projectId }: CanvasListProps): JSX.Element {
         </div>
       )}
 
-      {canvases.map((c) => (
-        <div
-          key={c.id}
-          className={`group flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
-            currentCanvas?.id === c.id
-              ? 'bg-accent/10 text-accent'
-              : 'text-secondary hover:bg-surface-hover hover:text-default'
-          }`}
-          onClick={() => openCanvas(c.id)}
-        >
-          <Layout size={12} className="shrink-0" />
-          <span className="flex-1 truncate">{c.name}</span>
-          <button
-            className="shrink-0 rounded p-0.5 text-muted opacity-0 hover:text-status-error group-hover:opacity-100"
-            onClick={(e) => { e.stopPropagation(); deleteCanvas(c.id); }}
-          >
-            <Trash2 size={10} />
-          </button>
-        </div>
+      {canvasTree.map((treeNode) => (
+        <TreeItem
+          key={treeNode.canvas.id}
+          treeNode={treeNode}
+          depth={0}
+          currentCanvasId={currentCanvas?.id}
+          onOpen={openCanvas}
+          onContextMenu={handleContextMenu}
+        />
       ))}
+
+      {canvasTree.length === 0 && !creating && (
+        <div className="px-3 py-4 text-xs text-muted text-center">
+          {t('canvas.noCanvases') ?? 'No canvases'}
+        </div>
+      )}
+
+      {contextMenu && (
+        <CanvasItemContextMenu
+          {...contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

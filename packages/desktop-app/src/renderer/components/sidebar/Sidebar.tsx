@@ -24,7 +24,7 @@ interface SidebarProps {
 export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { sidebarView, sidebarWidth } = useUIStore();
   const { loadFileTree, fileTree } = useFileStore();
-  const { loadCanvases } = useCanvasStore();
+  const { loadCanvases, loadCanvasTree } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
   const { loadByProject: loadArchetypes } = useArchetypeStore();
   const { loadByProject: loadRelationTypes } = useRelationTypeStore();
@@ -32,11 +32,12 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
 
   useEffect(() => {
     loadCanvases(project.id);
+    loadCanvasTree(project.id);
     loadModules(project.id);
     loadArchetypes(project.id);
     loadRelationTypes(project.id);
     loadCanvasTypes(project.id);
-  }, [project.id, loadCanvases, loadModules, loadArchetypes, loadRelationTypes, loadCanvasTypes]);
+  }, [project.id, loadCanvases, loadCanvasTree, loadModules, loadArchetypes, loadRelationTypes, loadCanvasTypes]);
 
   useEffect(() => {
     if (directories.length > 0) {

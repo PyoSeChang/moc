@@ -3,7 +3,7 @@ import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate, Concept, RelationType,
-  CanvasBreadcrumbItem,
+  CanvasBreadcrumbItem, CanvasTreeNode,
 } from '@moc/shared/types';
 import { canvasService } from '../services';
 import type { CanvasFullData } from '../services/canvas-service';
@@ -25,9 +25,11 @@ interface CanvasStore {
   // Navigation
   breadcrumbs: CanvasBreadcrumbItem[];
   canvasHistory: string[];
+  canvasTree: CanvasTreeNode[];
 
   // Canvas CRUD
   loadCanvases: (projectId: string, rootOnly?: boolean) => Promise<void>;
+  loadCanvasTree: (projectId: string) => Promise<void>;
   createCanvas: (data: CanvasCreate) => Promise<Canvas>;
   openCanvas: (canvasId: string) => Promise<void>;
   updateCanvas: (id: string, data: CanvasUpdate) => Promise<void>;
@@ -61,10 +63,16 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   loading: false,
   breadcrumbs: [],
   canvasHistory: [],
+  canvasTree: [],
 
-  loadCanvases: async (projectId, rootOnly = true) => {
+  loadCanvases: async (projectId, rootOnly = false) => {
     const canvases = await canvasService.list(projectId, rootOnly);
     set({ canvases });
+  },
+
+  loadCanvasTree: async (projectId) => {
+    const tree = await canvasService.getTree(projectId);
+    set({ canvasTree: tree });
   },
 
   createCanvas: async (data) => {
@@ -198,6 +206,6 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
   clear: () => set({
     canvases: [], currentCanvas: null, nodes: [], edges: [],
-    breadcrumbs: [], canvasHistory: [],
+    breadcrumbs: [], canvasHistory: [], canvasTree: [],
   }),
 }));

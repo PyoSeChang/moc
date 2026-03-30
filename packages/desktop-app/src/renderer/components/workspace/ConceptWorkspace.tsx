@@ -7,10 +7,10 @@ import { CanvasContextMenu } from './CanvasContextMenu';
 import { CanvasControls } from './CanvasControls';
 import { ConceptCreateModal } from './ConceptCreateModal';
 import { useInteraction } from './InteractionLayer';
-import { NodeCanvasOverlay } from './NodeCanvasOverlay';
 import { EdgeContextMenu } from './EdgeContextMenu';
 import { FileNodeAddModal } from './FileNodeAddModal';
 import { useCanvasStore, type CanvasNodeWithConcept, type EdgeWithRelationType } from '../../stores/canvas-store';
+import { canvasService } from '../../services';
 import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
@@ -77,10 +77,10 @@ function toRenderEdges(edges: EdgeWithRelationType[]): RenderEdge[] {
     id: e.id,
     sourceId: e.source_node_id,
     targetId: e.target_node_id,
-    directed: e.relation_type?.directed ?? false,
+    directed: e.directed != null ? !!e.directed : (e.relation_type?.directed ?? false),
     label: e.relation_type?.name ?? '',
-    color: e.relation_type?.color ?? undefined,
-    lineStyle: (e.relation_type?.line_style as 'solid' | 'dashed' | 'dotted') ?? undefined,
+    color: e.color ?? e.relation_type?.color ?? undefined,
+    lineStyle: (e.line_style ?? e.relation_type?.line_style ?? undefined) as 'solid' | 'dashed' | 'dotted' | undefined,
   }));
 }
 
@@ -106,11 +106,9 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
   const [canvasContextMenu, setCanvasContextMenu] = useState<{ x: number; y: number; worldX: number; worldY: number } | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createPosition, setCreatePosition] = useState({ x: 0, y: 0 });
-  const [hoverOverlay, setHoverOverlay] = useState<{ conceptId: string; x: number; y: number } | null>(null);
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
   const [edgeLinkingState, setEdgeLinkingState] = useState<{ sourceNodeId: string } | null>(null);
   const [fileNodeModalOpen, setFileNodeModalOpen] = useState(false);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load canvases and open first one
   useEffect(() => {
@@ -282,8 +280,6 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    // Node right-clicks are handled by NodeLayer's onContextMenu (stopPropagation).
-    // This handler only fires for blank canvas right-clicks.
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const worldX = (mx - panX) / zoom;
@@ -343,7 +339,12 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
       ref={containerRef}
       className="relative h-full w-full overflow-hidden bg-surface-base"
       style={{ cursor: dragState.type === 'pan' ? 'grabbing' : dragState.type === 'node' ? 'move' : 'default' }}
-      onMouseDown={handleCanvasMouseDown}
+      onMouseDown={(e) => {
+        setCanvasContextMenu(null);
+        setContextMenu(null);
+        setEdgeContextMenu(null);
+        handleCanvasMouseDown(e);
+      }}
       onContextMenu={handleContextMenu}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes('application/moc-node')) {
@@ -494,31 +495,9 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
             }
           }
         }}
-        onNodeMouseEnter={(id, screenX, screenY) => {
-          const node = nodes.find((n) => n.id === id);
-          if (node?.concept_id && node.canvas_count > 0) {
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = setTimeout(() => {
-              setHoverOverlay({ conceptId: node.concept_id!, x: screenX, y: screenY });
-            }, 500);
-          }
-        }}
-        onNodeMouseLeave={() => {
-          if (hoverTimerRef.current) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
-          }
-        }}
       />
 
-      {hoverOverlay && (
-        <NodeCanvasOverlay
-          conceptId={hoverOverlay.conceptId}
-          x={hoverOverlay.x}
-          y={hoverOverlay.y}
-          onClose={() => setHoverOverlay(null)}
-        />
-      )}
+
 
       {contextMenu && (
         <NodeContextMenu
@@ -531,6 +510,25 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
           onAddConnection={(nodeId) => {
             setEdgeLinkingState({ sourceNodeId: nodeId });
             setContextMenu(null);
+          }}
+          onCreateCanvas={async (conceptId) => {
+            if (!currentCanvas) return;
+            const node = nodes.find((n) => n.concept_id === conceptId);
+            const name = node?.concept ? `${node.concept.title} Canvas` : 'New Canvas';
+            const canvas = await canvasService.create({
+              project_id: currentCanvas.project_id,
+              name,
+              concept_id: conceptId,
+            });
+            // Reload to update canvas_count + canvases list
+            await openCanvas(currentCanvas.id);
+            await useCanvasStore.getState().loadCanvases(currentCanvas.project_id);
+            // Open CanvasEditor for the new canvas
+            useEditorStore.getState().openTab({
+              type: 'canvas',
+              targetId: canvas.id,
+              title: canvas.name,
+            });
           }}
           onClose={() => setContextMenu(null)}
         />

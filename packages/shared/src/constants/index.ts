@@ -24,6 +24,7 @@ export const IPC_CHANNELS = {
   CANVAS_DELETE: 'canvas:delete',
   CANVAS_GET_FULL: 'canvas:getFull',
   CANVAS_GET_BY_CONCEPT: 'canvas:getByConcept',
+  CANVAS_GET_TREE: 'canvas:getTree',
   CANVAS_GET_ANCESTORS: 'canvas:getAncestors',
 
   // Canvas Node

@@ -5,14 +5,14 @@
 export interface Project {
   id: string;
   name: string;
-  root_dir: string;
+  root_dir: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface ProjectCreate {
   name: string;
-  root_dir: string;
+  root_dir?: string;
 }
 
 // ============================================
@@ -77,6 +77,7 @@ export interface CanvasCreate {
 
 export interface CanvasUpdate {
   name?: string;
+  canvas_type_id?: string | null;
   viewport_x?: number;
   viewport_y?: number;
   viewport_zoom?: number;
@@ -126,6 +127,10 @@ export interface Edge {
   source_node_id: string;
   target_node_id: string;
   relation_type_id: string | null;
+  description: string | null;
+  color: string | null;
+  line_style: string | null;
+  directed: number | null;
   created_at: string;
 }
 
@@ -134,10 +139,18 @@ export interface EdgeCreate {
   source_node_id: string;
   target_node_id: string;
   relation_type_id?: string;
+  description?: string;
+  color?: string;
+  line_style?: string;
+  directed?: boolean;
 }
 
 export interface EdgeUpdate {
   relation_type_id?: string | null;
+  description?: string | null;
+  color?: string | null;
+  line_style?: string | null;
+  directed?: boolean | null;
 }
 
 // ============================================
@@ -390,6 +403,16 @@ export interface CanvasTypeAllowedRelation {
 }
 
 // ============================================
+// Canvas Tree
+// ============================================
+
+export interface CanvasTreeNode {
+  canvas: Canvas;
+  conceptTitle: string | null;
+  children: CanvasTreeNode[];
+}
+
+// ============================================
 // Canvas Breadcrumb
 // ============================================
 
@@ -404,7 +427,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';

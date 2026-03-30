@@ -9,6 +9,7 @@ import { migrate003 } from '../migrations/003-archetypes';
 import { migrate004 } from '../migrations/004-concept-content';
 import { migrate005 } from '../migrations/005-app-settings';
 import { migrate006 } from '../migrations/006-canvas-1n-and-types';
+import { migrate007 } from '../migrations/007-edge-visual-overrides';
 
 let testDb: Database.Database | null = null;
 
@@ -23,6 +24,7 @@ export function setupTestDb(): Database.Database {
   migrate005(testDb);
   testDb.pragma('foreign_keys = OFF');
   migrate006(testDb);
+  migrate007(testDb);
   testDb.pragma('foreign_keys = ON');
   return testDb;
 }

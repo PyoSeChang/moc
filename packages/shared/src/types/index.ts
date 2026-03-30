@@ -174,6 +174,8 @@ export interface FileTreeNode {
   type: 'file' | 'directory';
   children?: FileTreeNode[];
   extension?: string;
+  /** Directory exists but children not yet loaded (lazy loading) */
+  hasChildren?: boolean;
 }
 
 // ============================================

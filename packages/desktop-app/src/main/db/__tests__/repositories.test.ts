@@ -134,8 +134,8 @@ describe('Repositories', () => {
       const full = getCanvasFull(canvas.id);
       expect(full).toBeDefined();
       expect(full!.nodes).toHaveLength(1);
-      expect(full!.nodes[0].concept.title).toBe('Node1');
-      expect(full!.nodes[0].position_x).toBe(50);
+      expect(full!.nodes[0]!.concept!.title).toBe('Node1');
+      expect(full!.nodes[0]!.position_x).toBe(50);
     });
 
     it('should enforce unique concept per canvas', () => {

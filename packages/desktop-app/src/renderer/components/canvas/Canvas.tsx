@@ -7,7 +7,6 @@ import { Background } from '../workspace/Background';
 import { useInteraction } from '../workspace/InteractionLayer';
 import type { CanvasMode, RenderingMode } from '../../stores/ui-store';
 import type { RenderNode, RenderEdge, LayoutNode } from '../workspace/types';
-import type { ViewPluginConfig } from '../workspace/view/plugin';
 
 // Re-export workspace types for backward compatibility
 export type CanvasNodeData = RenderNode;
@@ -45,7 +44,6 @@ export interface CanvasProps {
   onNavigateForward: () => void;
   isTransitioning?: boolean;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
-  viewConfig?: ViewPluginConfig;
 }
 
 const ZOOM_STEP = 0.1;
@@ -84,7 +82,6 @@ export const Canvas: React.FC<CanvasProps> = ({
   onNavigateForward,
   isTransitioning,
   onContextMenu,
-  viewConfig,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 1200, height: 800 });
@@ -161,20 +158,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     >
       {/* Background Layer */}
       <Background
-        renderingMode={renderingMode}
         width={containerSize.width}
         height={containerSize.height}
         zoom={zoom}
         panX={panOffset.x}
         panY={panOffset.y}
-        nodes={layoutNodes}
-        nodeDragOffset={nodeDragOffset}
-        spanResizeOffset={spanResizeOffset}
-        onSpanResizeStart={handleSpanResizeStart}
-        config={viewConfig}
-        onNodeClick={onNodeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
-        onContextMenu={onContextMenu}
       />
 
       {/* Edge Layer (SVG) */}
@@ -201,8 +189,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeDragStart={handleNodeDragStart}
-        onSpanResizeStart={handleSpanResizeStart}
-        spanResizeOffset={spanResizeOffset}
         onContextMenu={onContextMenu}
       />
 

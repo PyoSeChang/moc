@@ -46,7 +46,7 @@ export function ProjectCreateDialog({ open, onClose, onCreate }: ProjectCreateDi
   );
 
   return (
-    <Modal open={open} onClose={onClose} title={t('project.create')} footer={footer} width={480}>
+    <Modal open={open} onClose={onClose} title={t('project.create')} footer={footer} width="480px">
       <div className="flex flex-col gap-4">
         <div>
           <label className="mb-1 block text-xs text-secondary">{t('project.name')}</label>

@@ -126,7 +126,7 @@ export function registerFsIpc(): void {
   ipcMain.handle('fs:openDialog', async (_e, options?: Record<string, unknown>): Promise<IpcResult<unknown>> => {
     try {
       const result = await dialog.showOpenDialog({
-        properties: (options?.properties as string[]) ?? ['openDirectory'],
+        properties: (options?.properties as Electron.OpenDialogOptions['properties']) ?? ['openDirectory'],
         title: options?.title as string,
         filters: options?.filters as Electron.FileFilter[],
       });

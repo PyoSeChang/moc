@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Search, Type, Hash, ToggleLeft, Calendar, Clock, List, CheckSquare, CircleDot, Link2, FileText, Globe, Palette, Star, Tags } from 'lucide-react';
 import type { FieldType } from '@moc/shared/types';
 import { useI18n } from '../../hooks/useI18n';
+import type { TranslationKey } from '@moc/shared/i18n';
 
 interface TypeSelectorProps {
   value?: FieldType;
@@ -94,7 +95,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) =
     return CATEGORIES.map((cat) => ({
       ...cat,
       types: cat.types.filter((tp) => {
-        const label = t(`typeSelector.${tp.i18nKey}`).toLowerCase();
+        const label = t(`typeSelector.${tp.i18nKey}` as TranslationKey).toLowerCase();
         return label.includes(q) || tp.value.toLowerCase().includes(q);
       }),
     })).filter((cat) => cat.types.length > 0);
@@ -143,7 +144,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) =
       >
         {selected && <selected.icon size={14} />}
         <span className={`flex-1 text-left ${selected ? 'text-default' : 'text-muted'}`}>
-          {selected ? t(`typeSelector.${selected.i18nKey}`) : t('typeSelector.type')}
+          {selected ? t(`typeSelector.${selected.i18nKey}` as TranslationKey) : t('typeSelector.type')}
         </span>
         <ChevronDown size={12} className={`text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </div>
@@ -185,7 +186,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) =
                   }`}
                   onClick={() => setActiveCategory(cat.key)}
                 >
-                  {t(`typeSelector.${cat.key}`)}
+                  {t(`typeSelector.${cat.key}` as TranslationKey)}
                 </button>
               );
             })}
@@ -225,7 +226,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({ value, onChange }) =
                     }}
                   >
                     <tp.icon size={14} />
-                    {t(`typeSelector.${tp.i18nKey}`)}
+                    {t(`typeSelector.${tp.i18nKey}` as TranslationKey)}
                   </button>
                 ))
               ) : (

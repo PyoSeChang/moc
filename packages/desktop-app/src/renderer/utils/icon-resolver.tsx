@@ -17,8 +17,8 @@ const ALIASES: Record<string, string> = {
 /** Resolve a kebab-case icon name to a LucideIcon component */
 function lookupIcon(name: string): LucideIcon | undefined {
   const alias = ALIASES[name];
-  if (alias) return icons[alias] as LucideIcon;
-  return icons[toPascalCase(name)] as LucideIcon;
+  if (alias) return (icons as Record<string, LucideIcon>)[alias];
+  return (icons as Record<string, LucideIcon>)[toPascalCase(name)];
 }
 
 /**

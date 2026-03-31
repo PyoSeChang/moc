@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React from 'react';
 import type { EditorTab } from '@moc/shared/types';
-import { useEditorStore } from '../../stores/editor-store';
 import { fsService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
+import { useEditorSession } from '../../hooks/useEditorSession';
 import { CodeEditor } from './CodeEditor';
 import { ImageViewer } from './ImageViewer';
 import { PdfViewer } from './PdfViewer';
@@ -16,48 +16,32 @@ interface FileEditorProps {
 
 export function FileEditor({ tab }: FileEditorProps): JSX.Element {
   const { t } = useI18n();
-  const { setDirty } = useEditorStore();
-  const [content, setContent] = useState('');
-  const [loaded, setLoaded] = useState(false);
-
   const filePath = tab.targetId;
   const editorType = (tab.editorType as EditorType) ?? getEditorType(filePath);
 
-  useEffect(() => {
-    setLoaded(false);
-    if (editorType === 'code' || editorType === 'markdown') {
-      fsService.readFile(filePath).then((c) => {
-        setContent(c);
-        setLoaded(true);
-      }).catch(() => {
-        setContent('');
-        setLoaded(true);
-      });
-    } else {
-      setLoaded(true);
-    }
-  }, [filePath, editorType]);
+  const session = useEditorSession<string>({
+    tabId: tab.id,
+    load: () => {
+      if (editorType === 'code' || editorType === 'markdown') {
+        return fsService.readFile(filePath).catch(() => '');
+      }
+      return '';
+    },
+    save: async (content) => { await fsService.writeFile(filePath, content); },
+    isEqual: (a, b) => a === b,
+    deps: [filePath, editorType],
+  });
 
-  const handleChange = useCallback((newContent: string) => {
-    setContent(newContent);
-    setDirty(tab.id, true);
-  }, [tab.id, setDirty]);
-
-  const handleSave = useCallback(async () => {
-    await fsService.writeFile(filePath, content);
-    setDirty(tab.id, false);
-  }, [filePath, content, tab.id, setDirty]);
-
-  if (!loaded) {
+  if (session.isLoading) {
     return <div className="flex h-full items-center justify-center text-xs text-muted">{t('common.loading')}</div>;
   }
 
-  return renderEditor(editorType, { content, filePath, onChange: handleChange, onSave: handleSave });
+  return renderEditor(editorType, { content: session.state, filePath, onChange: session.setState });
 }
 
 export function renderEditor(
   type: EditorType,
-  props: { content: string; filePath: string; onChange: (c: string) => void; onSave: () => void },
+  props: { content: string; filePath: string; onChange: (c: string) => void },
 ): JSX.Element {
   switch (type) {
     case 'markdown':
@@ -66,7 +50,6 @@ export function renderEditor(
           content={props.content}
           filePath={props.filePath}
           onChange={props.onChange}
-          onSave={props.onSave}
         />
       );
     case 'code':
@@ -75,7 +58,6 @@ export function renderEditor(
           content={props.content}
           language={getMonacoLanguage(props.filePath)}
           onChange={props.onChange}
-          onSave={props.onSave}
         />
       );
     case 'image':

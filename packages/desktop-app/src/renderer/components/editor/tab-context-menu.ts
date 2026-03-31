@@ -12,7 +12,7 @@ function buildCommonItems(tab: EditorTab, tabs: EditorTab[]): ContextMenuEntry[]
   const hasOthers = tabs.length > 1;
 
   return [
-    { label: '탭 닫기', shortcut: 'Ctrl+W', onClick: () => store.closeTab(tab.id) },
+    { label: '탭 닫기', shortcut: 'Ctrl+W', onClick: () => store.requestCloseTab(tab.id) },
     { label: '다른 탭 모두 닫기', disabled: !hasOthers, onClick: () => store.closeOtherTabs(tab.id) },
     { label: '오른쪽 탭 모두 닫기', disabled: !hasRight, onClick: () => store.closeTabsToRight(tab.id) },
     { label: '모든 탭 닫기', onClick: () => store.closeAllTabs() },

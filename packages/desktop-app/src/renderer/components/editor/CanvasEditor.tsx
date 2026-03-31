@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import type { EditorTab, CanvasUpdate } from '@moc/shared/types';
+import type { EditorTab } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useCanvasTypeStore } from '../../stores/canvas-type-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useEditorSession } from '../../hooks/useEditorSession';
 import { useI18n } from '../../hooks/useI18n';
 import { Input } from '../ui/Input';
 import { NumberInput } from '../ui/NumberInput';
@@ -16,36 +17,54 @@ interface CanvasEditorProps {
   tab: EditorTab;
 }
 
+interface CanvasState {
+  name: string;
+  canvas_type_id: string | null;
+  layout: string;
+  layout_config: Record<string, unknown>;
+}
+
 export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
   const { t } = useI18n();
   const canvasId = tab.targetId;
   const { canvases, updateCanvas, deleteCanvas } = useCanvasStore();
   const canvasTypes = useCanvasTypeStore((s) => s.canvasTypes);
 
-  const canvas = canvases.find((c) => c.id === canvasId);
-
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const fields = useArchetypeStore((s) => s.fields);
   const loadFields = useArchetypeStore((s) => s.loadFields);
 
-  // Load fields for all archetypes
   useEffect(() => {
     for (const a of archetypes) {
       if (!fields[a.id]) loadFields(a.id);
     }
   }, [archetypes, fields, loadFields]);
 
+  const canvas = canvases.find((c) => c.id === canvasId);
+
+  const session = useEditorSession<CanvasState>({
+    tabId: tab.id,
+    load: () => {
+      const c = useCanvasStore.getState().canvases.find((cv) => cv.id === canvasId);
+      if (!c) return { name: '', canvas_type_id: null, layout: 'freeform', layout_config: {} };
+      return {
+        name: c.name,
+        canvas_type_id: c.canvas_type_id,
+        layout: c.layout,
+        layout_config: c.layout_config ?? {},
+      };
+    },
+    save: async (state) => {
+      await updateCanvas(canvasId, state);
+      useEditorStore.getState().updateTitle(tab.id, state.name);
+    },
+    deps: [canvasId],
+  });
+
   const canvasTypeOptions = useMemo(() => [
     { value: '', label: t('canvasType.noType') ?? 'None' },
     ...canvasTypes.map((ct) => ({ value: ct.id, label: ct.name })),
   ], [canvasTypes, t]);
-
-  const handleUpdate = useCallback(async (data: CanvasUpdate) => {
-    await updateCanvas(canvasId, data);
-    if (data.name) {
-      useEditorStore.getState().updateTitle(tab.id, data.name);
-    }
-  }, [canvasId, tab.id, updateCanvas]);
 
   const handleDelete = useCallback(async () => {
     await deleteCanvas(canvasId);
@@ -56,21 +75,27 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
     listLayouts().map((p) => ({ value: p.key, label: p.displayName })),
   []);
 
-  const activePlugin = useMemo(() => getLayout(canvas?.layout), [canvas?.layout]);
-  const layoutConfig = canvas?.layout_config ?? {};
+  const activePlugin = useMemo(() => getLayout(session.state?.layout), [session.state?.layout]);
+  const layoutConfig = session.state?.layout_config ?? {};
   const fieldMappings = (layoutConfig.field_mappings ?? {}) as Record<string, Record<string, string>>;
 
-  const handleLayoutConfigUpdate = useCallback(async (patch: Record<string, unknown>) => {
-    const newConfig = { ...layoutConfig, ...patch };
-    await handleUpdate({ layout_config: newConfig });
-  }, [layoutConfig, handleUpdate]);
+  const update = (patch: Partial<CanvasState>) => {
+    session.setState((prev) => ({ ...prev, ...patch }));
+  };
 
-  const handleFieldMappingUpdate = useCallback(async (archetypeId: string, key: string, value: string) => {
+  const updateLayoutConfig = (patch: Record<string, unknown>) => {
+    session.setState((prev) => ({
+      ...prev,
+      layout_config: { ...prev.layout_config, ...patch },
+    }));
+  };
+
+  const updateFieldMapping = (archetypeId: string, key: string, value: string) => {
     const currentMappings = { ...fieldMappings };
     if (!currentMappings[archetypeId]) currentMappings[archetypeId] = {};
     currentMappings[archetypeId] = { ...currentMappings[archetypeId], [key]: value };
-    await handleLayoutConfigUpdate({ field_mappings: currentMappings });
-  }, [fieldMappings, handleLayoutConfigUpdate]);
+    updateLayoutConfig({ field_mappings: currentMappings });
+  };
 
   if (!canvas) {
     return (
@@ -80,6 +105,8 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
     );
   }
 
+  if (session.isLoading) return <></>;
+
   return (
     <ScrollArea className="h-full">
       <div className="flex items-start justify-center">
@@ -88,8 +115,8 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted">{t('canvas.name') ?? 'Name'}</label>
             <Input
-              value={canvas.name}
-              onChange={(e) => handleUpdate({ name: e.target.value })}
+              value={session.state.name}
+              onChange={(e) => update({ name: e.target.value })}
             />
           </div>
 
@@ -99,8 +126,8 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
               <label className="text-xs font-medium text-muted">{t('canvasType.title')}</label>
               <Select
                 options={canvasTypeOptions}
-                value={canvas.canvas_type_id ?? ''}
-                onChange={(e) => handleUpdate({ canvas_type_id: e.target.value || null })}
+                value={session.state.canvas_type_id ?? ''}
+                onChange={(e) => update({ canvas_type_id: e.target.value || null })}
                 selectSize="sm"
               />
             </div>
@@ -111,29 +138,28 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
             <label className="text-xs font-medium text-muted">{t('canvas.layout') ?? 'Layout'}</label>
             <Select
               options={layoutOptions}
-              value={canvas.layout}
+              value={session.state.layout}
               onChange={(e) => {
                 const newLayout = e.target.value;
                 const plugin = getLayout(newLayout);
-                handleUpdate({ layout: newLayout, layout_config: plugin.getDefaultConfig() });
+                update({ layout: newLayout, layout_config: plugin.getDefaultConfig() });
               }}
               selectSize="sm"
             />
           </div>
 
-          {/* Layout Config — only for non-freeform */}
+          {/* Layout Config */}
           {activePlugin.key !== 'freeform' && (
             <div className="flex flex-col gap-3 p-3 bg-surface-card rounded-md border border-subtle">
               <div className="text-xs font-medium text-muted">{t('canvas.layoutSettings') ?? 'Layout Settings'}</div>
 
-              {/* configSchema fields (direction, etc.) */}
               {activePlugin.configSchema.map((field) => (
                 <div key={field.key} className="flex flex-col gap-1">
                   <label className="text-xs text-secondary">{t(field.label as never) ?? field.label}</label>
                   {field.type === 'number' ? (
                     <NumberInput
                       value={(layoutConfig[field.key] as number) ?? (field.default as number)}
-                      onChange={(val) => handleLayoutConfigUpdate({ [field.key]: val })}
+                      onChange={(val) => updateLayoutConfig({ [field.key]: val })}
                       inputSize="sm"
                       min={0}
                     />
@@ -141,23 +167,22 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                     <Select
                       options={(field.options ?? []).map((o) => ({ value: o, label: t(`layout.timeline.${o}` as never) ?? o }))}
                       value={(layoutConfig[field.key] as string) ?? (field.default as string)}
-                      onChange={(e) => handleLayoutConfigUpdate({ [field.key]: e.target.value })}
+                      onChange={(e) => updateLayoutConfig({ [field.key]: e.target.value })}
                       selectSize="sm"
                     />
                   ) : (
                     <Input
                       value={(layoutConfig[field.key] as string) ?? (field.default as string)}
-                      onChange={(e) => handleLayoutConfigUpdate({ [field.key]: e.target.value })}
+                      onChange={(e) => updateLayoutConfig({ [field.key]: e.target.value })}
                       inputSize="sm"
                     />
                   )}
                 </div>
               ))}
-
             </div>
           )}
 
-          {/* Field Mappings — only for plugins with requiredFields */}
+          {/* Field Mappings */}
           {activePlugin.requiredFields.length > 0 && archetypes.length > 0 && (
             <div className="flex flex-col gap-3 p-3 bg-surface-card rounded-md border border-subtle">
               <div className="flex items-center justify-between">
@@ -172,7 +197,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                   value=""
                   onChange={(e) => {
                     if (e.target.value) {
-                      handleFieldMappingUpdate(e.target.value, 'role', 'occurrence');
+                      updateFieldMapping(e.target.value, 'role', 'occurrence');
                     }
                   }}
                   selectSize="sm"
@@ -192,10 +217,10 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                       <button
                         type="button"
                         className="text-xs text-secondary hover:text-status-error"
-                        onClick={async () => {
+                        onClick={() => {
                           const newMappings = { ...fieldMappings };
                           delete newMappings[archId];
-                          await handleLayoutConfigUpdate({ field_mappings: newMappings });
+                          updateLayoutConfig({ field_mappings: newMappings });
                         }}
                       >
                         {t('common.delete')}
@@ -209,7 +234,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                             <Select
                               options={(req.options ?? []).map((o) => ({ value: o, label: t(`layout.timeline.${o}` as never) ?? o }))}
                               value={archMapping[req.key] ?? (req.default as string) ?? ''}
-                              onChange={(e) => handleFieldMappingUpdate(archId, req.key, e.target.value)}
+                              onChange={(e) => updateFieldMapping(archId, req.key, e.target.value)}
                               selectSize="sm"
                             />
                           </div>
@@ -219,11 +244,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                       const fieldOptions = [
                         { value: '', label: req.required ? `-- ${reqLabel} --` : `(${t('common.none') ?? 'None'})` },
                         ...archFields
-                          .filter((f) => {
-                            if (req.key === 'color') return f.field_type === 'color';
-                            if (req.key === 'time_value' || req.key === 'end_time_value') return ['date', 'datetime'].includes(f.field_type);
-                            return true;
-                          })
+                          .filter((f) => ['date', 'datetime'].includes(f.field_type))
                           .map((f) => ({ value: f.id, label: f.name })),
                       ];
                       return (
@@ -232,7 +253,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                           <Select
                             options={fieldOptions}
                             value={archMapping[req.key] ?? ''}
-                            onChange={(e) => handleFieldMappingUpdate(archId, req.key, e.target.value)}
+                            onChange={(e) => updateFieldMapping(archId, req.key, e.target.value)}
                             selectSize="sm"
                           />
                         </div>

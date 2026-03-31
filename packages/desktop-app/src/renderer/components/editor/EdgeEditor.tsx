@@ -1,8 +1,9 @@
 import React, { useCallback, useMemo } from 'react';
-import type { EditorTab, EdgeUpdate } from '@moc/shared/types';
+import type { EditorTab } from '@moc/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useEditorSession } from '../../hooks/useEditorSession';
 import { canvasService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import { Select } from '../ui/Select';
@@ -16,6 +17,14 @@ interface EdgeEditorProps {
   tab: EditorTab;
 }
 
+interface EdgeState {
+  relation_type_id: string | null;
+  description: string | null;
+  color: string | null;
+  line_style: string | null;
+  directed: boolean | null;
+}
+
 export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
   const { t } = useI18n();
   const edgeId = tab.targetId;
@@ -25,6 +34,28 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
 
   const edge = edges.find((e) => e.id === edgeId);
+
+  const session = useEditorSession<EdgeState>({
+    tabId: tab.id,
+    load: () => {
+      const e = useCanvasStore.getState().edges.find((ed) => ed.id === edgeId);
+      if (!e) return { relation_type_id: null, description: null, color: null, line_style: null, directed: null };
+      return {
+        relation_type_id: e.relation_type_id,
+        description: e.description,
+        color: e.color,
+        line_style: e.line_style,
+        directed: e.directed != null ? !!e.directed : null,
+      };
+    },
+    save: async (state) => {
+      await canvasService.edge.update(edgeId, state);
+      const canvas = useCanvasStore.getState().currentCanvas;
+      if (canvas) await openCanvas(canvas.id);
+    },
+    deps: [edgeId],
+  });
+
   const sourceNode = edge ? nodes.find((n) => n.id === edge.source_node_id) : undefined;
   const targetNode = edge ? nodes.find((n) => n.id === edge.target_node_id) : undefined;
 
@@ -43,11 +74,6 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     { value: 'dotted', label: t('relationType.dotted') },
   ];
 
-  const handleUpdate = useCallback(async (data: EdgeUpdate) => {
-    await canvasService.edge.update(edgeId, data);
-    if (currentCanvas) await openCanvas(currentCanvas.id);
-  }, [edgeId, currentCanvas, openCanvas]);
-
   const handleDelete = useCallback(async () => {
     await removeEdge(edgeId);
     useEditorStore.getState().closeTab(tab.id);
@@ -61,11 +87,15 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     );
   }
 
-  // Resolve effective values (edge override > relation type default)
+  if (session.isLoading) return <></>;
+
+  const update = (patch: Partial<EdgeState>) => {
+    session.setState((prev) => ({ ...prev, ...patch }));
+  };
+
+  // Resolve effective values for display (edge override > relation type default)
   const rt = edge.relation_type;
-  const effectiveColor = edge.color ?? rt?.color ?? null;
-  const effectiveLineStyle = edge.line_style ?? rt?.line_style ?? 'solid';
-  const effectiveDirected = edge.directed != null ? !!edge.directed : (rt?.directed ?? false);
+  const effectiveDirected = session.state.directed != null ? session.state.directed : (rt?.directed ?? false);
 
   return (
     <ScrollArea>
@@ -92,8 +122,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <label className="text-xs font-medium text-secondary">{t('edge.relationType')}</label>
             <Select
               options={relationTypeOptions}
-              value={edge.relation_type_id ?? ''}
-              onChange={(e) => handleUpdate({ relation_type_id: e.target.value || null })}
+              value={session.state.relation_type_id ?? ''}
+              onChange={(e) => update({ relation_type_id: e.target.value || null })}
               selectSize="sm"
             />
           </div>
@@ -102,8 +132,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('relationType.description')}</label>
             <TextArea
-              value={edge.description ?? ''}
-              onChange={(e) => handleUpdate({ description: e.target.value || null })}
+              value={session.state.description ?? ''}
+              onChange={(e) => update({ description: e.target.value || null })}
               rows={4}
               placeholder={t('edge.descriptionPlaceholder')}
             />
@@ -116,13 +146,13 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <div className="flex flex-col gap-2">
               <span className="text-xs text-secondary">{t('relationType.color')}</span>
               <ColorPicker
-                value={edge.color ?? undefined}
-                onChange={(color) => handleUpdate({ color })}
+                value={session.state.color ?? undefined}
+                onChange={(color) => update({ color })}
               />
-              {edge.color && (
+              {session.state.color && (
                 <button
                   className="text-[10px] text-muted hover:text-default self-start"
-                  onClick={() => handleUpdate({ color: null })}
+                  onClick={() => update({ color: null })}
                 >
                   {t('edge.resetToDefault') ?? 'Reset to type default'}
                 </button>
@@ -133,8 +163,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
               <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
               <Select
                 options={lineStyleOptions}
-                value={edge.line_style ?? ''}
-                onChange={(e) => handleUpdate({ line_style: e.target.value || null })}
+                value={session.state.line_style ?? ''}
+                onChange={(e) => update({ line_style: e.target.value || null })}
                 selectSize="sm"
               />
             </div>
@@ -142,13 +172,13 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <div className="flex items-center gap-2">
               <Toggle
                 checked={effectiveDirected}
-                onChange={(checked) => handleUpdate({ directed: checked })}
+                onChange={(checked) => update({ directed: checked })}
               />
               <span className="text-xs text-secondary">{t('relationType.directed')}</span>
-              {edge.directed != null && (
+              {session.state.directed != null && (
                 <button
                   className="text-[10px] text-muted hover:text-default"
-                  onClick={() => handleUpdate({ directed: null })}
+                  onClick={() => update({ directed: null })}
                 >
                   {t('edge.resetToDefault') ?? 'Reset'}
                 </button>

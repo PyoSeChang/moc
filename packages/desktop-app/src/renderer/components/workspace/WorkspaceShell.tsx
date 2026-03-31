@@ -12,9 +12,11 @@ import { EditorContent } from '../editor/EditorContent';
 import { EditorTabStrip } from '../editor/EditorTabStrip';
 import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
+import { CloseConfirmDialog } from '../editor/CloseConfirmDialog';
 import { ResizeHandle } from '../ui/ResizeHandle';
 import { useEditorStore, getActiveTabFromLayout } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
+import { useGlobalSave } from '../../hooks/useGlobalSave';
 import { isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
 
 interface WorkspaceShellProps {
@@ -22,11 +24,13 @@ interface WorkspaceShellProps {
 }
 
 export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
+  useGlobalSave();
+
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const tabs = useEditorStore((s) => s.tabs);
   const sideLayout = useEditorStore((s) => s.sideLayout);
   const {
-    setActiveTab, closeTab, setViewMode, toggleMinimize,
+    setActiveTab, closeTab, requestCloseTab, setViewMode, toggleMinimize,
     updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, updateFloatRect,
   } = useEditorStore();
   const { sidebarOpen, setSidebarWidth } = useUIStore();
@@ -141,7 +145,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             tabs={leafTabs}
             activeTabId={leaf.activeTabId}
             onActivate={setActiveTab}
-            onClose={closeTab}
+            onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'side')}
             rightSlot={
               <EditorViewModeSwitch
@@ -171,7 +175,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
         </div>
       );
     },
-    [tabs, isTabDragging, setActiveTab, closeTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
+    [tabs, isTabDragging, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
   );
 
   // Global drag tracking for drop zone activation
@@ -290,6 +294,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
       <FloatWindowLayer />
       <EditorDockBar />
+      <CloseConfirmDialog />
     </div>
   );
 }

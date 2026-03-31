@@ -41,10 +41,9 @@ interface MarkdownEditorProps {
   content: string;
   filePath: string;
   onChange: (content: string) => void;
-  onSave: () => void;
 }
 
-export function MarkdownEditor({ content, filePath, onChange, onSave }: MarkdownEditorProps): JSX.Element {
+export function MarkdownEditor({ content, filePath, onChange }: MarkdownEditorProps): JSX.Element {
   const { t } = useI18n();
   const [showToc, setShowToc] = useState(true);
   const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -55,10 +54,6 @@ export function MarkdownEditor({ content, filePath, onChange, onSave }: Markdown
   const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
 
   const extensions = useMemo(() => [
-    keymap.of([{
-      key: 'Mod-s',
-      run: () => { onSave(); return true; },
-    }]),
     history(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
     markdown({ extensions: GFM, codeLanguages: languages }),
@@ -66,7 +61,7 @@ export function MarkdownEditor({ content, filePath, onChange, onSave }: Markdown
     livePreviewTheme,
     syntaxHighlighting(codeHighlightStyle),
     EditorView.lineWrapping,
-  ], [onSave]);
+  ], []);
 
   const theme = useMemo(() => {
     const bg = getCssColorAsHex('--surface-panel', isDark ? '#1e1e1e' : '#ffffff');
@@ -130,7 +125,7 @@ export function MarkdownEditor({ content, filePath, onChange, onSave }: Markdown
       const ease = progress < 0.5
         ? 2 * progress * progress
         : 1 - (-2 * progress + 2) ** 2 / 2;
-      scroller.scrollTop = start + distance * ease;
+      scroller!.scrollTop = start + distance * ease;
       if (progress < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);

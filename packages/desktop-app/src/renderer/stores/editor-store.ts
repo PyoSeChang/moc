@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { EditorViewMode, EditorTab, EditorTabType, SplitNode, SplitDirection, SplitLeaf, SplitBranch } from '@moc/shared/types';
 import { editorPrefsService } from '../services';
+import { hasUnsavedChanges, getSession } from '../lib/editor-session-registry';
 
 interface OpenTabParams {
   type: EditorTabType;
@@ -36,6 +37,13 @@ interface EditorStore {
   setActiveFile: (tabId: string, filePath: string | null) => void;
   setDirty: (tabId: string, dirty: boolean) => void;
   setEditorType: (tabId: string, editorType: string) => void;
+
+  // Close confirmation
+  pendingCloseTabId: string | null;
+  requestCloseTab: (tabId: string) => void;
+  confirmCloseTab: () => void;
+  cancelCloseTab: () => void;
+  saveAndCloseTab: () => Promise<void>;
 
   // Split layout operations
   splitTab: (targetTabId: string, newTabId: string, direction: SplitDirection, position: 'before' | 'after') => void;
@@ -212,6 +220,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTabId: null,
   sideLayout: null,
   fullLayout: null,
+  pendingCloseTabId: null,
 
   openTab: async ({ type, targetId, title, viewMode, draftData }) => {
     const { tabs } = get();
@@ -527,6 +536,37 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, editorType } : t)),
     }));
+  },
+
+  // ── Close confirmation ──
+
+  requestCloseTab: (tabId) => {
+    if (hasUnsavedChanges(tabId)) {
+      set({ pendingCloseTabId: tabId });
+    } else {
+      get().closeTab(tabId);
+    }
+  },
+
+  confirmCloseTab: () => {
+    const { pendingCloseTabId } = get();
+    if (pendingCloseTabId) {
+      get().closeTab(pendingCloseTabId);
+      set({ pendingCloseTabId: null });
+    }
+  },
+
+  cancelCloseTab: () => {
+    set({ pendingCloseTabId: null });
+  },
+
+  saveAndCloseTab: async () => {
+    const { pendingCloseTabId } = get();
+    if (!pendingCloseTabId) return;
+    const session = getSession(pendingCloseTabId);
+    if (session) await session.save();
+    get().closeTab(pendingCloseTabId);
+    set({ pendingCloseTabId: null });
   },
 
   // ── Split layout operations ──

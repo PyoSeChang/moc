@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import type { ArchetypeField, ConceptProperty } from '@moc/shared/types';
-import { useConceptStore } from '../../stores/concept-store';
+import type { ArchetypeField } from '@moc/shared/types';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { Input } from '../ui/Input';
 import { TextArea } from '../ui/TextArea';
@@ -18,8 +17,9 @@ import { RelationPicker } from '../ui/RelationPicker';
 import { FilePicker } from '../ui/FilePicker';
 
 interface ConceptPropertiesPanelProps {
-  conceptId: string;
   archetypeId: string;
+  properties: Record<string, string | null>;
+  onChange: (fieldId: string, value: string | null) => void;
 }
 
 function parseOptions(options: string | null): { choices?: string[] } {
@@ -31,25 +31,13 @@ function parseOptions(options: string | null): { choices?: string[] } {
   }
 }
 
-function getPropertyValue(properties: ConceptProperty[], fieldId: string): string | null {
-  return properties.find((p) => p.field_id === fieldId)?.value ?? null;
-}
-
-export function ConceptPropertiesPanel({ conceptId, archetypeId }: ConceptPropertiesPanelProps): JSX.Element {
+export function ConceptPropertiesPanel({ archetypeId, properties, onChange }: ConceptPropertiesPanelProps): JSX.Element {
   const fields = useArchetypeStore((s) => s.fields[archetypeId] ?? []);
   const loadFields = useArchetypeStore((s) => s.loadFields);
-  const properties = useConceptStore((s) => s.properties[conceptId] ?? []);
-  const loadProperties = useConceptStore((s) => s.loadProperties);
-  const upsertProperty = useConceptStore((s) => s.upsertProperty);
 
   useEffect(() => {
     loadFields(archetypeId);
-    loadProperties(conceptId);
-  }, [archetypeId, conceptId, loadFields, loadProperties]);
-
-  const handleChange = (fieldId: string, value: string | null) => {
-    upsertProperty({ concept_id: conceptId, field_id: fieldId, value });
-  };
+  }, [archetypeId, loadFields]);
 
   if (fields.length === 0) return <></>;
 
@@ -59,8 +47,8 @@ export function ConceptPropertiesPanel({ conceptId, archetypeId }: ConceptProper
         <FieldInput
           key={field.id}
           field={field}
-          value={getPropertyValue(properties, field.id)}
-          onChange={(val) => handleChange(field.id, val)}
+          value={properties[field.id] ?? null}
+          onChange={(val) => onChange(field.id, val)}
         />
       ))}
     </div>
@@ -78,7 +66,7 @@ export function FieldInput({ field, value, onChange }: FieldInputProps): JSX.Ele
   const choices = (opts.choices ?? []).map((c) => ({ value: c, label: c }));
 
   const label = (
-    <label className="text-xs font-medium text-secondary">
+    <label className="text-xs font-medium text-muted">
       {field.name}
       {field.required && <span className="text-status-error ml-0.5">*</span>}
     </label>

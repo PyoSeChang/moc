@@ -11,7 +11,7 @@ import { isTabDrag } from '../../../hooks/useTabDrag';
 export function FullModeEditor(): JSX.Element | null {
   const {
     tabs, activeTabId, fullLayout,
-    setActiveTab, closeTab, setViewMode, toggleMinimize,
+    setActiveTab, requestCloseTab, setViewMode, toggleMinimize,
     updateSplitRatio, splitTab, moveTabToPane,
   } = useEditorStore();
   const [isDragging, setIsDragging] = useState(false);
@@ -35,7 +35,7 @@ export function FullModeEditor(): JSX.Element | null {
             tabs={leafTabs}
             activeTabId={leaf.activeTabId}
             onActivate={setActiveTab}
-            onClose={closeTab}
+            onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'full')}
             rightSlot={
               <EditorViewModeSwitch
@@ -65,7 +65,7 @@ export function FullModeEditor(): JSX.Element | null {
         </div>
       );
     },
-    [tabs, isDragging, setActiveTab, closeTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
+    [tabs, isDragging, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
   );
 
   if (!fullLayout) return null;

@@ -3,7 +3,6 @@ import React, { useRef, useCallback, useEffect } from 'react';
 interface ContentEditableEditorProps {
   value: string;
   onChange: (value: string) => void;
-  onSave?: () => void;
   placeholder?: string;
   className?: string;
   singleLine?: boolean;
@@ -14,7 +13,6 @@ const DEBOUNCE_MS = 300;
 export function ContentEditableEditor({
   value,
   onChange,
-  onSave,
   placeholder,
   className = '',
   singleLine = false,
@@ -66,17 +64,11 @@ export function ContentEditableEditor({
   }, [singleLine]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Ctrl+S / Cmd+S
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      flush();
-      onSave?.();
-    }
     // Prevent Enter in single-line mode
     if (singleLine && e.key === 'Enter') {
       e.preventDefault();
     }
-  }, [flush, onSave, singleLine]);
+  }, [singleLine]);
 
   const handleBlur = useCallback(() => {
     flush();

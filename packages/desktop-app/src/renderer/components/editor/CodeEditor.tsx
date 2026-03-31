@@ -1,26 +1,21 @@
 import React, { useCallback, useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import type { editor as monacoEditor } from 'monaco-editor';
 import { getCssColorAsHex } from './editor-utils';
+
+type MonacoEditor = Parameters<OnMount>[0];
 
 interface CodeEditorProps {
   content: string;
   language: string;
   onChange: (content: string) => void;
-  onSave: () => void;
 }
 
-export function CodeEditor({ content, language, onChange, onSave }: CodeEditorProps): JSX.Element {
-  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
+export function CodeEditor({ content, language, onChange }: CodeEditorProps): JSX.Element {
+  const editorRef = useRef<MonacoEditor | null>(null);
 
-  const handleMount: OnMount = useCallback((editor, monaco) => {
+  const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor;
-
-    // Ctrl+S / Cmd+S to save
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      onSave();
-    });
-  }, [onSave]);
+  }, []);
 
   const handleChange = useCallback((value: string | undefined) => {
     onChange(value ?? '');

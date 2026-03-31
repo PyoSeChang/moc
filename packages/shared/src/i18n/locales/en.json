@@ -329,5 +329,11 @@
     "createFailed": "Creation failed",
     "deleteFailed": "Delete failed",
     "pasteFailed": "Paste failed"
+  },
+  "editor": {
+    "unsavedChanges": "Unsaved Changes",
+    "unsavedChangesMessage": "\"{title}\" has unsaved changes. What would you like to do?",
+    "closeWithoutSaving": "Close Without Saving",
+    "saveAndClose": "Save & Close"
   }
 }

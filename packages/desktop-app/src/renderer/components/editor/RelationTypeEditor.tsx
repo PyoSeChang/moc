@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
-import type { EditorTab, RelationTypeUpdate } from '@moc/shared/types';
+import type { EditorTab, LineStyle } from '@moc/shared/types';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useEditorSession } from '../../hooks/useEditorSession';
 import { useI18n } from '../../hooks/useI18n';
 import { Input } from '../ui/Input';
 import { TextArea } from '../ui/TextArea';
@@ -14,23 +15,39 @@ interface RelationTypeEditorProps {
   tab: EditorTab;
 }
 
+interface RelationTypeState {
+  name: string;
+  description: string | null;
+  color: string | null;
+  line_style: LineStyle;
+  directed: boolean;
+}
+
 export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Element {
   const { t } = useI18n();
   const relationTypeId = tab.targetId;
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
   const { updateRelationType } = useRelationTypeStore();
 
-  const relationType = relationTypes.find((rt) => rt.id === relationTypeId);
-
-  const handleUpdate = useCallback(
-    (data: RelationTypeUpdate) => {
-      updateRelationType(relationTypeId, data);
-      if (data.name) {
-        useEditorStore.getState().updateTitle(tab.id, data.name);
-      }
+  const session = useEditorSession<RelationTypeState>({
+    tabId: tab.id,
+    load: () => {
+      const rt = useRelationTypeStore.getState().relationTypes.find((r) => r.id === relationTypeId);
+      if (!rt) return { name: '', description: null, color: null, line_style: 'solid', directed: false };
+      return {
+        name: rt.name,
+        description: rt.description,
+        color: rt.color,
+        line_style: rt.line_style,
+        directed: rt.directed,
+      };
     },
-    [relationTypeId, tab.id, updateRelationType],
-  );
+    save: async (state) => {
+      await updateRelationType(relationTypeId, state);
+      useEditorStore.getState().updateTitle(tab.id, state.name);
+    },
+    deps: [relationTypeId],
+  });
 
   const lineStyleOptions = [
     { value: 'solid', label: t('relationType.solid') },
@@ -38,6 +55,7 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
     { value: 'dotted', label: t('relationType.dotted') },
   ];
 
+  const relationType = relationTypes.find((rt) => rt.id === relationTypeId);
   if (!relationType) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted">
@@ -45,6 +63,12 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
       </div>
     );
   }
+
+  if (session.isLoading) return <></>;
+
+  const update = (patch: Partial<RelationTypeState>) => {
+    session.setState((prev) => ({ ...prev, ...patch }));
+  };
 
   return (
     <ScrollArea>
@@ -54,8 +78,8 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('relationType.name')}</label>
             <Input
-              value={relationType.name}
-              onChange={(e) => handleUpdate({ name: e.target.value })}
+              value={session.state.name}
+              onChange={(e) => update({ name: e.target.value })}
             />
           </div>
 
@@ -63,8 +87,8 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('relationType.description')}</label>
             <TextArea
-              value={relationType.description ?? ''}
-              onChange={(e) => handleUpdate({ description: e.target.value || null })}
+              value={session.state.description ?? ''}
+              onChange={(e) => update({ description: e.target.value || null })}
               rows={4}
               placeholder={t('relationType.descriptionPlaceholder')}
             />
@@ -77,8 +101,8 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
             <div className="flex flex-col gap-2">
               <span className="text-xs text-secondary">{t('relationType.color')}</span>
               <ColorPicker
-                value={relationType.color ?? undefined}
-                onChange={(color) => handleUpdate({ color })}
+                value={session.state.color ?? undefined}
+                onChange={(color) => update({ color })}
               />
             </div>
 
@@ -86,16 +110,16 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
               <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
               <Select
                 options={lineStyleOptions}
-                value={relationType.line_style}
-                onChange={(e) => handleUpdate({ line_style: e.target.value as 'solid' | 'dashed' | 'dotted' })}
+                value={session.state.line_style}
+                onChange={(e) => update({ line_style: e.target.value as 'solid' | 'dashed' | 'dotted' })}
                 selectSize="sm"
               />
             </div>
 
             <div className="flex items-center gap-2">
               <Toggle
-                checked={relationType.directed}
-                onChange={(checked) => handleUpdate({ directed: checked })}
+                checked={session.state.directed}
+                onChange={(checked) => update({ directed: checked })}
               />
               <span className="text-xs text-secondary">{t('relationType.directed')}</span>
             </div>

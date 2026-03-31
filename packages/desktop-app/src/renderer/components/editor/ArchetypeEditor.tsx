@@ -1,8 +1,9 @@
 import React, { useEffect, useCallback } from 'react';
-import type { EditorTab, ArchetypeUpdate } from '@moc/shared/types';
+import type { EditorTab } from '@moc/shared/types';
 import { Plus } from 'lucide-react';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useEditorSession } from '../../hooks/useEditorSession';
 import { useI18n } from '../../hooks/useI18n';
 import { Input } from '../ui/Input';
 import { TextArea } from '../ui/TextArea';
@@ -17,12 +18,22 @@ interface ArchetypeEditorProps {
   tab: EditorTab;
 }
 
+interface ArchetypeState {
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  node_shape: string | null;
+  file_template: string | null;
+}
+
 export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
   const { t } = useI18n();
   const archetypeId = tab.targetId;
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const fields = useArchetypeStore((s) => s.fields[archetypeId] ?? []);
-  const { updateArchetype, loadFields, createField, updateField, deleteField } = useArchetypeStore();
+  const { loadFields, createField, updateField, deleteField } = useArchetypeStore();
+  const updateArchetype = useArchetypeStore((s) => s.updateArchetype);
 
   const archetype = archetypes.find((a) => a.id === archetypeId);
 
@@ -30,16 +41,28 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
     loadFields(archetypeId);
   }, [archetypeId, loadFields]);
 
-  const handleUpdate = useCallback(
-    (data: ArchetypeUpdate) => {
-      updateArchetype(archetypeId, data);
-      if (data.name) {
-        useEditorStore.getState().updateTitle(tab.id, data.name);
-      }
+  const session = useEditorSession<ArchetypeState>({
+    tabId: tab.id,
+    load: () => {
+      const a = useArchetypeStore.getState().archetypes.find((ar) => ar.id === archetypeId);
+      if (!a) return { name: '', description: null, icon: null, color: null, node_shape: null, file_template: null };
+      return {
+        name: a.name,
+        description: a.description,
+        icon: a.icon,
+        color: a.color,
+        node_shape: a.node_shape,
+        file_template: a.file_template,
+      };
     },
-    [archetypeId, tab.id, updateArchetype],
-  );
+    save: async (state) => {
+      await updateArchetype(archetypeId, state);
+      useEditorStore.getState().updateTitle(tab.id, state.name);
+    },
+    deps: [archetypeId],
+  });
 
+  // Field CRUD — immediate actions, not part of session
   const handleAddField = async () => {
     await createField({
       archetype_id: archetypeId,
@@ -82,6 +105,12 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
     );
   }
 
+  if (session.isLoading) return <></>;
+
+  const update = (patch: Partial<ArchetypeState>) => {
+    session.setState((prev) => ({ ...prev, ...patch }));
+  };
+
   return (
     <ScrollArea>
       <div className="flex h-full items-start justify-center">
@@ -90,8 +119,8 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('archetype.name')}</label>
             <Input
-              value={archetype.name}
-              onChange={(e) => handleUpdate({ name: e.target.value })}
+              value={session.state.name}
+              onChange={(e) => update({ name: e.target.value })}
             />
           </div>
 
@@ -99,8 +128,8 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('archetype.description')}</label>
             <TextArea
-              value={archetype.description ?? ''}
-              onChange={(e) => handleUpdate({ description: e.target.value || null })}
+              value={session.state.description ?? ''}
+              onChange={(e) => update({ description: e.target.value || null })}
               rows={4}
               placeholder={t('archetype.descriptionPlaceholder')}
             />
@@ -113,16 +142,16 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
             <div className="flex flex-col gap-2">
               <span className="text-xs text-secondary">{t('archetype.icon')}</span>
               <IconSelector
-                value={archetype.icon ?? undefined}
-                onChange={(icon) => handleUpdate({ icon })}
+                value={session.state.icon ?? undefined}
+                onChange={(icon) => update({ icon })}
               />
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="text-xs text-secondary">{t('archetype.color')}</span>
               <ColorPicker
-                value={archetype.color ?? undefined}
-                onChange={(color) => handleUpdate({ color })}
+                value={session.state.color ?? undefined}
+                onChange={(color) => update({ color })}
               />
             </div>
 
@@ -130,8 +159,8 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
               <span className="text-xs text-secondary">{t('archetype.nodeShape')}</span>
               <Select
                 options={nodeShapeOptions}
-                value={archetype.node_shape ?? ''}
-                onChange={(e) => handleUpdate({ node_shape: e.target.value || null })}
+                value={session.state.node_shape ?? ''}
+                onChange={(e) => update({ node_shape: e.target.value || null })}
                 placeholder={t('archetype.nodeShapePlaceholder')}
                 selectSize="sm"
               />
@@ -142,15 +171,15 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('archetype.fileTemplate')}</label>
             <TextArea
-              value={archetype.file_template ?? ''}
-              onChange={(e) => handleUpdate({ file_template: e.target.value || null })}
+              value={session.state.file_template ?? ''}
+              onChange={(e) => update({ file_template: e.target.value || null })}
               rows={6}
               placeholder={t('archetype.fileTemplatePlaceholder')}
               className="font-mono text-xs"
             />
           </div>
 
-          {/* Fields Schema */}
+          {/* Fields Schema — immediate actions */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-secondary">{t('archetype.propertySchema')}</label>

@@ -16,7 +16,7 @@ interface FloatWindowProps {
 
 export function FloatWindow({ tab, isActive, onActivate }: FloatWindowProps): JSX.Element {
   const { t } = useI18n();
-  const { updateFloatRect, setViewMode, toggleMinimize, closeTab } = useEditorStore();
+  const { updateFloatRect, setViewMode, toggleMinimize, requestCloseTab } = useEditorStore();
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
 
@@ -133,7 +133,7 @@ export function FloatWindow({ tab, isActive, onActivate }: FloatWindowProps): JS
         <IconButton
           label={t('common.close')}
           className="w-7 h-7"
-          onClick={() => closeTab(tab.id)}
+          onClick={() => requestCloseTab(tab.id)}
           tooltipPosition="bottom"
         >
           <X size={14} />

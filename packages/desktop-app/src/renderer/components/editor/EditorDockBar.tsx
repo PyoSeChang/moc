@@ -6,7 +6,7 @@ import { Tooltip } from '../ui/Tooltip';
 
 export function EditorDockBar(): JSX.Element | null {
   const { t } = useI18n();
-  const { tabs, activeTabId, toggleMinimize, closeTab } = useEditorStore();
+  const { tabs, activeTabId, toggleMinimize, requestCloseTab } = useEditorStore();
 
   const minimizedTabs = tabs.filter((t) => t.isMinimized);
 
@@ -40,7 +40,7 @@ export function EditorDockBar(): JSX.Element | null {
               className="ml-0.5 rounded p-0.5 hover:bg-border-subtle"
               onClick={(e) => {
                 e.stopPropagation();
-                closeTab(tab.id);
+                requestCloseTab(tab.id);
               }}
             >
               <X size={10} />

@@ -329,5 +329,11 @@
     "createFailed": "생성 실패",
     "deleteFailed": "삭제 실패",
     "pasteFailed": "붙여넣기 실패"
+  },
+  "editor": {
+    "unsavedChanges": "저장하지 않은 변경사항",
+    "unsavedChangesMessage": "\"{title}\"에 저장하지 않은 변경사항이 있습니다. 어떻게 하시겠습니까?",
+    "closeWithoutSaving": "저장하지 않고 닫기",
+    "saveAndClose": "저장 후 닫기"
   }
 }

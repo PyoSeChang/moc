@@ -309,7 +309,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (tab && tab.type === 'terminal') {
       window.electron.terminal.kill(tab.targetId).catch(() => {});
     }
-    if (tab && tab.type === 'concept') {
+    if (tab && tab.type === 'concept' && !tab.targetId.startsWith('draft-')) {
       editorPrefsService.upsert(tab.targetId, {
         view_mode: tab.viewMode,
         float_x: tab.floatRect.x,

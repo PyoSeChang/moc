@@ -36,8 +36,12 @@ export const horizontalTimelinePlugin: CanvasLayoutPlugin = {
     const overlayNodes: LayoutRenderNode[] = [];
 
     for (const node of nodes) {
+      const timeValue = node.metadata.time_value as number | undefined;
       const role = node.metadata.role as string | undefined;
       const endTimeValue = node.metadata.end_time_value as number | undefined;
+
+      // Hide nodes without time metadata on timeline
+      if (timeValue == null) continue;
 
       if (role === 'period' && endTimeValue != null) {
         overlayNodes.push(node);

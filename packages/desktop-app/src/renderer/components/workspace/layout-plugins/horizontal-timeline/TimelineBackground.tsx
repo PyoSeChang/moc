@@ -58,6 +58,7 @@ export const TimelineBackground: React.FC<LayoutLayerProps> = ({
       <svg width="100%" height={HEADER_TOTAL_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, zIndex: 10, pointerEvents: 'auto' }}>
         {/* Header background */}
         <rect x={0} y={0} width="100%" height={HEADER_TOTAL_HEIGHT} fill="var(--surface-panel)" />
+        <line x1={0} y1={0} x2={0} y2={HEADER_TOTAL_HEIGHT} stroke="var(--border-default)" strokeWidth={1} />
         <line x1={0} y1={HEADER_TOTAL_HEIGHT} x2="100%" y2={HEADER_TOTAL_HEIGHT} stroke="var(--border-default)" strokeWidth={1} />
         <line x1={0} y1={HEADER_MAJOR_HEIGHT} x2="100%" y2={HEADER_MAJOR_HEIGHT} stroke="var(--border-subtle)" strokeWidth={1} />
 

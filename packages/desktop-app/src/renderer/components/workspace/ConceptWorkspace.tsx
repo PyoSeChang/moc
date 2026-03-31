@@ -190,7 +190,16 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
   const layoutConfig = currentCanvas?.layout_config ?? {};
 
   // Load concept_properties for all concept nodes
+  // Re-fetch when concept store properties change (user edits in concept editor)
+  const conceptStoreProperties = useConceptStore((s) => s.properties);
   const [nodeProperties, setNodeProperties] = useState<Record<string, Array<{ field_id: string; value: string | null }>>>({});
+  const [propsVersion, setPropsVersion] = useState(0);
+
+  // Trigger reload when concept store properties change
+  useEffect(() => {
+    setPropsVersion((v) => v + 1);
+  }, [conceptStoreProperties]);
+
   useEffect(() => {
     if (currentCanvas?.layout === 'freeform' || !currentCanvas) return;
     const conceptIds = nodes.filter((n) => n.concept_id).map((n) => n.concept_id!);
@@ -205,7 +214,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
       for (const [cid, props] of results) map[cid] = props;
       setNodeProperties(map);
     });
-  }, [nodes, currentCanvas?.layout, currentCanvas?.id]);
+  }, [nodes, currentCanvas?.layout, currentCanvas?.id, propsVersion]);
 
   // Build LayoutRenderNodes with metadata from field_mappings + concept_properties
   const fieldMappingsConfig = (layoutConfig.field_mappings ?? {}) as Record<string, Record<string, string>>;
@@ -275,6 +284,10 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     [layoutPlugin, positionedNodes],
   );
   const cardRenderNodes = useMemo<RenderNode[]>(() => cardNodes, [cardNodes]);
+
+  if (layoutPlugin.key !== 'freeform' && cardNodes.length > 0) {
+    console.log('[CW] cardNodes:', cardNodes.map(n => ({ id: n.id.slice(0,8), label: n.label, x: n.x, y: n.y, role: (n as any).metadata?.role, tv: (n as any).metadata?.time_value })));
+  }
 
   // --- Keyboard shortcuts ---
   useEffect(() => {
@@ -373,6 +386,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
           nodeId,
           newX: x,
           newY: y,
+          zoom,
           config: currentCanvas?.layout_config ?? {},
           node,
         });
@@ -403,7 +417,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
 
   const { dragState, nodeDragOffset, handleCanvasMouseDown, handleNodeDragStart } = useInteraction({
     containerRef: containerRef as React.RefObject<HTMLDivElement>,
-    nodes: renderNodes,
+    nodes: cardRenderNodes,
     zoom,
     panX,
     panY,
@@ -523,6 +537,11 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
         onFitToScreen={fitToScreen}
         onNavigateBack={() => navigateBack()}
         onNavigateForward={() => {}}
+        hiddenControls={layoutPlugin.hiddenControls}
+        extraItems={layoutPlugin.controlItems?.map((item) => ({
+          ...item,
+          onClick: () => item.onClick({ zoom, panX, setZoom, setPanX }),
+        }))}
       />
 
       <layoutPlugin.BackgroundComponent
@@ -749,6 +768,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
                 canvasId: currentCanvas.id,
                 positionX: worldX,
                 positionY: worldY,
+                allowedArchetypeIds: isTimeline ? Object.keys(fieldMappingsConfig) : undefined,
               },
             });
           }}

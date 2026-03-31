@@ -476,6 +476,7 @@ export interface EditorTab {
     canvasId?: string;
     positionX?: number;
     positionY?: number;
+    allowedArchetypeIds?: string[];
   };
 }
 

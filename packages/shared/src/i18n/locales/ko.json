@@ -78,7 +78,8 @@
       "period": "기간",
       "occurrence": "사건",
       "asc": "오름차순",
-      "desc": "내림차순"
+      "desc": "내림차순",
+      "color": "색상"
     }
   },
   "concept": {

@@ -65,10 +65,22 @@ function DraftConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
   const archetypeFields = archetypeId ? (fields[archetypeId] ?? []) : [];
 
+  const allowedIds = tab.draftData?.allowedArchetypeIds;
+  const filteredArchetypes = allowedIds
+    ? archetypes.filter((a) => allowedIds.includes(a.id))
+    : archetypes;
+
   const archetypeOptions = useMemo(() => [
-    { value: '', label: t('common.none') ?? 'None' },
-    ...archetypes.map((a) => ({ value: a.id, label: a.name })),
-  ], [archetypes, t]);
+    ...(allowedIds ? [] : [{ value: '', label: t('common.none') ?? 'None' }]),
+    ...filteredArchetypes.map((a) => ({ value: a.id, label: a.name })),
+  ], [filteredArchetypes, allowedIds, t]);
+
+  // Auto-select first archetype if restricted and none selected
+  useEffect(() => {
+    if (allowedIds && !archetypeId && filteredArchetypes.length > 0) {
+      setArchetypeId(filteredArchetypes[0].id);
+    }
+  }, [allowedIds, archetypeId, filteredArchetypes]);
 
   const upsertProperty = useConceptStore((s) => s.upsertProperty);
 
@@ -197,10 +209,10 @@ function ExistingConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const concept = concepts.find((c) => c.id === tab.targetId);
 
   useEffect(() => {
-    if (concepts.length === 0 && currentProject) {
+    if (!concept && currentProject) {
       loadByProject(currentProject.id);
     }
-  }, [concepts.length, currentProject, loadByProject]);
+  }, [concept, currentProject, loadByProject]);
 
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const archetype = useArchetypeStore((s) =>
@@ -252,10 +264,10 @@ function ExistingConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* View mode toggle */}
-      <div className="flex shrink-0 items-center bg-surface-panel px-2">
+      <div className="flex shrink-0 items-center border-b border-subtle bg-surface-panel px-2">
         <button
           className={`flex items-center gap-1 px-3 py-1.5 text-xs transition-colors ${
-            viewMode === 'human' ? 'text-accent border-b-2 border-accent' : 'text-secondary hover:text-default'
+            viewMode === 'human' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-default'
           }`}
           onClick={() => setViewMode('human')}
         >
@@ -264,7 +276,7 @@ function ExistingConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
         </button>
         <button
           className={`flex items-center gap-1 px-3 py-1.5 text-xs transition-colors ${
-            viewMode === 'agent' ? 'text-accent border-b-2 border-accent' : 'text-secondary hover:text-default'
+            viewMode === 'agent' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-default'
           }`}
           onClick={() => setViewMode('agent')}
         >
@@ -313,7 +325,7 @@ function ExistingConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             {/* Attached files */}
             {files.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-subtle pt-4">
-                <span className="text-xs font-medium text-secondary mb-1">Attached Files</span>
+                <span className="text-xs font-medium text-muted mb-1">Attached Files</span>
                 {files.map((f) => {
                   const name = f.file_path.replace(/\\/g, '/').split('/').pop() ?? f.file_path;
                   return (

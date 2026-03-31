@@ -86,7 +86,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-secondary">{t('canvas.name') ?? 'Name'}</label>
+            <label className="text-xs font-medium text-muted">{t('canvas.name') ?? 'Name'}</label>
             <Input
               value={canvas.name}
               onChange={(e) => handleUpdate({ name: e.target.value })}
@@ -96,7 +96,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
           {/* Canvas Type */}
           {canvasTypes.length > 0 && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-secondary">{t('canvasType.title')}</label>
+              <label className="text-xs font-medium text-muted">{t('canvasType.title')}</label>
               <Select
                 options={canvasTypeOptions}
                 value={canvas.canvas_type_id ?? ''}
@@ -219,7 +219,11 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
                       const fieldOptions = [
                         { value: '', label: req.required ? `-- ${reqLabel} --` : `(${t('common.none') ?? 'None'})` },
                         ...archFields
-                          .filter((f) => ['date', 'datetime'].includes(f.field_type))
+                          .filter((f) => {
+                            if (req.key === 'color') return f.field_type === 'color';
+                            if (req.key === 'time_value' || req.key === 'end_time_value') return ['date', 'datetime'].includes(f.field_type);
+                            return true;
+                          })
                           .map((f) => ({ value: f.id, label: f.name })),
                       ];
                       return (
@@ -243,7 +247,7 @@ export function CanvasEditor({ tab }: CanvasEditorProps): JSX.Element {
           {/* Info */}
           {canvas.concept_id && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-secondary">{t('canvas.parentConcept') ?? 'Parent Concept'}</label>
+              <label className="text-xs font-medium text-muted">{t('canvas.parentConcept') ?? 'Parent Concept'}</label>
               <div className="px-3 py-2 text-sm bg-surface-base border border-subtle rounded-md text-secondary">
                 {canvas.concept_id}
               </div>

@@ -60,6 +60,7 @@ export interface NodeDropContext {
   nodeId: string;
   newX: number;
   newY: number;
+  zoom: number;
   config: Record<string, unknown>;
   node: LayoutRenderNode;
 }
@@ -120,4 +121,15 @@ export interface CanvasLayoutPlugin {
 
   /** Handle node drop — return position + optional property updates */
   onNodeDrop?: (context: NodeDropContext) => NodeDropResult;
+
+  /** Hide default control buttons */
+  hiddenControls?: Array<'zoom' | 'fit' | 'nav' | 'mode'>;
+
+  /** Additional control buttons provided by this plugin */
+  controlItems?: Array<{
+    key: string;
+    icon: React.ReactNode;
+    label: string;
+    onClick: (context: { zoom: number; panX: number; setZoom: (z: number) => void; setPanX: (x: number) => void }) => void;
+  }>;
 }

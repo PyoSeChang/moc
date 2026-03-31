@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { LayoutLayerProps } from '../types';
 import { PIXELS_PER_DAY, todayEpochDays } from './scale-utils';
 import { HEADER_TOTAL_HEIGHT } from './TimelineBackground';
@@ -27,13 +27,14 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
   const bands = useMemo(() => {
     const rawBands: Array<{
       id: string; screenX: number; screenWidth: number; label: string;
-      startValue: number; endValue: number; duration: number;
+      startValue: number; endValue: number; duration: number; color?: string;
     }> = [];
 
     for (const node of nodes) {
       const timeValue = node.metadata.time_value as number | undefined;
       const endTimeValue = node.metadata.end_time_value as number | undefined;
       const role = node.metadata.role as string | undefined;
+      const color = node.metadata.color as string | undefined;
 
       if (role !== 'period' || timeValue == null || endTimeValue == null) continue;
 
@@ -56,20 +57,26 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
 
       const screenStartX = (startDay - originDay) * pxPerDay + panX;
       const screenEndX = (endDay - originDay) * pxPerDay + panX;
+      const minX = Math.min(screenStartX, screenEndX);
+      const bandWidth = Math.abs(screenEndX - screenStartX);
+
+      const sortedStart = Math.min(timeValue, endTimeValue);
+      const sortedEnd = Math.max(timeValue, endTimeValue);
 
       rawBands.push({
         id: node.id,
-        screenX: screenStartX,
-        screenWidth: screenEndX - screenStartX,
+        screenX: minX,
+        screenWidth: bandWidth,
         label: node.label,
-        startValue: timeValue,
-        endValue: endTimeValue,
-        duration: endTimeValue - timeValue,
+        startValue: sortedStart,
+        endValue: sortedEnd,
+        duration: sortedEnd - sortedStart,
+        color,
       });
     }
 
-    // Lane assignment: shortest → lane 0 (top)
-    rawBands.sort((a, b) => a.duration - b.duration);
+    // Lane assignment: longest → lane 0 (top)
+    rawBands.sort((a, b) => b.duration - a.duration);
     const bandLanes: Array<Array<{ start: number; end: number }>> = [];
     const result: Array<typeof rawBands[0] & { lane: number }> = [];
 
@@ -90,12 +97,14 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
   }, [nodes, pxPerDay, panX, originDay, nodeDragOffset, spanResizeOffset]);
 
   const bandTopBase = HEADER_TOTAL_HEIGHT + 8;
+  const [hoveredBandId, setHoveredBandId] = useState<string | null>(null);
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
       <svg width="100%" height="100%" style={{ position: 'absolute', left: 0, top: 0 }}>
         {bands.map((band) => {
           const bandY = bandTopBase + band.lane * (BAND_HEIGHT + BAND_GAP);
+          const isHovered = hoveredBandId === band.id;
           return (
             <g key={`band-${band.id}`}>
               <rect
@@ -103,10 +112,14 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
                 y={bandY}
                 width={Math.max(band.screenWidth, 2)}
                 height={BAND_HEIGHT}
-                fill="var(--accent-muted)"
-                opacity={0.3}
+                fill={band.color || 'var(--accent-muted)'}
+                opacity={isHovered ? 0.8 : 0.5}
+                stroke={isHovered ? 'var(--accent)' : 'none'}
+                strokeWidth={isHovered ? 1.5 : 0}
                 rx={4}
-                style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                style={{ pointerEvents: 'all', cursor: 'pointer', transition: 'opacity 0.15s' }}
+                onMouseEnter={() => setHoveredBandId(band.id)}
+                onMouseLeave={() => setHoveredBandId(null)}
                 onClick={(e) => { e.stopPropagation(); onNodeClick?.(band.id, e); }}
                 onDoubleClick={(e) => { e.stopPropagation(); onNodeDoubleClick?.(band.id); }}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu?.('node', e.clientX, e.clientY, band.id); }}
@@ -116,7 +129,8 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
                 y={bandY + BAND_HEIGHT / 2}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fill="var(--text-secondary)"
+                fill={isHovered ? 'var(--text-default)' : 'var(--text-secondary)'}
+                fontWeight={isHovered ? 600 : 400}
                 fontSize={11}
                 fontFamily="system-ui, sans-serif"
                 style={{ pointerEvents: 'none' }}

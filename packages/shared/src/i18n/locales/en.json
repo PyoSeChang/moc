@@ -78,7 +78,8 @@
       "period": "Period",
       "occurrence": "Occurrence",
       "asc": "Ascending",
-      "desc": "Descending"
+      "desc": "Descending",
+      "color": "Color"
     }
   },
   "concept": {

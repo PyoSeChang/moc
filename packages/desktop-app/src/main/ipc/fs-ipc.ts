@@ -114,6 +114,16 @@ export function registerFsIpc(): void {
     }
   });
 
+  ipcMain.handle('fs:readBinaryFile', async (_e, filePath: string): Promise<IpcResult<unknown>> => {
+    try {
+      const buffer = await readFile(filePath);
+      // Return as Uint8Array so Electron can serialize it via structured clone
+      return { success: true, data: new Uint8Array(buffer) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle('fs:writeFile', async (_e, filePath: string, content: string): Promise<IpcResult<unknown>> => {
     try {
       await writeFile(filePath, content, 'utf-8');

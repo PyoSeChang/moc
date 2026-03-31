@@ -1,11 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import './pdf-polyfill';
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { fsService } from '../../services';
 
-// Configure pdf.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Configure pdf.js worker via CDN (local import.meta.url breaks in Vite dev server)
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PdfViewerProps {
   absolutePath: string;
@@ -16,13 +19,40 @@ export function PdfViewer({ absolutePath }: PdfViewerProps): JSX.Element {
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [error, setError] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
 
-  const fileUrl = `file:///${absolutePath.replace(/\\/g, '/')}`;
+  // Read file via IPC and create blob URL (file:// is blocked in renderer)
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const buffer = await fsService.readBinaryFile(absolutePath);
+        if (cancelled) return;
+        const blob = new Blob([buffer], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+        urlRef.current = url;
+        setBlobUrl(url);
+        setError(null);
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (urlRef.current) {
+        URL.revokeObjectURL(urlRef.current);
+        urlRef.current = null;
+      }
+    };
+  }, [absolutePath]);
 
   const onDocumentLoadSuccess = useCallback(({ numPages: total }: { numPages: number }) => {
     setNumPages(total);
     setPageNumber(1);
-    setError(null);
   }, []);
 
   const onDocumentLoadError = useCallback((err: Error) => {
@@ -57,10 +87,18 @@ export function PdfViewer({ absolutePath }: PdfViewerProps): JSX.Element {
     );
   }
 
+  if (!blobUrl) {
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-muted">
+        Loading PDF...
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-subtle bg-surface-panel px-2 py-1">
+      <div className="flex shrink-0 items-center justify-between bg-surface-panel px-2 py-1">
         <div className="flex items-center gap-1">
           <button
             className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default disabled:opacity-30"
@@ -116,10 +154,10 @@ export function PdfViewer({ absolutePath }: PdfViewerProps): JSX.Element {
       </div>
 
       {/* PDF content */}
-      <div className="flex-1 overflow-auto bg-surface-base">
+      <div className="flex-1 overflow-auto bg-surface-panel">
         <div className="flex justify-center p-4">
           <Document
-            file={fileUrl}
+            file={blobUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={

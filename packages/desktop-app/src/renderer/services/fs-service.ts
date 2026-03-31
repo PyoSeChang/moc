@@ -13,6 +13,10 @@ export async function readFile(filePath: string): Promise<string> {
   return unwrapIpc(await window.electron.fs.readFile(filePath));
 }
 
+export async function readBinaryFile(filePath: string): Promise<ArrayBuffer> {
+  return unwrapIpc(await window.electron.fs.readBinaryFile(filePath));
+}
+
 export async function writeFile(filePath: string, content: string): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.writeFile(filePath, content));
 }
@@ -63,7 +67,7 @@ export async function existsItem(targetPath: string): Promise<boolean> {
 }
 
 export const fsService = {
-  readDir, readDirShallow, readFile, writeFile, openFolderDialog, openFileDialog,
+  readDir, readDirShallow, readFile, readBinaryFile, writeFile, openFolderDialog, openFileDialog,
   renameItem, deleteItem, createFile, createDir, copyItem, moveItem,
   showInExplorer, existsItem,
 };

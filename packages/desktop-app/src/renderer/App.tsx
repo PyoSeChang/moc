@@ -7,6 +7,9 @@ import { ProjectHome } from './components/home/ProjectHome';
 import { WorkspaceShell } from './components/workspace/WorkspaceShell';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { ToastContainer } from './components/ui/Toast';
+import { initTerminalTracker } from './lib/terminal-tracker';
+
+initTerminalTracker();
 
 function TitleBarBreadcrumb(): JSX.Element | null {
   const { breadcrumbs, canvasHistory, navigateToBreadcrumb, navigateBack } = useCanvasStore();

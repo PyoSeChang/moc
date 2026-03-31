@@ -106,14 +106,33 @@
     "delete": "Delete Archetype",
     "name": "Name",
     "description": "Description",
+    "descriptionPlaceholder": "Describe this archetype...",
+    "visualDefaults": "Visual Defaults",
     "icon": "Icon",
     "color": "Color",
     "nodeShape": "Node Shape",
+    "nodeShapePlaceholder": "Default shape",
     "fileTemplate": "File Template",
+    "fileTemplatePlaceholder": "# Title\n\n## Section\n...",
     "fields": "Field Schema",
+    "propertySchema": "Property Schema",
     "addField": "Add Field",
+    "noFields": "No fields defined yet",
+    "fieldName": "Field name",
+    "options": "Options (comma-separated)",
+    "required": "Req",
+    "deleteField": "Delete field",
+    "notFound": "Archetype not found",
     "noArchetypes": "No archetypes yet",
-    "deleteConfirm": "Delete this archetype? Connected concepts will not be deleted."
+    "deleteConfirm": "Delete this archetype? Connected concepts will not be deleted.",
+    "rectangle": "Rectangle",
+    "rounded": "Rounded",
+    "circle": "Circle",
+    "diamond": "Diamond",
+    "hexagon": "Hexagon",
+    "parallelogram": "Parallelogram",
+    "cylinder": "Cylinder",
+    "stadium": "Stadium"
   },
   "field": {
     "name": "Field Name",
@@ -175,7 +194,11 @@
     "modeFloat": "Float",
     "modeFull": "Full",
     "modeSide": "Side",
-    "modeDetached": "Detached"
+    "modeDetached": "Detached",
+    "unsavedChanges": "Unsaved Changes",
+    "unsavedChangesMessage": "\"{title}\" has unsaved changes. What would you like to do?",
+    "closeWithoutSaving": "Close Without Saving",
+    "saveAndClose": "Save & Close"
   },
   "markdown": {
     "toc": "Table of Contents"
@@ -193,34 +216,6 @@
     "themeDesc": "Choose the color theme for the app.",
     "language": "Language",
     "languageDesc": "Choose the display language for the app."
-  },
-  "archetype": {
-    "name": "Name",
-    "description": "Description",
-    "descriptionPlaceholder": "Describe this archetype...",
-    "visualDefaults": "Visual Defaults",
-    "icon": "Icon",
-    "color": "Color",
-    "nodeShape": "Node Shape",
-    "nodeShapePlaceholder": "Default shape",
-    "fileTemplate": "File Template",
-    "fileTemplatePlaceholder": "# Title\n\n## Section\n...",
-    "propertySchema": "Property Schema",
-    "addField": "Add Field",
-    "noFields": "No fields defined yet",
-    "fieldName": "Field name",
-    "options": "Options (comma-separated)",
-    "required": "Req",
-    "deleteField": "Delete field",
-    "notFound": "Archetype not found",
-    "rectangle": "Rectangle",
-    "rounded": "Rounded",
-    "circle": "Circle",
-    "diamond": "Diamond",
-    "hexagon": "Hexagon",
-    "parallelogram": "Parallelogram",
-    "cylinder": "Cylinder",
-    "stadium": "Stadium"
   },
   "typeSelector": {
     "type": "Type",
@@ -330,10 +325,9 @@
     "deleteFailed": "Delete failed",
     "pasteFailed": "Paste failed"
   },
-  "editor": {
-    "unsavedChanges": "Unsaved Changes",
-    "unsavedChangesMessage": "\"{title}\" has unsaved changes. What would you like to do?",
-    "closeWithoutSaving": "Close Without Saving",
-    "saveAndClose": "Save & Close"
+  "terminal": {
+    "runningProcess": "Running Process",
+    "killAndClose": "Kill & Close",
+    "runningProcessMessage": "'{title}' has a running process. Closing will kill it."
   }
 }

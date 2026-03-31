@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Project } from '@moc/shared/types';
 import { projectService } from '../services';
 import { unwrapIpc } from '../services/ipc';
+import { saveProjectState, restoreProjectState, clearAllProjectStores, deleteProjectState } from './project-state-cache';
 
 interface ProjectStore {
   projects: Project[];
@@ -52,24 +53,44 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   openProject: (project) => {
+    const { currentProject } = get();
+    if (currentProject && currentProject.id !== project.id) {
+      saveProjectState(currentProject.id);
+    }
+
+    const restored = restoreProjectState(project.id);
+    if (!restored) {
+      clearAllProjectStores();
+    }
+
     set({ currentProject: project });
     window.electron.config.set('lastProjectId', project.id).catch(() => {});
   },
 
   closeProject: () => {
+    const { currentProject } = get();
+    if (currentProject) {
+      saveProjectState(currentProject.id);
+    }
+    clearAllProjectStores();
     set({ currentProject: null });
     window.electron.config.set('lastProjectId', '').catch(() => {});
   },
 
   deleteProject: async (id) => {
     await projectService.delete(id);
+    deleteProjectState(id);
     const lastId = unwrapIpc(await window.electron.config.get('lastProjectId').catch(() => ({ success: true, data: null }))) as string | null;
     if (lastId === id) {
       window.electron.config.set('lastProjectId', '').catch(() => {});
     }
+    const wasCurrent = get().currentProject?.id === id;
+    if (wasCurrent) {
+      clearAllProjectStores();
+    }
     set((s) => ({
       projects: s.projects.filter((p) => p.id !== id),
-      currentProject: s.currentProject?.id === id ? null : s.currentProject,
+      currentProject: wasCurrent ? null : s.currentProject,
     }));
   },
 }));

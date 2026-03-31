@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { EditorViewMode, EditorTab, EditorTabType, SplitNode, SplitDirection, SplitLeaf, SplitBranch } from '@moc/shared/types';
 import { editorPrefsService } from '../services';
 import { hasUnsavedChanges, getSession } from '../lib/editor-session-registry';
+import { isTerminalAlive } from '../lib/terminal-tracker';
 
 interface OpenTabParams {
   type: EditorTabType;
@@ -541,7 +542,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   // ── Close confirmation ──
 
   requestCloseTab: (tabId) => {
-    if (hasUnsavedChanges(tabId)) {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (tab?.type === 'terminal' && isTerminalAlive(tab.targetId)) {
+      set({ pendingCloseTabId: tabId });
+    } else if (hasUnsavedChanges(tabId)) {
       set({ pendingCloseTabId: tabId });
     } else {
       get().closeTab(tabId);

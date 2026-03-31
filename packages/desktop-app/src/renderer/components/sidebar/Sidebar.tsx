@@ -11,6 +11,7 @@ import { ModuleSelector } from './ModuleSelector';
 import { ArchetypeList } from './ArchetypeList';
 import { RelationTypeList } from './RelationTypeList';
 import { CanvasTypeList } from './CanvasTypeList';
+import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useCanvasTypeStore } from '../../stores/canvas-type-store';
@@ -27,6 +28,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { loadFileTree, fileTree, loading: fileLoading } = useFileStore();
   const { loadCanvases, loadCanvasTree } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
+  const { loadByProject: loadConcepts } = useConceptStore();
   const { loadByProject: loadArchetypes } = useArchetypeStore();
   const { loadByProject: loadRelationTypes } = useRelationTypeStore();
   const { loadByProject: loadCanvasTypes } = useCanvasTypeStore();
@@ -35,10 +37,11 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     loadCanvases(project.id);
     loadCanvasTree(project.id);
     loadModules(project.id);
+    loadConcepts(project.id);
     loadArchetypes(project.id);
     loadRelationTypes(project.id);
     loadCanvasTypes(project.id);
-  }, [project.id, loadCanvases, loadCanvasTree, loadModules, loadArchetypes, loadRelationTypes, loadCanvasTypes]);
+  }, [project.id, loadCanvases, loadCanvasTree, loadModules, loadConcepts, loadArchetypes, loadRelationTypes, loadCanvasTypes]);
 
   useEffect(() => {
     if (directories.length > 0) {

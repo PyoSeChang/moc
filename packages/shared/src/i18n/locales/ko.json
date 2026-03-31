@@ -106,14 +106,33 @@
     "delete": "Archetype 삭제",
     "name": "이름",
     "description": "설명",
+    "descriptionPlaceholder": "아키타입 설명...",
+    "visualDefaults": "시각적 기본값",
     "icon": "아이콘",
     "color": "색상",
-    "nodeShape": "노드 형태",
+    "nodeShape": "노드 모양",
+    "nodeShapePlaceholder": "기본 모양",
     "fileTemplate": "파일 템플릿",
+    "fileTemplatePlaceholder": "# 제목\n\n## 섹션\n...",
     "fields": "필드 스키마",
+    "propertySchema": "속성 스키마",
     "addField": "필드 추가",
+    "noFields": "정의된 필드 없음",
+    "fieldName": "필드 이름",
+    "options": "옵션 (쉼표로 구분)",
+    "required": "필수",
+    "deleteField": "필드 삭제",
+    "notFound": "아키타입을 찾을 수 없습니다",
     "noArchetypes": "아직 Archetype이 없습니다",
-    "deleteConfirm": "이 Archetype을 삭제하시겠습니까? 연결된 Concept은 삭제되지 않습니다."
+    "deleteConfirm": "이 Archetype을 삭제하시겠습니까? 연결된 Concept은 삭제되지 않습니다.",
+    "rectangle": "직사각형",
+    "rounded": "둥근 사각형",
+    "circle": "원",
+    "diamond": "다이아몬드",
+    "hexagon": "육각형",
+    "parallelogram": "평행사변형",
+    "cylinder": "실린더",
+    "stadium": "스타디움"
   },
   "field": {
     "name": "필드 이름",
@@ -175,7 +194,11 @@
     "modeFloat": "플로트",
     "modeFull": "전체",
     "modeSide": "사이드",
-    "modeDetached": "분리"
+    "modeDetached": "분리",
+    "unsavedChanges": "저장하지 않은 변경사항",
+    "unsavedChangesMessage": "\"{title}\"에 저장하지 않은 변경사항이 있습니다. 어떻게 하시겠습니까?",
+    "closeWithoutSaving": "저장하지 않고 닫기",
+    "saveAndClose": "저장 후 닫기"
   },
   "markdown": {
     "toc": "목차"
@@ -193,34 +216,6 @@
     "themeDesc": "앱의 색상 테마를 선택합니다.",
     "language": "언어",
     "languageDesc": "앱의 표시 언어를 선택합니다."
-  },
-  "archetype": {
-    "name": "이름",
-    "description": "설명",
-    "descriptionPlaceholder": "아키타입 설명...",
-    "visualDefaults": "시각적 기본값",
-    "icon": "아이콘",
-    "color": "색상",
-    "nodeShape": "노드 모양",
-    "nodeShapePlaceholder": "기본 모양",
-    "fileTemplate": "파일 템플릿",
-    "fileTemplatePlaceholder": "# 제목\n\n## 섹션\n...",
-    "propertySchema": "속성 스키마",
-    "addField": "필드 추가",
-    "noFields": "정의된 필드 없음",
-    "fieldName": "필드 이름",
-    "options": "옵션 (쉼표로 구분)",
-    "required": "필수",
-    "deleteField": "필드 삭제",
-    "notFound": "아키타입을 찾을 수 없습니다",
-    "rectangle": "직사각형",
-    "rounded": "둥근 사각형",
-    "circle": "원",
-    "diamond": "다이아몬드",
-    "hexagon": "육각형",
-    "parallelogram": "평행사변형",
-    "cylinder": "실린더",
-    "stadium": "스타디움"
   },
   "typeSelector": {
     "type": "타입",
@@ -330,10 +325,9 @@
     "deleteFailed": "삭제 실패",
     "pasteFailed": "붙여넣기 실패"
   },
-  "editor": {
-    "unsavedChanges": "저장하지 않은 변경사항",
-    "unsavedChangesMessage": "\"{title}\"에 저장하지 않은 변경사항이 있습니다. 어떻게 하시겠습니까?",
-    "closeWithoutSaving": "저장하지 않고 닫기",
-    "saveAndClose": "저장 후 닫기"
+  "terminal": {
+    "runningProcess": "실행 중인 프로세스",
+    "killAndClose": "종료 후 닫기",
+    "runningProcessMessage": "'{title}'에 실행 중인 프로세스가 있습니다. 닫으면 프로세스가 종료됩니다."
   }
 }

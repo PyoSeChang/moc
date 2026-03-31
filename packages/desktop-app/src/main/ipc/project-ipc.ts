@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
-import { createProject, listProjects, deleteProject } from '../db/repositories/project';
+import { createProject, listProjects, deleteProject } from '@moc/core';
 
 export function registerProjectIpc(): void {
   ipcMain.handle('project:create', async (_e, data): Promise<IpcResult<unknown>> => {

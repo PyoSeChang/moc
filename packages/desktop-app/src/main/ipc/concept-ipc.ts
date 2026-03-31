@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
 import {
   createConcept, getConceptsByProject, updateConcept, deleteConcept, searchConcepts,
-} from '../db/repositories/concept';
+} from '@moc/core';
 
 export function registerConceptIpc(): void {
   ipcMain.handle('concept:create', async (_e, data): Promise<IpcResult<unknown>> => {

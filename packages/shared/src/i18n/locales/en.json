@@ -329,5 +329,27 @@
     "runningProcess": "Running Process",
     "killAndClose": "Kill & Close",
     "runningProcessMessage": "'{title}' has a running process. Closing will kill it."
+  },
+  "narre": {
+    "title": "Narre",
+    "newChat": "New Chat",
+    "recentChats": "Recent Chats",
+    "noSessions": "No conversations yet",
+    "startChat": "Start your first conversation",
+    "messageCount": "{count} messages",
+    "backToList": "Back to List",
+    "sendMessage": "Send Message",
+    "inputPlaceholder": "Type a message...",
+    "toolExecution": "Tool Execution",
+    "toolComplete": "Tool execution complete",
+    "toolFailed": "Tool execution failed",
+    "toolPending": "Pending",
+    "toolRunning": "Running",
+    "apiKeyRequired": "Anthropic API key required",
+    "apiKeySetup": "Please enter your API key in Settings",
+    "connectionError": "Connection Error",
+    "retryMessage": "Please try again",
+    "streaming": "Generating response...",
+    "mentionPlaceholder": "Use @ to mention concepts, canvases, etc."
   }
 }

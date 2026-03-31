@@ -112,6 +112,17 @@ export const IPC_CHANNELS = {
   PTY_RESIZE: 'pty:resize',
   PTY_EXIT: 'pty:exit',
   PTY_KILL: 'pty:kill',
+
+  // Narre
+  NARRE_SEND_MESSAGE: 'narre:sendMessage',
+  NARRE_LIST_SESSIONS: 'narre:listSessions',
+  NARRE_GET_SESSION: 'narre:getSession',
+  NARRE_CREATE_SESSION: 'narre:createSession',
+  NARRE_DELETE_SESSION: 'narre:deleteSession',
+  NARRE_STREAM_EVENT: 'narre:streamEvent',
+  NARRE_SEARCH_MENTIONS: 'narre:searchMentions',
+  NARRE_GET_API_KEY_STATUS: 'narre:getApiKeyStatus',
+  NARRE_SET_API_KEY: 'narre:setApiKey',
 } as const;
 
 // ============================================

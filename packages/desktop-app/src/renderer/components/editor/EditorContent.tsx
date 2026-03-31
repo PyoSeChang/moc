@@ -8,6 +8,7 @@ import { RelationTypeEditor } from './RelationTypeEditor';
 import { CanvasTypeEditor } from './CanvasTypeEditor';
 import { EdgeEditor } from './EdgeEditor';
 import { CanvasEditor } from './CanvasEditor';
+import { NarreEditor } from './NarreEditor';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -36,6 +37,8 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       return <EdgeEditor tab={tab} />;
     case 'canvas':
       return <CanvasEditor tab={tab} />;
+    case 'narre':
+      return <NarreEditor tab={tab} />;
     default:
       return (
         <div className="flex h-full items-center justify-center text-xs text-muted">

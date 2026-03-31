@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
 import {
   createConceptFile, getConceptFilesByConcept, deleteConceptFile,
-} from '../db/repositories/concept-file';
+} from '@moc/core';
 
 export function registerConceptFileIpc(): void {
   ipcMain.handle('conceptFile:create', async (_e, data): Promise<IpcResult<unknown>> => {

@@ -154,6 +154,28 @@ const electronAPI = {
       return () => { ipcRenderer.removeListener('pty:exit', handler); };
     },
   },
+  narre: {
+    listSessions: (projectId: string) => ipcRenderer.invoke('narre:listSessions', projectId),
+    createSession: (projectId: string) => ipcRenderer.invoke('narre:createSession', projectId),
+    getSession: (sessionId: string) => ipcRenderer.invoke('narre:getSession', sessionId),
+    deleteSession: (sessionId: string) => ipcRenderer.invoke('narre:deleteSession', sessionId),
+    getApiKeyStatus: () => ipcRenderer.invoke('narre:getApiKeyStatus'),
+    setApiKey: (key: string) => ipcRenderer.invoke('narre:setApiKey', key),
+    searchMentions: (projectId: string, query: string) => ipcRenderer.invoke('narre:searchMentions', projectId, query),
+    sendMessage: (data: Record<string, unknown>) => ipcRenderer.invoke('narre:sendMessage', data),
+    onStreamEvent: (callback: (event: unknown) => void) => {
+      const handler = (_event: IpcRendererEvent, data: unknown) => callback(data);
+      ipcRenderer.on('narre:streamEvent', handler);
+      return () => { ipcRenderer.removeListener('narre:streamEvent', handler); };
+    },
+  },
+  mocSync: {
+    onChangeEvent: (callback: (event: unknown) => void) => {
+      const handler = (_event: IpcRendererEvent, data: unknown) => callback(data);
+      ipcRenderer.on('moc:change', handler);
+      return () => { ipcRenderer.removeListener('moc:change', handler); };
+    },
+  },
   editor: {
     detach: (tabId: string, title: string) => ipcRenderer.invoke('editor:detach', tabId, title),
     reattach: (tabId: string, mode: string) => ipcRenderer.send('editor:reattach', tabId, mode),

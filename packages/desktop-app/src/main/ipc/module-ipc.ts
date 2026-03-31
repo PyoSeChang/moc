@@ -3,7 +3,7 @@ import type { IpcResult } from '@moc/shared/types';
 import {
   createModule, listModules, updateModule, deleteModule,
   addModuleDirectory, listModuleDirectories, removeModuleDirectory,
-} from '../db/repositories/module';
+} from '@moc/core';
 
 export function registerModuleIpc(): void {
   ipcMain.handle('module:create', async (_e, data): Promise<IpcResult<unknown>> => {

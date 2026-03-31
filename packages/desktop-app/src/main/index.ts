@@ -1,14 +1,26 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
-import { initDatabase, closeDatabase } from './db/connection';
+import { mkdirSync, existsSync } from 'fs';
+import { initDatabase, closeDatabase, getSetting, setSetting } from '@moc/core';
 import { registerAllIpc } from './ipc';
 import { ptyManager } from './pty/pty-manager';
-import { getSetting, setSetting } from './db/repositories/settings';
+import { startAgentServer, stopAgentServer } from './process/agent-server-manager';
 
 // Force userData to %APPDATA%/moc
 app.name = 'moc';
 app.setPath('userData', join(app.getPath('appData'), 'moc'));
+
+function getNativeBinding(): string | undefined {
+  const candidates = [
+    join(__dirname, '../../node_modules/better-sqlite3/build/Release/better_sqlite3.node'),
+    join(process.resourcesPath ?? '', 'app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node'),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return undefined;
+}
 
 let mainWindow: BrowserWindow | null = null;
 const detachedWindows = new Map<string, BrowserWindow>();
@@ -95,8 +107,20 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  await initDatabase(is.dev);
+  // Initialize database with injectable path
+  const dbDir = join(app.getPath('userData'), 'data');
+  mkdirSync(dbDir, { recursive: true });
+  const dbPath = join(dbDir, is.dev ? 'moc-dev.db' : 'moc.db');
+  console.log(`[DB] Using database: ${dbPath}`);
+  const nativeBinding = getNativeBinding();
+  initDatabase(dbPath, nativeBinding ? { nativeBinding } : undefined);
   registerAllIpc();
+
+  // Start Narre agent-server if API key is configured
+  const apiKey = getSetting('anthropic_api_key');
+  if (apiKey) {
+    startAgentServer({ apiKey, dbPath, dataDir: dbDir });
+  }
 
   // Window control IPC
   ipcMain.on('window:minimize', (event) => {
@@ -166,6 +190,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   ptyManager.killAll();
+  stopAgentServer();
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();
 });

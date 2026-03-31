@@ -4,7 +4,7 @@ import {
   createCanvasType, listCanvasTypes, getCanvasType,
   updateCanvasType, deleteCanvasType,
   addAllowedRelation, removeAllowedRelation, removeAllowedRelationByPair, listAllowedRelations,
-} from '../db/repositories/canvas-type';
+} from '@moc/core';
 
 export function registerCanvasTypeIpc(): void {
   ipcMain.handle('canvasType:create', async (_e, data): Promise<IpcResult<unknown>> => {

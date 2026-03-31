@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setupTestDb, teardownTestDb, getTestDb } from './test-db';
 
-// Mock getDatabase to use test db
-vi.mock('../connection', () => ({
-  getDatabase: () => getTestDb(),
-}));
+// Mock getDatabase to use test db, but keep real hasColumn/tableExists for migrations
+vi.mock('../connection', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../connection')>();
+  return {
+    ...original,
+    getDatabase: () => getTestDb(),
+  };
+});
 
 // Import after mock
 import { createProject, listProjects, deleteProject } from '../repositories/project';

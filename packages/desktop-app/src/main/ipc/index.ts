@@ -12,6 +12,7 @@ import { registerPtyIpc } from './pty-ipc';
 import { registerConfigIpc } from './config-ipc';
 import { registerRelationTypeIpc } from './relation-type-ipc';
 import { registerCanvasTypeIpc } from './canvas-type-ipc';
+import { registerNarreIpc } from './narre-ipc';
 
 export function registerAllIpc(): void {
   registerProjectIpc();
@@ -28,4 +29,5 @@ export function registerAllIpc(): void {
   registerConfigIpc();
   registerRelationTypeIpc();
   registerCanvasTypeIpc();
+  registerNarreIpc();
 }

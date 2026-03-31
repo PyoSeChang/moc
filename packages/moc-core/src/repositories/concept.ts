@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
 import type { Concept, ConceptCreate, ConceptUpdate, Archetype, ArchetypeField } from '@moc/shared/types';
-import { renderTemplate, serializeToAgent } from '../../services/concept-content-sync';
+import { renderTemplate, serializeToAgent } from '../services/concept-content-sync';
 
 type ArchetypeFieldRow = Omit<ArchetypeField, 'required'> & { required: number };
 

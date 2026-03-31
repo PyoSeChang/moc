@@ -3,7 +3,7 @@ import type { IpcResult } from '@moc/shared/types';
 import {
   createRelationType, listRelationTypes, getRelationType,
   updateRelationType, deleteRelationType,
-} from '../db/repositories/relation-type';
+} from '@moc/core';
 
 export function registerRelationTypeIpc(): void {
   ipcMain.handle('relationType:create', async (_e, data): Promise<IpcResult<unknown>> => {

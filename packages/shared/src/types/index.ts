@@ -435,7 +435,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';
@@ -499,4 +499,54 @@ export interface ConceptEditorPrefsUpdate {
   float_width?: number;
   float_height?: number;
   side_split_ratio?: number;
+}
+
+// ============================================
+// Narre Types
+// ============================================
+
+export interface NarreSession {
+  id: string;
+  title: string;
+  created_at: string;
+  last_message_at: string;
+  message_count: number;
+}
+
+export interface NarreMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  mentions?: NarreMention[];
+  tool_calls?: NarreToolCall[];
+  timestamp: string;
+}
+
+export interface NarreMention {
+  type: 'concept' | 'canvas' | 'edge' | 'archetype' | 'relationType' | 'canvasType' | 'module' | 'file';
+  id?: string;
+  path?: string;
+  display: string;
+}
+
+export interface NarreToolCall {
+  tool: string;
+  input: Record<string, unknown>;
+  status: 'pending' | 'running' | 'success' | 'error';
+  result?: string;
+  error?: string;
+}
+
+export interface NarreStreamEvent {
+  type: 'text' | 'tool_start' | 'tool_end' | 'error' | 'done';
+  content?: string;
+  tool?: string;
+  toolInput?: Record<string, unknown>;
+  toolResult?: string;
+  error?: string;
+}
+
+export interface MocChangeEvent {
+  type: 'archetypes' | 'concepts' | 'relationTypes' | 'canvasTypes' | 'canvases' | 'edges';
+  action: 'created' | 'updated' | 'deleted';
+  id: string;
 }

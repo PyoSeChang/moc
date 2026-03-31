@@ -1,9 +1,6 @@
 import { ipcMain } from 'electron';
 import type { IpcResult } from '@moc/shared/types';
-import { getDatabase } from '../db/connection';
-import { updateConcept } from '../db/repositories/concept';
-import { upsertProperty } from '../db/repositories/concept-property';
-import { serializeToAgent, parseFromAgent } from '../services/concept-content-sync';
+import { getDatabase, updateConcept, upsertProperty, serializeToAgent, parseFromAgent } from '@moc/core';
 import type { Archetype, ArchetypeField, Concept, ConceptProperty } from '@moc/shared/types';
 
 type ArchetypeFieldRow = Omit<ArchetypeField, 'required'> & { required: number };

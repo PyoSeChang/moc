@@ -1,6 +1,6 @@
 /**
  * Test helper: creates an in-memory SQLite database with the MoC schema.
- * Bypasses Electron's app module and initDatabase().
+ * Bypasses initDatabase() and runs migrations directly.
  */
 import Database from 'better-sqlite3';
 import { migrate001 } from '../migrations/001-initial';
@@ -10,6 +10,7 @@ import { migrate004 } from '../migrations/004-concept-content';
 import { migrate005 } from '../migrations/005-app-settings';
 import { migrate006 } from '../migrations/006-canvas-1n-and-types';
 import { migrate007 } from '../migrations/007-edge-visual-overrides';
+import { migrate008 } from '../migrations/008-canvas-layout';
 
 let testDb: Database.Database | null = null;
 
@@ -25,6 +26,7 @@ export function setupTestDb(): Database.Database {
   testDb.pragma('foreign_keys = OFF');
   migrate006(testDb);
   migrate007(testDb);
+  migrate008(testDb);
   testDb.pragma('foreign_keys = ON');
   return testDb;
 }

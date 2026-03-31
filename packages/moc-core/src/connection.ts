@@ -1,19 +1,6 @@
-import { app } from 'electron';
-import { join } from 'path';
-import { mkdirSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
 import Database from 'better-sqlite3';
 
-function getNativeBinding(): string | undefined {
-  // In packaged app, the native .node file is in app.asar.unpacked
-  const candidates = [
-    join(__dirname, '../../node_modules/better-sqlite3/build/Release/better_sqlite3.node'),
-    join(process.resourcesPath ?? '', 'app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node'),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return undefined; // fallback to default bindings resolution
-}
 import { migrate001 } from './migrations/001-initial';
 import { migrate002 } from './migrations/002-modules-and-hierarchical-canvas';
 import { migrate003 } from './migrations/003-archetypes';
@@ -53,19 +40,22 @@ export function tableExists(db: Database.Database, table: string): boolean {
   return !!row;
 }
 
-export async function initDatabase(isDev = false): Promise<void> {
-  const dbDir = join(app.getPath('userData'), 'data');
-  mkdirSync(dbDir, { recursive: true });
+export interface InitDatabaseOptions {
+  nativeBinding?: string;
+}
 
-  const dbName = isDev ? 'moc-dev.db' : 'moc.db';
-  const dbPath = join(dbDir, dbName);
-  console.log(`[DB] Using database: ${dbPath}`);
-  const nativeBinding = getNativeBinding();
-  db = new Database(dbPath, nativeBinding ? { nativeBinding } : {});
+export function initDatabase(dbPath: string, options?: InitDatabaseOptions): void {
+  const dbOptions: Database.Options = {};
+  if (options?.nativeBinding) {
+    dbOptions.nativeBinding = options.nativeBinding;
+  }
 
-  // Enable WAL mode and foreign keys
+  db = new Database(dbPath, dbOptions);
+
+  // Enable WAL mode, foreign keys, and busy timeout
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  db.pragma('busy_timeout = 5000');
 
   // Ensure migrations table exists
   db.exec(`

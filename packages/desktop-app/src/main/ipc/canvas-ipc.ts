@@ -5,7 +5,7 @@ import {
   getCanvasesByConceptId, getCanvasAncestors, getCanvasTree,
   addCanvasNode, updateCanvasNode, removeCanvasNode,
   createEdge, getEdge, updateEdge, deleteEdge,
-} from '../db/repositories/canvas';
+} from '@moc/core';
 
 export function registerCanvasIpc(): void {
   // Canvas CRUD

@@ -329,5 +329,27 @@
     "runningProcess": "실행 중인 프로세스",
     "killAndClose": "종료 후 닫기",
     "runningProcessMessage": "'{title}'에 실행 중인 프로세스가 있습니다. 닫으면 프로세스가 종료됩니다."
+  },
+  "narre": {
+    "title": "Narre",
+    "newChat": "새 대화",
+    "recentChats": "최근 대화",
+    "noSessions": "아직 대화가 없습니다",
+    "startChat": "첫 대화를 시작해보세요",
+    "messageCount": "메시지 {count}개",
+    "backToList": "목록으로",
+    "sendMessage": "메시지 전송",
+    "inputPlaceholder": "메시지를 입력하세요...",
+    "toolExecution": "도구 실행",
+    "toolComplete": "도구 실행 완료",
+    "toolFailed": "도구 실행 실패",
+    "toolPending": "대기 중",
+    "toolRunning": "실행 중",
+    "apiKeyRequired": "Anthropic API 키가 필요합니다",
+    "apiKeySetup": "설정에서 API 키를 입력해주세요",
+    "connectionError": "연결 오류",
+    "retryMessage": "다시 시도해주세요",
+    "streaming": "응답 생성 중...",
+    "mentionPlaceholder": "@으로 개념, 캔버스 등을 멘션할 수 있습니다"
   }
 }

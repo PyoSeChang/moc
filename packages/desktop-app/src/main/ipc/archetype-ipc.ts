@@ -3,7 +3,7 @@ import type { IpcResult } from '@moc/shared/types';
 import {
   createArchetype, listArchetypes, getArchetype, updateArchetype, deleteArchetype,
   createField, listFields, updateField, deleteField, reorderFields,
-} from '../db/repositories/archetype';
+} from '@moc/core';
 
 export function registerArchetypeIpc(): void {
   ipcMain.handle('archetype:create', async (_e, data): Promise<IpcResult<unknown>> => {

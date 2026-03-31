@@ -1,7 +1,9 @@
 import React from 'react';
-import { Layout, FolderTree, Shapes, Settings, Terminal } from 'lucide-react';
+import { Layout, FolderTree, Shapes, Settings, Terminal, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useProjectStore } from '../../stores/project-store';
+import { useI18n } from '../../hooks/useI18n';
 import { Tooltip } from '../ui/Tooltip';
 
 
@@ -12,6 +14,7 @@ const ITEMS = [
 ] as const;
 
 export function ActivityBar(): JSX.Element {
+  const { t } = useI18n();
   const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
 
   const handleClick = (key: 'canvases' | 'files' | 'archetypes') => {
@@ -50,7 +53,24 @@ export function ActivityBar(): JSX.Element {
         })}
       </div>
 
-      {/* Bottom: terminal + settings */}
+      {/* Bottom: narre + terminal + settings */}
+      <Tooltip content={t('narre.title')} position="right">
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+          onClick={() => {
+            const projectId = useProjectStore.getState().currentProject?.id;
+            if (projectId) {
+              useEditorStore.getState().openTab({
+                type: 'narre',
+                targetId: projectId,
+                title: 'Narre',
+              });
+            }
+          }}
+        >
+          <Sparkles size={18} />
+        </button>
+      </Tooltip>
       <Tooltip content="Terminal" position="right">
         <button
           className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-hover hover:text-default"

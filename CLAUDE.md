@@ -15,10 +15,14 @@ pnpm dev:desktop          # Electron 앱 실행 (electron-vite dev)
 # Build
 pnpm build                # 전체 빌드 (turbo)
 pnpm --filter @moc/shared build    # shared만 빌드 (tsup)
+pnpm --filter @moc/core build      # core만 빌드 (tsup)
+pnpm --filter @moc/mcp build       # moc-mcp만 빌드 (tsup)
+pnpm --filter @moc/agent-server build  # agent-server만 빌드 (tsup)
 
 # Test
 pnpm test                 # 전체 테스트 (turbo → vitest)
 pnpm --filter @moc/shared test
+pnpm --filter @moc/core test        # repository 테스트 (64개)
 pnpm --filter @moc/desktop-app test
 
 # Typecheck
@@ -30,22 +34,23 @@ pnpm typecheck
 ### Monorepo (pnpm workspaces + turbo)
 
 - **`packages/shared`** (`@moc/shared`) — 타입, 상수, i18n. tsup (ESM+CJS). Sub-path: `/types`, `/constants`, `/i18n`.
+- **`packages/moc-core`** (`@moc/core`) — DB 로직 (connection, repositories, migrations). tsup (ESM+CJS). desktop-app과 agent-server가 공유.
+- **`packages/moc-mcp`** (`@moc/mcp`) — MCP 서버. moc-core를 17개 도구로 래핑. stdio transport (Claude Code 등록 가능).
+- **`packages/agent-server`** (`@moc/agent-server`) — Narre AI 에이전트. Anthropic SDK + Express. SSE 스트리밍. 세션 관리.
 - **`packages/desktop-app`** (`@moc/desktop-app`) — Electron 앱. electron-vite. Output: `out/`.
-
-`packages/agent-server`는 향후 MCP 서버용 (MVP 이후).
 
 ### Desktop App Layers
 
 ```
 main process          →  preload bridge       →  renderer (React)
 ─────────────────     ─────────────────────    ────────────────────
-db/connection.ts      preload/index.ts         services/*.ts
-db/repositories/*.ts  (contextBridge exposes   stores/*.ts (Zustand)
-db/migrations/*.ts     window.electron API)    components/**/*.tsx
-ipc/*.ts                                       hooks/
+@moc/core (DB)        preload/index.ts         services/*.ts
+ipc/*.ts              (contextBridge exposes   stores/*.ts (Zustand)
+process/*.ts           window.electron API)    components/**/*.tsx
+                                               hooks/
 ```
 
-**Data flow**: Renderer services → `window.electron.*` → preload `ipcRenderer.invoke` → main IPC handlers → repositories → better-sqlite3.
+**Data flow**: Renderer services → `window.electron.*` → preload `ipcRenderer.invoke` → main IPC handlers → `@moc/core` repositories → better-sqlite3.
 
 **IPC pattern**: 모든 응답은 `IpcResult<T>` (`{ success: true, data } | { success: false, error }`). 채널 상수: `@moc/shared/constants` (`IPC_CHANNELS`).
 
@@ -94,14 +99,39 @@ ipc/*.ts                                       hooks/
 
 ### Editor System
 
-EditorTabType: `'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas'`
+EditorTabType: `'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre'`
 
 확장자 기반 에디터 자동 선택:
 - `.md` → MarkdownEditor
 - `.txt`, `.json`, `.yaml` 등 → PlainTextEditor
 - `.png`, `.jpg` 등 → ImageViewer
-- `.pdf` → PdfViewer (미구현)
+- `.pdf` → PdfViewer
 - 기타 → UnsupportedFallback ("외부 앱으로 열기")
+
+### Narre (AI Assistant)
+
+EditorTabType `'narre'`. ActivityBar의 Sparkles 아이콘으로 열기. 프로젝트당 하나의 탭.
+
+**아키텍처:**
+```
+desktop-app (Renderer)     desktop-app (Main)      agent-server (별도 프로세스)
+NarreChat.tsx         →IPC→ narre-ipc.ts      →HTTP→ Express :3100
+  SSE stream events   ←IPC← (forward SSE)     ←SSE←  Anthropic SDK + tool loop
+                                                         │
+                                                    @moc/core (DB 직접 접근)
+```
+
+**핵심 컴포넌트:**
+- `NarreEditor` → `NarreSessionList` / `NarreChat` 전환
+- `NarreChat` — 메시지 렌더링, SSE 스트리밍, 도구 실행 로그
+- `NarreMentionInput` — ContentEditable, `@` 트리거 멘션 피커
+- `NarreToolLog` — 접을 수 있는 도구 실행 상태 표시
+
+**세션 저장:** `%APPDATA%/moc/data/narre/{projectId}/sessions.json` + `session_{uuid}.json`
+
+**프로세스 관리:** `agent-server-manager.ts`가 앱 시작 시 agent-server를 child process로 spawn. API 키가 설정 되어 있을 때만.
+
+**DB 동기화:** 도구 실행(create/update/delete) 후 `refreshStores()` 호출 → Zustand 스토어 refetch. 향후 moc-mcp SSE로 전환 예정.
 
 ### Canvas Sidebar
 
@@ -116,11 +146,24 @@ EditorTabType: `'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relati
 - `@main` → `src/main`
 - `@renderer` → `src/renderer`
 - `@shared` → `src/shared`
+- `@moc/core` → `../moc-core/src` (번들에 포함, externalize 제외)
+- `@moc/shared` → `../shared/src`
+
+### moc-mcp (MCP Server)
+
+Claude Code 등록:
+```jsonc
+// .claude/settings.json
+{ "mcpServers": { "moc": { "command": "node", "args": ["packages/moc-mcp/dist/index.js"], "env": { "MOC_DB_PATH": "%APPDATA%/moc/data/moc.db" } } } }
+```
+
+17개 도구: archetype(4) + relationType(4) + canvasType(4) + concept(4) + project_summary(1).
 
 ## Key Constraints
 
-- **better-sqlite3 requires electron-rebuild** — Electron 버전 변경 시 필수. 테스트(Node.js)와 앱(Electron)에서 서로 다른 네이티브 빌드 필요.
-- **Build order**: `@moc/shared`가 `@moc/desktop-app`보다 먼저 빌드 (turbo `dependsOn: ["^build"]`).
+- **better-sqlite3 requires electron-rebuild** — Electron 버전 변경 시 필수. 테스트(Node.js)와 앱(Electron)에서 서로 다른 네이티브 빌드 필요. moc-core 테스트도 pretest에서 rebuild.
+- **Build order**: `@moc/shared` → `@moc/core` → `@moc/mcp`, `@moc/agent-server`, `@moc/desktop-app` (turbo `dependsOn: ["^build"]`).
+- **DB 동시 접근**: WAL 모드 + `busy_timeout(5000)`. desktop-app은 moc-core를 in-process로, moc-mcp/agent-server는 별도 프로세스로 같은 DB 파일 접근.
 - **UI 컴포넌트는 desktop-app 내부** — shared는 순수 타입/상수만.
 - **Context menu 패턴**: document mousedown listener 대신 `onMouseDown={e => e.stopPropagation()}` 사용. 부모의 mousedown에서 메뉴 닫기.
 - **Migration 주의**: 이미 적용된 migration 파일 수정 시 새 migration 파일 추가 필요 (기존 DB에 반영 안 됨).
@@ -130,13 +173,13 @@ EditorTabType: `'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relati
 Vitest v2 (Vite 5 호환).
 
 ```
-pnpm test → 72 tests
+pnpm test → 85 tests
 
 shared (13)
 ├── constants: IPC 채널, 기본값
 └── i18n: translate 함수, 키 검증
 
-desktop-app main (51)
+moc-core (64)
 ├── Project: CRUD, unique, cascade
 ├── Concept: CRUD, search, cascade
 ├── Canvas: CRUD, viewport, nodes, edges, 1:N, canvas_count, ancestors
@@ -154,7 +197,7 @@ desktop-app renderer (8)
 └── UIStore: mode, sidebar, editor dock
 ```
 
-main process 테스트는 인메모리 SQLite 사용 (`test-db.ts`). `getDatabase()`를 mock.
+moc-core 테스트는 인메모리 SQLite 사용 (`test-db.ts`). `getDatabase()`를 mock.
 
 ## UI Development
 

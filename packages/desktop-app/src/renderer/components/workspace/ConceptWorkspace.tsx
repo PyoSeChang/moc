@@ -248,6 +248,7 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
     }),
   [renderNodes, nodes, fieldMappingsConfig, nodeProperties]);
 
+
   // Compute layout positions (freeform returns same positions, timeline computes from metadata)
   const layoutResult = useMemo(
     () => layoutPlugin.computeLayout({

@@ -92,8 +92,8 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
   const bandTopBase = HEADER_TOTAL_HEIGHT + 8;
 
   return (
-    <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-      <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}>
+    <div style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
+      <svg width="100%" height="100%" style={{ position: 'absolute', left: 0, top: 0 }}>
         {bands.map((band) => {
           const bandY = bandTopBase + band.lane * (BAND_HEIGHT + BAND_GAP);
           return (

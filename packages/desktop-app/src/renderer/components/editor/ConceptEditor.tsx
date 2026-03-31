@@ -101,7 +101,12 @@ function DraftConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
         position_x: draft.positionX ?? 0,
         position_y: draft.positionY ?? 0,
       });
+      // Reload canvas to show new node + update sidebar
       await openCanvas(draft.canvasId);
+      const canvasStore = useCanvasStore.getState();
+      if (canvasStore.currentCanvas?.project_id) {
+        await canvasStore.loadCanvasTree(canvasStore.currentCanvas.project_id);
+      }
     }
 
     // Close draft tab, open real concept tab

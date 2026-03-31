@@ -18,16 +18,16 @@
     --palette-primary-900: hsl(60, 70%, 16%);
     --palette-primary-950: hsl(60, 60%, 8%);
 
-    /* Neutral Scale (Near-black blue-tinted — from lase) */
-    --palette-neutral-50: hsl(0, 0%, 100%);
-    --palette-neutral-100: hsl(0, 0%, 96%);
-    --palette-neutral-200: hsl(0, 0%, 90%);
-    --palette-neutral-300: hsl(0, 0%, 80%);
-    --palette-neutral-400: hsl(0, 0%, 60%);
-    --palette-neutral-500: hsl(0, 0%, 40%);
-    --palette-neutral-600: hsl(0, 0%, 20%);
-    --palette-neutral-700: hsl(240, 20%, 12%);
-    --palette-neutral-800: hsl(240, 20%, 8%);
-    --palette-neutral-900: hsl(240, 20%, 5%);
-    --palette-neutral-950: hsl(240, 20%, 3%);
+    /* Neutral Scale (Near-black blue-tinted) */
+    --palette-neutral-50: hsl(240, 5%, 96%);
+    --palette-neutral-100: hsl(240, 5%, 92%);
+    --palette-neutral-200: hsl(240, 5%, 84%);
+    --palette-neutral-300: hsl(240, 5%, 72%);
+    --palette-neutral-400: hsl(240, 6%, 55%);
+    --palette-neutral-500: hsl(240, 10%, 32%);
+    --palette-neutral-600: hsl(240, 15%, 23%);
+    --palette-neutral-700: hsl(240, 18%, 17%);
+    --palette-neutral-800: hsl(240, 20%, 12%);
+    --palette-neutral-900: hsl(240, 20%, 8%);
+    --palette-neutral-950: hsl(240, 20%, 5%);
 }

@@ -1,33 +1,33 @@
 :root[data-concept="slate"] {
     /*
-     * Slate ← lase "slate"
-     * Classic blue-tinted professional dark. shadcn default.
-     * H≈210-222 S≈20-84%
+     * Slate
+     * Clean, professional. Blue-tinted neutrals inspired by Radix Slate.
+     * Matches the industry standard dark UI feel.
      */
 
-    /* Primary Scale (Slate Blue) */
-    --palette-primary-50: hsl(210, 40%, 98%);
-    --palette-primary-100: hsl(210, 40%, 96.1%);
-    --palette-primary-200: hsl(214.3, 31.8%, 91.4%);
-    --palette-primary-300: hsl(212.7, 26.8%, 83.9%);
-    --palette-primary-400: hsl(215, 20.2%, 65.1%);
-    --palette-primary-500: hsl(215.4, 16.3%, 46.9%);
-    --palette-primary-600: hsl(215.3, 25%, 36.8%);
-    --palette-primary-700: hsl(217.2, 32.6%, 17.5%);
-    --palette-primary-800: hsl(222.2, 47.4%, 11.2%);
-    --palette-primary-900: hsl(222.2, 84%, 6.5%);
-    --palette-primary-950: hsl(222.2, 84%, 4.9%);
+    /* Primary Scale (Blue) */
+    --palette-primary-50: hsl(213, 100%, 96%);
+    --palette-primary-100: hsl(213, 93%, 90%);
+    --palette-primary-200: hsl(213, 87%, 80%);
+    --palette-primary-300: hsl(213, 82%, 68%);
+    --palette-primary-400: hsl(213, 76%, 56%);
+    --palette-primary-500: hsl(213, 94%, 44%);
+    --palette-primary-600: hsl(213, 93%, 37%);
+    --palette-primary-700: hsl(213, 88%, 30%);
+    --palette-primary-800: hsl(213, 80%, 23%);
+    --palette-primary-900: hsl(213, 72%, 16%);
+    --palette-primary-950: hsl(213, 64%, 9%);
 
-    /* Neutral Scale (Blue-tinted Slate) */
-    --palette-neutral-50: hsl(210, 40%, 98%);
-    --palette-neutral-100: hsl(210, 40%, 96.1%);
-    --palette-neutral-200: hsl(214.3, 31.8%, 91.4%);
-    --palette-neutral-300: hsl(212.7, 26.8%, 83.9%);
-    --palette-neutral-400: hsl(215, 20.2%, 65.1%);
-    --palette-neutral-500: hsl(215.4, 16.3%, 46.9%);
-    --palette-neutral-600: hsl(215.3, 25%, 36.8%);
-    --palette-neutral-700: hsl(217.2, 32.6%, 17.5%);
-    --palette-neutral-800: hsl(222.2, 47.4%, 11.2%);
-    --palette-neutral-900: hsl(222.2, 84%, 6.5%);
-    --palette-neutral-950: hsl(222.2, 84%, 4.9%);
+    /* Neutral Scale (Blue-tinted, Radix Slate-inspired) */
+    --palette-neutral-50: hsl(220, 13%, 95%);
+    --palette-neutral-100: hsl(220, 11%, 91%);
+    --palette-neutral-200: hsl(220, 9%, 83%);
+    --palette-neutral-300: hsl(220, 7%, 71%);
+    --palette-neutral-400: hsl(220, 6%, 55%);
+    --palette-neutral-500: hsl(220, 7%, 32%);
+    --palette-neutral-600: hsl(220, 9%, 23%);
+    --palette-neutral-700: hsl(220, 11%, 17%);
+    --palette-neutral-800: hsl(220, 13%, 12%);
+    --palette-neutral-900: hsl(220, 15%, 8%);
+    --palette-neutral-950: hsl(220, 17%, 5%);
 }

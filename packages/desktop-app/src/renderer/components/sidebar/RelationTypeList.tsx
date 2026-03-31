@@ -35,7 +35,7 @@ export function RelationTypeList(): JSX.Element {
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-3 py-1.5">
-        <span className="text-xs font-medium text-muted uppercase tracking-wider">
+        <span className="text-xs font-medium text-secondary uppercase tracking-wider">
           {t('relationType.title')}
         </span>
         <button

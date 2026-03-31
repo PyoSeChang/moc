@@ -15,7 +15,7 @@ export const PortraitLayout: React.FC<ShapeLayoutProps> = ({
       <span className="text-sm font-medium text-default whitespace-nowrap overflow-hidden text-ellipsis text-center">
         {label}
       </span>
-      <span className="text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis text-center">
+      <span className="text-xs text-secondary whitespace-nowrap overflow-hidden text-ellipsis text-center">
         {semanticTypeLabel}
         {updatedAt && <span className="opacity-60"> · {updatedAt}</span>}
       </span>

@@ -118,7 +118,7 @@ function TocItem({ heading, onNavigate }: { heading: TocHeading; onNavigate: (n:
     <div
       role="button"
       tabIndex={0}
-      className="cursor-pointer truncate text-xs text-muted transition-colors hover:text-default"
+      className="cursor-pointer truncate text-xs text-secondary transition-colors hover:text-default"
       style={{ paddingLeft }}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}

@@ -52,7 +52,7 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('relationType.name')}</label>
+            <label className="text-xs font-medium text-secondary">{t('relationType.name')}</label>
             <Input
               value={relationType.name}
               onChange={(e) => handleUpdate({ name: e.target.value })}
@@ -61,7 +61,7 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
 
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('relationType.description')}</label>
+            <label className="text-xs font-medium text-secondary">{t('relationType.description')}</label>
             <TextArea
               value={relationType.description ?? ''}
               onChange={(e) => handleUpdate({ description: e.target.value || null })}
@@ -72,10 +72,10 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
 
           {/* Visual */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-muted">{t('relationType.visual')}</label>
+            <label className="text-xs font-medium text-secondary">{t('relationType.visual')}</label>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('relationType.color')}</span>
+              <span className="text-xs text-secondary">{t('relationType.color')}</span>
               <ColorPicker
                 value={relationType.color ?? undefined}
                 onChange={(color) => handleUpdate({ color })}
@@ -83,7 +83,7 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('relationType.lineStyle')}</span>
+              <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
               <Select
                 options={lineStyleOptions}
                 value={relationType.line_style}
@@ -97,7 +97,7 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
                 checked={relationType.directed}
                 onChange={(checked) => handleUpdate({ directed: checked })}
               />
-              <span className="text-xs text-muted">{t('relationType.directed')}</span>
+              <span className="text-xs text-secondary">{t('relationType.directed')}</span>
             </div>
           </div>
         </div>

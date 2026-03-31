@@ -70,10 +70,10 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* View mode toggle */}
-      <div className="flex shrink-0 items-center border-b border-subtle bg-surface-panel px-2">
+      <div className="flex shrink-0 items-center bg-surface-panel px-2">
         <button
           className={`flex items-center gap-1 px-3 py-1.5 text-xs transition-colors ${
-            viewMode === 'human' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-default'
+            viewMode === 'human' ? 'text-accent border-b-2 border-accent' : 'text-secondary hover:text-default'
           }`}
           onClick={() => setViewMode('human')}
         >
@@ -82,7 +82,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
         </button>
         <button
           className={`flex items-center gap-1 px-3 py-1.5 text-xs transition-colors ${
-            viewMode === 'agent' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-default'
+            viewMode === 'agent' ? 'text-accent border-b-2 border-accent' : 'text-secondary hover:text-default'
           }`}
           onClick={() => setViewMode('agent')}
         >
@@ -120,7 +120,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             {/* Attached files */}
             {files.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-subtle pt-4">
-                <span className="text-xs font-medium text-muted mb-1">Attached Files</span>
+                <span className="text-xs font-medium text-secondary mb-1">Attached Files</span>
                 {files.map((f) => {
                   const name = f.file_path.replace(/\\/g, '/').split('/').pop() ?? f.file_path;
                   return (

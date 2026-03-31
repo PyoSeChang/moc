@@ -78,7 +78,7 @@ function FieldInput({ field, value, onChange }: FieldInputProps): JSX.Element {
   const choices = (opts.choices ?? []).map((c) => ({ value: c, label: c }));
 
   const label = (
-    <label className="text-xs font-medium text-muted">
+    <label className="text-xs font-medium text-secondary">
       {field.name}
       {field.required && <span className="text-status-error ml-0.5">*</span>}
     </label>

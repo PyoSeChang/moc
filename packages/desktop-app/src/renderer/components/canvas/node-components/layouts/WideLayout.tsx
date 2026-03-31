@@ -10,7 +10,7 @@ export const WideLayout: React.FC<ShapeLayoutProps> = ({ icon, label, semanticTy
       <span className="text-base font-medium text-default whitespace-nowrap overflow-hidden text-ellipsis">
         {label}
       </span>
-      <span className="text-sm text-muted whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="text-sm text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
         {semanticTypeLabel}
       </span>
     </div>

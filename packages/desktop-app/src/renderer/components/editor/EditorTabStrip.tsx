@@ -107,7 +107,7 @@ export function EditorTabStrip({ tabs, activeTabId, onActivate, onClose, onTabDr
 
   return (
     <div
-      className={`flex shrink-0 items-end bg-surface-base transition-colors ${
+      className={`tab-strip flex shrink-0 items-end bg-surface-base transition-colors ${
         dragOver ? 'bg-accent/10' : ''
       }`}
       style={{ height: 35 }}
@@ -128,13 +128,10 @@ export function EditorTabStrip({ tabs, activeTabId, onActivate, onClose, onTabDr
               onDragStart={(e) => setTabDragData(e, tab.id)}
               className={`group flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
                 isActive
-                  ? 'tab-active rounded-t-lg bg-surface-panel text-default -mb-px'
-                  : 'text-muted hover:text-secondary rounded-t-lg hover:bg-surface-hover/40'
+                  ? 'tab-active bg-surface-panel text-default border-t border-l border-r border-default'
+                  : 'text-secondary hover:text-default hover:bg-surface-hover/40'
               }`}
-              style={{
-                height: isActive ? 30 : 28,
-                ...(isActive ? { '--tab-bg': 'var(--surface-panel)' } as React.CSSProperties : {}),
-              }}
+              style={{ height: 30 }}
               onClick={() => !isRenaming && onActivate(tab.id)}
               onContextMenu={(e) => handleTabContextMenu(e, tab)}
             >

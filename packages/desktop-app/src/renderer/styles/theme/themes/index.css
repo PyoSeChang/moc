@@ -1,6 +1,7 @@
 /* Concepts */
 @import './concepts/forest.css';
 @import './concepts/neon.css';
+@import './concepts/slate.css';
 
 /* Modes */
 @import './modes/dark.css';

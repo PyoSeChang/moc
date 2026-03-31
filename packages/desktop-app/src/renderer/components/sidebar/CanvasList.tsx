@@ -186,7 +186,7 @@ function ConceptGroup({
   return (
     <>
       <div
-        className="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-[11px] text-muted hover:bg-surface-hover"
+        className="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-[11px] text-secondary hover:bg-surface-hover"
         style={{ paddingLeft: depth * 14 + 4 }}
         onClick={() => setExpanded(!expanded)}
       >

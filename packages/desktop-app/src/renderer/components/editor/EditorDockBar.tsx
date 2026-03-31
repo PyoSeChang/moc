@@ -30,7 +30,7 @@ export function EditorDockBar(): JSX.Element | null {
             className={`flex items-center gap-1 rounded px-2 py-1 text-xs whitespace-nowrap transition-colors ${
               tab.id === activeTabId
                 ? 'bg-accent/20 text-accent'
-                : 'text-muted hover:text-default hover:bg-surface-base'
+                : 'text-secondary hover:text-default hover:bg-surface-base'
             }`}
             onClick={() => toggleMinimize(tab.id)}
           >

@@ -17,7 +17,7 @@ export const RectangleLayout: React.FC<ShapeLayoutProps> = ({
         {label}
       </span>
       {systemType !== 'config' && (
-        <span className="text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="text-xs text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
           {semanticTypeLabel}
           {updatedAt && <span className="opacity-60"> · {updatedAt}</span>}
         </span>

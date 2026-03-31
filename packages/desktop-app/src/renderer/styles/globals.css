@@ -45,30 +45,25 @@ body,
   background: var(--text-muted);
 }
 
-/* Chrome-style tab curves */
-.tab-active {
+/* VS Code-style tab strip */
+.tab-strip {
   position: relative;
-  z-index: 1;
 }
 
-.tab-active::before,
-.tab-active::after {
+.tab-strip::after {
   content: '';
   position: absolute;
   bottom: 0;
-  width: 8px;
-  height: 8px;
-  pointer-events: none;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-default);
+  z-index: 0;
 }
 
-.tab-active::before {
-  left: -8px;
-  background: radial-gradient(circle at 0 0, transparent 8px, var(--tab-bg) 8px);
-}
-
-.tab-active::after {
-  right: -8px;
-  background: radial-gradient(circle at 100% 0, transparent 8px, var(--tab-bg) 8px);
+.tab-active {
+  position: relative;
+  z-index: 1;
 }
 
 /* Tab scroll — hidden scrollbar */

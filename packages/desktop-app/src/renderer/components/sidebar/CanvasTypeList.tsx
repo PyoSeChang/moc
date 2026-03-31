@@ -36,7 +36,7 @@ export function CanvasTypeList(): JSX.Element {
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-3 py-1.5">
-        <span className="text-xs font-medium text-muted uppercase tracking-wider">
+        <span className="text-xs font-medium text-secondary uppercase tracking-wider">
           {t('canvasType.title')}
         </span>
         <button
@@ -60,7 +60,7 @@ export function CanvasTypeList(): JSX.Element {
               {ct.color && (
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ct.color }} />
               )}
-              {Icon && <Icon size={14} className="shrink-0 text-muted" />}
+              {Icon && <Icon size={14} className="shrink-0 text-secondary" />}
               <span className="truncate">{ct.name}</span>
             </button>
           );

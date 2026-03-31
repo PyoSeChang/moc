@@ -134,7 +134,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                     {anchors.map((anchor) => (
                       <button
                         key={anchor}
-                        className="py-1 text-left text-xs text-muted transition-colors hover:text-default"
+                        className="py-1 text-left text-xs text-secondary transition-colors hover:text-default"
                         onClick={() => handleAnchorClick(anchor)}
                       >
                         {anchor}
@@ -171,7 +171,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                 {showMode && (
                   <section data-section={t('settings.mode').toLowerCase().replace(/\s+/g, '-')} className="mb-8">
                     <h3 className="text-base font-semibold text-default">{t('settings.mode')}</h3>
-                    <p className="mb-4 text-sm text-muted">{t('settings.modeDesc')}</p>
+                    <p className="mb-4 text-sm text-secondary">{t('settings.modeDesc')}</p>
                     <div className="flex gap-3">
                       {(['dark', 'light'] as const).map((mode) => (
                         <button
@@ -179,7 +179,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                           className={`rounded-lg border px-5 py-2 text-sm font-medium transition-colors ${
                             themeMode === mode
                               ? 'border-accent bg-accent/10 text-accent'
-                              : 'border-subtle text-muted hover:border-default hover:text-default'
+                              : 'border-subtle text-secondary hover:border-default hover:text-default'
                           }`}
                           onClick={() => setThemeMode(mode)}
                         >
@@ -194,7 +194,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                 {showTheme && (
                   <section data-section={t('settings.theme').toLowerCase().replace(/\s+/g, '-')} className="mb-8">
                     <h3 className="text-base font-semibold text-default">{t('settings.theme')}</h3>
-                    <p className="mb-4 text-sm text-muted">{t('settings.themeDesc')}</p>
+                    <p className="mb-4 text-sm text-secondary">{t('settings.themeDesc')}</p>
                     <div className="grid grid-cols-4 gap-2">
                       {AVAILABLE_CONCEPTS.map((concept) => (
                         <button
@@ -202,7 +202,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                           className={`rounded-lg border px-3 py-2 text-sm capitalize transition-colors ${
                             themeConcept === concept
                               ? 'border-accent bg-accent/10 text-accent'
-                              : 'border-subtle text-muted hover:border-default hover:text-default'
+                              : 'border-subtle text-secondary hover:border-default hover:text-default'
                           }`}
                           onClick={() => setThemeConcept(concept)}
                         >
@@ -220,7 +220,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
               <div data-section="language">
                 <section data-section={t('settings.language').toLowerCase().replace(/\s+/g, '-')} className="mb-8">
                   <h3 className="text-base font-semibold text-default">{t('settings.language')}</h3>
-                  <p className="mb-4 text-sm text-muted">{t('settings.languageDesc')}</p>
+                  <p className="mb-4 text-sm text-secondary">{t('settings.languageDesc')}</p>
                   <div className="flex gap-3">
                     {([
                       { key: 'ko' as const, label: '한국어' },
@@ -231,7 +231,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                         className={`rounded-lg border px-5 py-2 text-sm font-medium transition-colors ${
                           locale === key
                             ? 'border-accent bg-accent/10 text-accent'
-                            : 'border-subtle text-muted hover:border-default hover:text-default'
+                            : 'border-subtle text-secondary hover:border-default hover:text-default'
                         }`}
                         onClick={() => setLocale(key)}
                       >

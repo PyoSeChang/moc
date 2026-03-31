@@ -39,7 +39,7 @@ export function ActivityBar(): JSX.Element {
                 className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
                   isActive
                     ? 'bg-accent/10 text-accent'
-                    : 'text-muted hover:bg-surface-hover hover:text-default'
+                    : 'text-secondary hover:bg-surface-hover hover:text-default'
                 }`}
                 onClick={() => handleClick(key)}
               >
@@ -53,7 +53,7 @@ export function ActivityBar(): JSX.Element {
       {/* Bottom: terminal + settings */}
       <Tooltip content="Terminal" position="right">
         <button
-          className="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-surface-hover hover:text-default"
+          className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-hover hover:text-default"
           onClick={() => {
             const sessionId = `term-${Date.now()}`;
             useEditorStore.getState().openTab({
@@ -68,7 +68,7 @@ export function ActivityBar(): JSX.Element {
       </Tooltip>
       <Tooltip content="Settings" position="right">
         <button
-          className="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-surface-hover hover:text-default"
+          className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-hover hover:text-default"
           onClick={() => useUIStore.getState().setShowSettings(true)}
         >
           <Settings size={18} />

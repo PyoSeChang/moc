@@ -73,7 +73,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
           {/* Source */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('edge.source')}</label>
+            <label className="text-xs font-medium text-secondary">{t('edge.source')}</label>
             <div className="px-3 py-2 text-sm bg-surface-base border border-subtle rounded-md text-default">
               {sourceLabel}
             </div>
@@ -81,7 +81,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
 
           {/* Target */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('edge.target')}</label>
+            <label className="text-xs font-medium text-secondary">{t('edge.target')}</label>
             <div className="px-3 py-2 text-sm bg-surface-base border border-subtle rounded-md text-default">
               {targetLabel}
             </div>
@@ -89,7 +89,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
 
           {/* Relation Type */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('edge.relationType')}</label>
+            <label className="text-xs font-medium text-secondary">{t('edge.relationType')}</label>
             <Select
               options={relationTypeOptions}
               value={edge.relation_type_id ?? ''}
@@ -100,7 +100,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
 
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('relationType.description')}</label>
+            <label className="text-xs font-medium text-secondary">{t('relationType.description')}</label>
             <TextArea
               value={edge.description ?? ''}
               onChange={(e) => handleUpdate({ description: e.target.value || null })}
@@ -111,10 +111,10 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
 
           {/* Visual Overrides */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-muted">{t('edge.visualOverride') ?? 'Visual Override'}</label>
+            <label className="text-xs font-medium text-secondary">{t('edge.visualOverride') ?? 'Visual Override'}</label>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('relationType.color')}</span>
+              <span className="text-xs text-secondary">{t('relationType.color')}</span>
               <ColorPicker
                 value={edge.color ?? undefined}
                 onChange={(color) => handleUpdate({ color })}
@@ -130,7 +130,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('relationType.lineStyle')}</span>
+              <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
               <Select
                 options={lineStyleOptions}
                 value={edge.line_style ?? ''}
@@ -144,7 +144,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
                 checked={effectiveDirected}
                 onChange={(checked) => handleUpdate({ directed: checked })}
               />
-              <span className="text-xs text-muted">{t('relationType.directed')}</span>
+              <span className="text-xs text-secondary">{t('relationType.directed')}</span>
               {edge.directed != null && (
                 <button
                   className="text-[10px] text-muted hover:text-default"

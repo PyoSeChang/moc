@@ -1,10 +1,7 @@
 import { create } from 'zustand';
 import type { Locale } from '@moc/shared/i18n';
 
-const THEME_CONCEPTS = [
-  'forest', 'neon', 'graphite', 'slate', 'stone', 'oled',
-  'sand', 'sky', 'deep', 'pastel', 'rose', 'twilight',
-] as const;
+const THEME_CONCEPTS = ['forest', 'neon', 'slate'] as const;
 
 type ThemeConcept = (typeof THEME_CONCEPTS)[number];
 type ThemeMode = 'dark' | 'light';

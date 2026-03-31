@@ -8,7 +8,7 @@
     --shadow-none: none;
 
     /* Colored shadows for premium feel */
-    --shadow-primary-sm: 0 1px 2px 0 rgb(var(--palette-primary-500) / 0.1);
-    --shadow-primary-md: 0 4px 6px -1px rgb(var(--palette-primary-500) / 0.2), 0 2px 4px -2px rgb(var(--palette-primary-500) / 0.1);
-    --shadow-primary-lg: 0 10px 15px -3px rgb(var(--palette-primary-500) / 0.2), 0 4px 6px -4px rgb(var(--palette-primary-500) / 0.1);
+    --shadow-primary-sm: 0 1px 2px 0 color-mix(in srgb, var(--palette-primary-500) 10%, transparent);
+    --shadow-primary-md: 0 4px 6px -1px color-mix(in srgb, var(--palette-primary-500) 20%, transparent), 0 2px 4px -2px color-mix(in srgb, var(--palette-primary-500) 10%, transparent);
+    --shadow-primary-lg: 0 10px 15px -3px color-mix(in srgb, var(--palette-primary-500) 20%, transparent), 0 4px 6px -4px color-mix(in srgb, var(--palette-primary-500) 10%, transparent);
 }

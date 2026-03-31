@@ -4,20 +4,18 @@
     --surface-panel: var(--palette-neutral-900);
     --surface-card: var(--palette-neutral-800);
     --surface-hover: var(--palette-neutral-700);
-    --surface-modal: var(--palette-neutral-800);
-    /* Cards and Modals share similar elevation in dark mode usually, or lighter */
+    --surface-modal: var(--palette-neutral-900);
     --surface-overlay: rgba(0, 0, 0, 0.7);
 
     /* Text */
     --text-default: var(--palette-neutral-50);
     --text-secondary: var(--palette-neutral-300);
-    --text-muted: var(--palette-neutral-500);
+    --text-muted: var(--palette-neutral-400);
     --text-on-accent: white;
-    /* Always white on primary usually */
 
     /* Border */
-    --border-subtle: var(--palette-neutral-800);
-    --border-default: var(--palette-neutral-700);
+    --border-subtle: var(--palette-neutral-700);
+    --border-default: var(--palette-neutral-600);
     --border-strong: var(--palette-neutral-500);
 
     /* Accent */
@@ -34,7 +32,7 @@
 
     /* Input/Form Specifics */
     --input-bg: var(--palette-neutral-800);
-    --input-border: var(--palette-neutral-600);
+    --input-border: var(--palette-neutral-500);
     --input-placeholder: var(--text-muted);
 
     /* Focus Ring */

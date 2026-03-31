@@ -55,7 +55,7 @@ export function CanvasTypeEditor({ tab }: CanvasTypeEditorProps): JSX.Element {
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('canvasType.name')}</label>
+            <label className="text-xs font-medium text-secondary">{t('canvasType.name')}</label>
             <Input
               value={canvasType.name}
               onChange={(e) => handleUpdate({ name: e.target.value })}
@@ -64,7 +64,7 @@ export function CanvasTypeEditor({ tab }: CanvasTypeEditorProps): JSX.Element {
 
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('canvasType.description')}</label>
+            <label className="text-xs font-medium text-secondary">{t('canvasType.description')}</label>
             <TextArea
               value={canvasType.description ?? ''}
               onChange={(e) => handleUpdate({ description: e.target.value || null })}
@@ -75,10 +75,10 @@ export function CanvasTypeEditor({ tab }: CanvasTypeEditorProps): JSX.Element {
 
           {/* Visual */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-muted">{t('canvasType.visual')}</label>
+            <label className="text-xs font-medium text-secondary">{t('canvasType.visual')}</label>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('canvasType.icon')}</span>
+              <span className="text-xs text-secondary">{t('canvasType.icon')}</span>
               <IconSelector
                 value={canvasType.icon ?? undefined}
                 onChange={(icon) => handleUpdate({ icon })}
@@ -86,7 +86,7 @@ export function CanvasTypeEditor({ tab }: CanvasTypeEditorProps): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('canvasType.color')}</span>
+              <span className="text-xs text-secondary">{t('canvasType.color')}</span>
               <ColorPicker
                 value={canvasType.color ?? undefined}
                 onChange={(color) => handleUpdate({ color })}
@@ -96,7 +96,7 @@ export function CanvasTypeEditor({ tab }: CanvasTypeEditorProps): JSX.Element {
 
           {/* Allowed Relation Types */}
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-muted">{t('canvasType.allowedRelations')}</label>
+            <label className="text-xs font-medium text-secondary">{t('canvasType.allowedRelations')}</label>
             {relationTypes.length === 0 ? (
               <div className="text-xs text-muted py-4 text-center">
                 {t('relationType.noRelationTypes')}

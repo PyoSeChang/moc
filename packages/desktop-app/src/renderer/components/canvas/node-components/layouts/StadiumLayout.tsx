@@ -10,7 +10,7 @@ export const StadiumLayout: React.FC<ShapeLayoutProps> = ({ icon, label, semanti
       <span className="text-sm font-medium text-default whitespace-nowrap overflow-hidden text-ellipsis">
         {label}
       </span>
-      <span className="text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis">
+      <span className="text-xs text-secondary whitespace-nowrap overflow-hidden text-ellipsis">
         {semanticTypeLabel}
       </span>
     </div>

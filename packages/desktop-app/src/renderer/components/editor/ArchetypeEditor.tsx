@@ -88,7 +88,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
           {/* Name */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('archetype.name')}</label>
+            <label className="text-xs font-medium text-secondary">{t('archetype.name')}</label>
             <Input
               value={archetype.name}
               onChange={(e) => handleUpdate({ name: e.target.value })}
@@ -97,7 +97,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
           {/* Description */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('archetype.description')}</label>
+            <label className="text-xs font-medium text-secondary">{t('archetype.description')}</label>
             <TextArea
               value={archetype.description ?? ''}
               onChange={(e) => handleUpdate({ description: e.target.value || null })}
@@ -108,10 +108,10 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
           {/* Visual Defaults */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-muted">{t('archetype.visualDefaults')}</label>
+            <label className="text-xs font-medium text-secondary">{t('archetype.visualDefaults')}</label>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('archetype.icon')}</span>
+              <span className="text-xs text-secondary">{t('archetype.icon')}</span>
               <IconSelector
                 value={archetype.icon ?? undefined}
                 onChange={(icon) => handleUpdate({ icon })}
@@ -119,7 +119,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('archetype.color')}</span>
+              <span className="text-xs text-secondary">{t('archetype.color')}</span>
               <ColorPicker
                 value={archetype.color ?? undefined}
                 onChange={(color) => handleUpdate({ color })}
@@ -127,7 +127,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs text-muted">{t('archetype.nodeShape')}</span>
+              <span className="text-xs text-secondary">{t('archetype.nodeShape')}</span>
               <Select
                 options={nodeShapeOptions}
                 value={archetype.node_shape ?? ''}
@@ -140,7 +140,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
           {/* File Template */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted">{t('archetype.fileTemplate')}</label>
+            <label className="text-xs font-medium text-secondary">{t('archetype.fileTemplate')}</label>
             <TextArea
               value={archetype.file_template ?? ''}
               onChange={(e) => handleUpdate({ file_template: e.target.value || null })}
@@ -153,7 +153,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
           {/* Fields Schema */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted">{t('archetype.propertySchema')}</label>
+              <label className="text-xs font-medium text-secondary">{t('archetype.propertySchema')}</label>
               <Button size="sm" variant="ghost" onClick={handleAddField}>
                 <Plus size={14} className="mr-1" />
                 {t('archetype.addField')}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Project } from '@moc/shared/types';
-import { projectService } from '../services';
+import type { Project } from '@netior/shared/types';
+import { projectService, moduleService } from '../services';
 import { unwrapIpc } from '../services/ipc';
 import { saveProjectState, restoreProjectState, clearAllProjectStores, deleteProjectState } from './project-state-cache';
 
@@ -8,11 +8,14 @@ interface ProjectStore {
   projects: Project[];
   currentProject: Project | null;
   loading: boolean;
+  missingPathProject: Project | null;
 
   loadProjects: () => Promise<void>;
   restoreLastProject: () => Promise<void>;
   createProject: (name: string, rootDir: string) => Promise<Project>;
-  openProject: (project: Project) => void;
+  openProject: (project: Project) => Promise<void>;
+  resolveMissingPath: () => Promise<void>;
+  dismissMissingPath: () => void;
   closeProject: () => void;
   deleteProject: (id: string) => Promise<void>;
 }
@@ -21,6 +24,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   currentProject: null,
   loading: false,
+  missingPathProject: null,
 
   loadProjects: async () => {
     set({ loading: true });
@@ -36,10 +40,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     try {
       const lastId = unwrapIpc(await window.electron.config.get('lastProjectId')) as string | null;
       if (!lastId) return;
-      const { projects } = get();
+      const { projects, openProject } = get();
       const project = projects.find((p) => p.id === lastId);
       if (project) {
-        set({ currentProject: project });
+        await openProject(project);
       }
     } catch {
       // ignore — config may not exist yet
@@ -52,19 +56,66 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return project;
   },
 
-  openProject: (project) => {
+  openProject: async (project) => {
+    // Check if root_dir exists; if not, show missing path dialog
+    let resolvedProject = project;
+    try {
+      const exists = unwrapIpc(await window.electron.fs.exists(project.root_dir));
+      if (!exists) {
+        set({ missingPathProject: project });
+        return;
+      }
+    } catch {
+      // fall through
+    }
+
     const { currentProject } = get();
-    if (currentProject && currentProject.id !== project.id) {
+    if (currentProject && currentProject.id !== resolvedProject.id) {
       saveProjectState(currentProject.id);
     }
 
-    const restored = restoreProjectState(project.id);
+    const restored = restoreProjectState(resolvedProject.id);
     if (!restored) {
       clearAllProjectStores();
     }
 
-    set({ currentProject: project });
-    window.electron.config.set('lastProjectId', project.id).catch(() => {});
+    set({ currentProject: resolvedProject });
+    window.electron.config.set('lastProjectId', resolvedProject.id).catch(() => {});
+  },
+
+  resolveMissingPath: async () => {
+    const { missingPathProject, openProject } = get();
+    if (!missingPathProject) return;
+
+    const paths = unwrapIpc(await window.electron.fs.openDialog({ properties: ['openDirectory'] })) as string[] | null;
+    if (!paths || paths.length === 0) {
+      set({ missingPathProject: null });
+      return;
+    }
+
+    const newPath = paths[0];
+    const updated = await projectService.updateRootDir(missingPathProject.id, newPath);
+
+    // Also update module directories that pointed to the old root_dir
+    const modules = await moduleService.list(missingPathProject.id);
+    for (const mod of modules) {
+      const dirs = await moduleService.dir.list(mod.id);
+      for (const dir of dirs) {
+        if (dir.dir_path === missingPathProject.root_dir) {
+          await moduleService.dir.updatePath(dir.id, newPath);
+        }
+      }
+    }
+
+    set((s) => ({
+      missingPathProject: null,
+      projects: s.projects.map((p) => (p.id === updated.id ? updated : p)),
+    }));
+    await openProject(updated);
+  },
+
+  dismissMissingPath: () => {
+    set({ missingPathProject: null });
   },
 
   closeProject: () => {

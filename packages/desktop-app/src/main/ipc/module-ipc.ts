@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron';
-import type { IpcResult } from '@moc/shared/types';
+import type { IpcResult } from '@netior/shared/types';
 import {
   createModule, listModules, updateModule, deleteModule,
-  addModuleDirectory, listModuleDirectories, removeModuleDirectory,
-} from '@moc/core';
+  addModuleDirectory, listModuleDirectories, removeModuleDirectory, updateModuleDirectoryPath,
+} from '@netior/core';
 
 export function registerModuleIpc(): void {
   ipcMain.handle('module:create', async (_e, data): Promise<IpcResult<unknown>> => {
@@ -58,6 +58,14 @@ export function registerModuleIpc(): void {
   ipcMain.handle('moduleDir:remove', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
       return { success: true, data: removeModuleDirectory(id) };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('moduleDir:updatePath', async (_e, id: string, dirPath: string): Promise<IpcResult<unknown>> => {
+    try {
+      return { success: true, data: updateModuleDirectoryPath(id, dirPath) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

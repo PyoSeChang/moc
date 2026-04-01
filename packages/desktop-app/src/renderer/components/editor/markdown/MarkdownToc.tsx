@@ -78,23 +78,39 @@ export function MarkdownToc({ headings, onNavigate, containerRef }: MarkdownTocP
     );
   }
 
-  // 여백 부족: 호버 시 오버레이 (300ms 딜레이)
+  // 여백 부족: 호버 시 오버레이
+  const tabColor = 'color-mix(in srgb, var(--text-muted) 30%, transparent)';
+
   return (
     <>
+      {/* Trapezoid hint — visual only */}
+      <svg
+        className="pointer-events-none absolute left-[1px] z-30"
+        style={{ top: '3rem' }}
+        width="6"
+        height="60"
+        viewBox="0 0 6 60"
+      >
+        <path d="M0 0 L0 60 L6 52 L6 8 Z" fill={tabColor} />
+      </svg>
+      {/* Hover trigger — thin strip along left edge */}
       <div
-        className="absolute left-0 top-10 z-30 h-full w-8"
+        className="absolute left-0 top-0 z-30 w-1 h-full"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       />
       <nav
-        className={`absolute left-0 top-10 z-30 overflow-y-auto rounded-r-md border-r border-subtle bg-surface-panel pl-3 pr-3 pt-2 pb-4 shadow-lg transition-all duration-200 ${
+        className={`absolute left-[1px] top-10 z-30 overflow-y-auto rounded-r-md border-y border-r border-subtle bg-surface-panel pl-3 pr-3 pt-2 pb-4 shadow-lg transition-all duration-200 ${
           hovered ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
         }`}
         style={{ width: 220, maxHeight: 'calc(100% - 3rem)' }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <TocList headings={headings} onNavigate={onNavigate} />
+        <TocList headings={headings} onNavigate={(lineNumber) => {
+          onNavigate(lineNumber);
+          setHovered(false);
+        }} />
       </nav>
     </>
   );

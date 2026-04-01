@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Project, EditorViewMode, SplitLeaf, EditorTab } from '@moc/shared/types';
+import type { Project, EditorViewMode, SplitLeaf, EditorTab } from '@netior/shared/types';
 import { ActivityBar } from '../sidebar/ActivityBar';
 import { Sidebar } from '../sidebar/Sidebar';
 import { ConceptWorkspace } from './ConceptWorkspace';
@@ -84,15 +84,28 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
       e.preventDefault();
       editorDraggingRef.current = true;
 
+      const container = editorContainerRef.current;
+      if (!container) return;
+      const canvasPane = container.querySelector('[data-pane="canvas"]') as HTMLElement | null;
+      const editorPane = container.querySelector('[data-pane="editor"]') as HTMLElement | null;
+
       const handleMove = (ev: MouseEvent) => {
-        if (!editorDraggingRef.current || !editorContainerRef.current) return;
-        const rect = editorContainerRef.current.getBoundingClientRect();
-        const ratio = (ev.clientX - rect.left) / rect.width;
-        updateSideSplitRatio(sideActiveTab.id, ratio);
+        if (!editorDraggingRef.current || !container) return;
+        const rect = container.getBoundingClientRect();
+        const ratio = Math.max(0.2, Math.min(0.8, (ev.clientX - rect.left) / rect.width));
+        // Direct DOM update — no React re-render during drag
+        if (canvasPane) canvasPane.style.width = `${ratio * 100}%`;
+        if (editorPane) editorPane.style.width = `${(1 - ratio) * 100}%`;
+        (container as any).__pendingRatio = ratio;
       };
 
       const handleUp = () => {
         editorDraggingRef.current = false;
+        const finalRatio = (container as any).__pendingRatio;
+        if (finalRatio != null) {
+          updateSideSplitRatio(sideActiveTab.id, finalRatio);
+          delete (container as any).__pendingRatio;
+        }
         window.removeEventListener('mousemove', handleMove);
         window.removeEventListener('mouseup', handleUp);
       };
@@ -252,6 +265,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
           <>
             {/* Canvas area */}
             <div
+              data-pane="canvas"
               className="relative flex flex-col overflow-hidden"
               style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
               onDragOver={handleCanvasDragOver}
@@ -276,6 +290,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               <>
                 <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
                 <div
+                  data-pane="editor"
                   className="flex flex-col overflow-hidden bg-surface-panel"
                   style={{ width: `${(1 - splitRatio) * 100}%` }}
                 >

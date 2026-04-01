@@ -30,13 +30,25 @@ function defaultIsEqual<T>(a: T, b: T): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** Draft cache that survives component unmount/remount */
+const draftCache = new Map<string, { draft: unknown; snapshot: unknown }>();
+
+export function clearDraftCache(tabId: string): void {
+  draftCache.delete(tabId);
+}
+
 export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSession<T> {
   const { tabId, load, save, isEqual = defaultIsEqual, deps = [] } = config;
 
-  const [state, setStateRaw] = useState<T>(undefined as unknown as T);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDirty, setIsDirtyLocal] = useState(false);
-  const snapshotRef = useRef<T>(undefined as unknown as T);
+  const cached = draftCache.get(tabId) as { draft: T; snapshot: T } | undefined;
+  const [state, setStateRaw] = useState<T>(cached?.draft ?? (undefined as unknown as T));
+  const [isLoading, setIsLoading] = useState(!cached);
+  const [isDirty, setIsDirtyLocal] = useState(() => {
+    if (cached) return !defaultIsEqual(cached.draft, cached.snapshot);
+    return false;
+  });
+  const snapshotRef = useRef<T>(cached?.snapshot ?? (undefined as unknown as T));
+  const stateRef = useRef<T>(cached?.draft ?? (undefined as unknown as T));
   const isEqualRef = useRef(isEqual);
   isEqualRef.current = isEqual;
 
@@ -53,17 +65,32 @@ export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSessi
   }, [tabId]);
 
   const doLoad = useCallback(async () => {
+    // If we have a cached draft, use it instead of reloading from disk
+    const existing = draftCache.get(tabId) as { draft: T; snapshot: T } | undefined;
+    if (existing) {
+      snapshotRef.current = existing.snapshot;
+      stateRef.current = existing.draft;
+      setStateRaw(existing.draft);
+      const dirty = !isEqualRef.current(existing.snapshot, existing.draft);
+      setIsDirtyLocal(dirty);
+      useEditorStore.getState().setDirty(tabId, dirty);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const data = await loadRef.current();
       snapshotRef.current = data;
+      stateRef.current = data;
       setStateRaw(data);
       setIsDirtyLocal(false);
       useEditorStore.getState().setDirty(tabId, false);
+      draftCache.set(tabId, { draft: data, snapshot: data });
     } finally {
       setIsLoading(false);
     }
-  }, [tabId]);
+  }, [tabId, syncDirty]);
 
   // Load on mount and when deps change
   useEffect(() => {
@@ -73,31 +100,37 @@ export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSessi
   const setState = useCallback((updater: T | ((prev: T) => T)) => {
     setStateRaw((prev) => {
       const next = typeof updater === 'function' ? (updater as (p: T) => T)(prev) : updater;
+      stateRef.current = next;
+      // Update draft cache
+      draftCache.set(tabId, { draft: next, snapshot: snapshotRef.current });
       // Defer dirty sync to avoid setState-during-render
       queueMicrotask(() => syncDirty(next));
       return next;
     });
-  }, [syncDirty]);
+  }, [tabId, syncDirty]);
 
   const handleSave = useCallback(async () => {
-    const current = state;
+    const current = stateRef.current;
     await saveRef.current(current);
     snapshotRef.current = current;
     setIsDirtyLocal(false);
     useEditorStore.getState().setDirty(tabId, false);
-  }, [state, tabId]);
+    draftCache.set(tabId, { draft: current, snapshot: current });
+  }, [tabId]);
 
   const revert = useCallback(() => {
-    setStateRaw(snapshotRef.current);
+    const snap = snapshotRef.current;
+    stateRef.current = snap;
+    setStateRaw(snap);
     setIsDirtyLocal(false);
     useEditorStore.getState().setDirty(tabId, false);
+    draftCache.set(tabId, { draft: snap, snapshot: snap });
   }, [tabId]);
 
   // Register/unregister with session registry
   useEffect(() => {
     const handle = {
       save: () => {
-        // Read latest state directly to avoid stale closure
         const s = useEditorStore.getState();
         const tab = s.tabs.find((t) => t.id === tabId);
         if (!tab?.isDirty) return Promise.resolve();

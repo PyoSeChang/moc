@@ -11,7 +11,7 @@ import { Spinner } from '../ui/Spinner';
 
 export function ProjectHome(): JSX.Element {
   const { t } = useI18n();
-  const { projects, loading, loadProjects, restoreLastProject, createProject, openProject, deleteProject } =
+  const { projects, loading, loadProjects, restoreLastProject, createProject, openProject, deleteProject, missingPathProject, resolveMissingPath, dismissMissingPath } =
     useProjectStore();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function ProjectHome(): JSX.Element {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-default">MoC</h1>
+          <h1 className="text-xl font-semibold text-default">Netior</h1>
           <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>
             <Plus size={16} className="mr-1" />
             {t('project.newProject')}
@@ -87,6 +87,15 @@ export function ProjectHome(): JSX.Element {
         variant="danger"
         title={t('project.deleteTitle')}
         message={t('project.deleteMessage')}
+      />
+      <ConfirmDialog
+        open={!!missingPathProject}
+        onClose={dismissMissingPath}
+        onConfirm={resolveMissingPath}
+        variant="primary"
+        title={t('project.missingPathTitle')}
+        message={t('project.missingPathMessage', { path: missingPathProject?.root_dir ?? '' })}
+        confirmLabel={t('project.selectNewPath')}
       />
     </div>
   );

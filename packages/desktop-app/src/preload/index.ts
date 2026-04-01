@@ -23,6 +23,7 @@ const electronAPI = {
       ipcRenderer.invoke('project:create', data),
     list: () => ipcRenderer.invoke('project:list'),
     delete: (id: string) => ipcRenderer.invoke('project:delete', id),
+    updateRootDir: (id: string, rootDir: string) => ipcRenderer.invoke('project:updateRootDir', id, rootDir),
   },
   concept: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('concept:create', data),
@@ -72,6 +73,7 @@ const electronAPI = {
     add: (data: Record<string, unknown>) => ipcRenderer.invoke('moduleDir:add', data),
     list: (moduleId: string) => ipcRenderer.invoke('moduleDir:list', moduleId),
     remove: (id: string) => ipcRenderer.invoke('moduleDir:remove', id),
+    updatePath: (id: string, dirPath: string) => ipcRenderer.invoke('moduleDir:updatePath', id, dirPath),
   },
   archetype: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('archetype:create', data),
@@ -192,6 +194,26 @@ const electronAPI = {
       const handler = (_event: IpcRendererEvent, key: string) => callback(key);
       ipcRenderer.on('terminal:font-size', handler);
       return () => { ipcRenderer.removeListener('terminal:font-size', handler); };
+    },
+  },
+  claude: {
+    onSessionEvent: (callback: (event: { ptySessionId: string; claudeSessionId: string | null; type: 'start' | 'stop' }) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { ptySessionId: string; claudeSessionId: string | null; type: 'start' | 'stop' }) =>
+        callback(payload);
+      ipcRenderer.on('claude:sessionEvent', handler);
+      return () => { ipcRenderer.removeListener('claude:sessionEvent', handler); };
+    },
+    onStatusEvent: (callback: (event: { ptySessionId: string; status: 'idle' | 'working' }) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { ptySessionId: string; status: 'idle' | 'working' }) =>
+        callback(payload);
+      ipcRenderer.on('claude:statusEvent', handler);
+      return () => { ipcRenderer.removeListener('claude:statusEvent', handler); };
+    },
+    onNameChanged: (callback: (event: { ptySessionId: string; sessionName: string }) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { ptySessionId: string; sessionName: string }) =>
+        callback(payload);
+      ipcRenderer.on('claude:nameChanged', handler);
+      return () => { ipcRenderer.removeListener('claude:nameChanged', handler); };
     },
   },
   narre: {

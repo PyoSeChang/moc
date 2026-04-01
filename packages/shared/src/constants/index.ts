@@ -21,6 +21,7 @@ export const IPC_CHANNELS = {
   PROJECT_CREATE: 'project:create',
   PROJECT_LIST: 'project:list',
   PROJECT_DELETE: 'project:delete',
+  PROJECT_UPDATE_ROOT_DIR: 'project:updateRootDir',
 
   // Concept
   CONCEPT_CREATE: 'concept:create',
@@ -67,6 +68,7 @@ export const IPC_CHANNELS = {
   MODULE_DIR_ADD: 'moduleDir:add',
   MODULE_DIR_LIST: 'moduleDir:list',
   MODULE_DIR_REMOVE: 'moduleDir:remove',
+  MODULE_DIR_UPDATE_PATH: 'moduleDir:updatePath',
 
   // Archetype
   ARCHETYPE_CREATE: 'archetype:create',
@@ -131,6 +133,11 @@ export const IPC_CHANNELS = {
   TERMINAL_EXIT: 'terminal:exit',
   TERMINAL_TITLE_CHANGED: 'terminal:titleChanged',
   TERMINAL_STATE_CHANGED: 'terminal:stateChanged',
+
+  // Claude Code Integration
+  CLAUDE_SESSION_EVENT: 'claude:sessionEvent',
+  CLAUDE_STATUS_EVENT: 'claude:statusEvent',
+  CLAUDE_NAME_CHANGED: 'claude:nameChanged',
 
   // Narre
   NARRE_SEND_MESSAGE: 'narre:sendMessage',

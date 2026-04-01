@@ -13,6 +13,7 @@
     "noResults": "No results",
     "add": "Add",
     "minimize": "Minimize",
+    "maximize": "Maximize",
     "restore": "Restore {title}",
     "none": "None"
   },
@@ -27,6 +28,9 @@
     "createFirst": "Create your first project",
     "deleteTitle": "Delete Project",
     "deleteMessage": "This will remove the project reference. Files in the folder will not be deleted.",
+    "missingPathTitle": "Project Path Not Found",
+    "missingPathMessage": "Cannot find project path: {path}\nPlease select a new location.",
+    "selectNewPath": "Select Path",
     "folder": "Project Folder",
     "namePlaceholder": "My Project",
     "folderPlaceholder": "Select a folder..."
@@ -59,6 +63,9 @@
     "addFileNode": "Add File Node",
     "addDirNode": "Add Directory Node",
     "createCanvas": "Create Canvas",
+    "notFound": "Canvas not found",
+    "parentConcept": "Parent Concept",
+    "noCanvases": "No canvases",
     "layout": "Layout",
     "layoutSettings": "Layout Settings",
     "fieldMappings": "Field Mappings",
@@ -153,7 +160,8 @@
     "descriptionPlaceholder": "Describe this connection...",
     "visualOverride": "Visual Override",
     "resetToDefault": "Reset to type default",
-    "inheritFromType": "Inherit from type"
+    "inheritFromType": "Inherit from type",
+    "notFound": "Edge not found"
   },
   "canvasType": {
     "title": "Canvas Types",
@@ -373,6 +381,8 @@
       "proposalRetry": "Re-analyze",
       "proposalAddRow": "Add",
       "proposalDeleteRow": "Delete",
+      "addRow": "Add row",
+      "removeRow": "Remove row",
       "permissionCancel": "Cancel",
       "permissionConfirm": "Confirm",
       "interviewSubmit": "Select",

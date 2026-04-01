@@ -13,6 +13,7 @@
     "noResults": "결과 없음",
     "add": "추가",
     "minimize": "최소화",
+    "maximize": "최대화",
     "restore": "{title} 복원",
     "none": "없음"
   },
@@ -27,6 +28,9 @@
     "createFirst": "첫 프로젝트를 만들어보세요",
     "deleteTitle": "프로젝트 삭제",
     "deleteMessage": "프로젝트 참조가 삭제됩니다. 폴더의 파일은 삭제되지 않습니다.",
+    "missingPathTitle": "프로젝트 경로 없음",
+    "missingPathMessage": "프로젝트 경로를 찾을 수 없습니다: {path}\n새 경로를 지정해주세요.",
+    "selectNewPath": "경로 선택",
     "folder": "프로젝트 폴더",
     "namePlaceholder": "내 프로젝트",
     "folderPlaceholder": "폴더를 선택하세요..."
@@ -59,6 +63,9 @@
     "addFileNode": "파일 노드 추가",
     "addDirNode": "디렉터리 노드 추가",
     "createCanvas": "캔버스 추가",
+    "notFound": "캔버스를 찾을 수 없습니다",
+    "parentConcept": "상위 개념",
+    "noCanvases": "캔버스가 없습니다",
     "layout": "레이아웃",
     "layoutSettings": "레이아웃 설정",
     "fieldMappings": "필드 매핑",
@@ -153,7 +160,8 @@
     "descriptionPlaceholder": "이 연결에 대한 설명...",
     "visualOverride": "시각 설정 (개별)",
     "resetToDefault": "유형 기본값으로 초기화",
-    "inheritFromType": "유형에서 상속"
+    "inheritFromType": "유형에서 상속",
+    "notFound": "연결을 찾을 수 없습니다"
   },
   "canvasType": {
     "title": "캔버스 유형",
@@ -373,6 +381,8 @@
       "proposalRetry": "다시 분석",
       "proposalAddRow": "추가",
       "proposalDeleteRow": "삭제",
+      "addRow": "행 추가",
+      "removeRow": "행 삭제",
       "permissionCancel": "취소",
       "permissionConfirm": "확인",
       "interviewSubmit": "선택",

@@ -653,3 +653,25 @@ export interface TerminalSessionInfo {
   cols: number;
   rows: number;
 }
+
+// ============================================
+// Claude Code Integration Types
+// ============================================
+
+export type ClaudeCodeStatus = 'idle' | 'working';
+
+export interface ClaudeSessionEvent {
+  ptySessionId: string;
+  claudeSessionId: string | null;
+  type: 'start' | 'stop';
+}
+
+export interface ClaudeStatusEvent {
+  ptySessionId: string;
+  status: ClaudeCodeStatus;
+}
+
+export interface ClaudeNameEvent {
+  ptySessionId: string;
+  sessionName: string;
+}

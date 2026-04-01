@@ -3,12 +3,12 @@ import type { IPty } from 'node-pty';
 import { BrowserWindow } from 'electron';
 import { basename } from 'path';
 import { existsSync } from 'fs';
-import { IPC_CHANNELS } from '@moc/shared/constants';
+import { IPC_CHANNELS } from '@netior/shared/constants';
 import type {
   TerminalLaunchConfig,
   TerminalSessionInfo,
   TerminalSessionState,
-} from '@moc/shared/types';
+} from '@netior/shared/types';
 
 function resolveShell(config?: TerminalLaunchConfig): { command: string; args: string[]; title: string } {
   if (config?.shell) {
@@ -85,7 +85,8 @@ class TerminalBackendService {
         ...process.env,
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
-        TERM_PROGRAM: 'moc',
+        TERM_PROGRAM: 'netior',
+        NETIOR_PTY_ID: sessionId,
       } as Record<string, string>,
       useConpty: true,
     });

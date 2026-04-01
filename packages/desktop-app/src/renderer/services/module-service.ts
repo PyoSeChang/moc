@@ -1,7 +1,7 @@
 import type {
   Module, ModuleCreate, ModuleUpdate,
   ModuleDirectory, ModuleDirectoryCreate,
-} from '@moc/shared/types';
+} from '@netior/shared/types';
 import { unwrapIpc } from './ipc';
 
 export async function createModule(data: ModuleCreate): Promise<Module> {
@@ -32,7 +32,11 @@ export async function removeModuleDirectory(id: string): Promise<boolean> {
   return unwrapIpc(await window.electron.moduleDir.remove(id));
 }
 
+export async function updateModuleDirectoryPath(id: string, dirPath: string): Promise<ModuleDirectory> {
+  return unwrapIpc(await window.electron.moduleDir.updatePath(id, dirPath));
+}
+
 export const moduleService = {
   create: createModule, list: listModules, update: updateModule, delete: deleteModule,
-  dir: { add: addModuleDirectory, list: listModuleDirectories, remove: removeModuleDirectory },
+  dir: { add: addModuleDirectory, list: listModuleDirectories, remove: removeModuleDirectory, updatePath: updateModuleDirectoryPath },
 };

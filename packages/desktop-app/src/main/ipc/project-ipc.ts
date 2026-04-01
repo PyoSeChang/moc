@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
-import type { IpcResult } from '@moc/shared/types';
-import { createProject, listProjects, deleteProject } from '@moc/core';
+import type { IpcResult } from '@netior/shared/types';
+import { createProject, listProjects, deleteProject, updateProjectRootDir } from '@netior/core';
 
 export function registerProjectIpc(): void {
   ipcMain.handle('project:create', async (_e, data): Promise<IpcResult<unknown>> => {
@@ -24,6 +24,15 @@ export function registerProjectIpc(): void {
   ipcMain.handle('project:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
       const result = deleteProject(id);
+      return { success: true, data: result };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('project:updateRootDir', async (_e, id: string, rootDir: string): Promise<IpcResult<unknown>> => {
+    try {
+      const result = updateProjectRootDir(id, rootDir);
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };

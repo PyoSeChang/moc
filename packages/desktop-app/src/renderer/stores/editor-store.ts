@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { EditorViewMode, EditorTab, EditorTabType, SplitNode, SplitDirection, SplitLeaf, SplitBranch } from '@moc/shared/types';
+import type { EditorViewMode, EditorTab, EditorTabType, SplitNode, SplitDirection, SplitLeaf, SplitBranch } from '@netior/shared/types';
 import { editorPrefsService } from '../services';
 import { hasUnsavedChanges, getSession } from '../lib/editor-session-registry';
+import { clearDraftCache } from '../hooks/useEditorSession';
 import { isTerminalAlive } from '../lib/terminal-tracker';
 
 interface OpenTabParams {
@@ -331,6 +332,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         console.error('[EditorPrefs] Failed to save on close:', tab.targetId, err);
       });
     }
+
+    clearDraftCache(tabId);
 
     // Remove from layout trees
     const layoutUpdate: Partial<EditorStore> = {};

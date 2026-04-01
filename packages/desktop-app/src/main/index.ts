@@ -2,14 +2,16 @@ import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { mkdirSync, existsSync } from 'fs';
-import { initDatabase, closeDatabase, getSetting, setSetting } from '@moc/core';
+import { initDatabase, closeDatabase, getSetting, setSetting } from '@netior/core';
 import { registerAllIpc } from './ipc';
 import { ptyManager } from './pty/pty-manager';
 import { startAgentServer, stopAgentServer } from './process/agent-server-manager';
+import { hookServer } from './hook-server/hook-server';
+import { setupHookScript, setupClaudeSettings } from './hook-server/hook-setup';
 
 // Force userData to %APPDATA%/moc
-app.name = 'moc';
-app.setPath('userData', join(app.getPath('appData'), 'moc'));
+app.name = 'netior';
+app.setPath('userData', join(app.getPath('appData'), 'netior'));
 
 function getNativeBinding(): string | undefined {
   const candidates = [
@@ -111,7 +113,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.moc.app');
+  electronApp.setAppUserModelId('com.netior.app');
   Menu.setApplicationMenu(null);
 
   app.on('browser-window-created', (_, window) => {
@@ -121,7 +123,7 @@ app.whenReady().then(async () => {
   // Initialize database with injectable path
   const dbDir = join(app.getPath('userData'), 'data');
   mkdirSync(dbDir, { recursive: true });
-  const dbPath = join(dbDir, is.dev ? 'moc-dev.db' : 'moc.db');
+  const dbPath = join(dbDir, is.dev ? 'netior-dev.db' : 'netior.db');
   console.log(`[DB] Using database: ${dbPath}`);
   const nativeBinding = getNativeBinding();
   initDatabase(dbPath, nativeBinding ? { nativeBinding } : undefined);
@@ -192,6 +194,18 @@ app.whenReady().then(async () => {
   createWindow();
   ptyManager.init(mainWindow!);
 
+  // Start Claude Code hook server for terminal integration
+  hookServer.init(mainWindow!);
+  hookServer.start().then(() => {
+    const port = hookServer.getPort();
+    if (port) {
+      setupHookScript(port);
+      setupClaudeSettings();
+    }
+  }).catch((err) => {
+    console.error('[HookServer] Failed to start:', err);
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -199,6 +213,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   ptyManager.killAll();
+  hookServer.stop();
   stopAgentServer();
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();

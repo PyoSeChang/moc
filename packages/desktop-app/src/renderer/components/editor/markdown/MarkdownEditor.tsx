@@ -88,6 +88,7 @@ export function MarkdownEditor({ content, filePath, onChange }: MarkdownEditorPr
         borderLeftWidth: '2px !important',
       },
       '.cm-activeLine': { backgroundColor: 'transparent' },
+      '&.cm-focused': { outline: 'none' },
       '&.cm-focused .cm-selectionBackground, ::selection': {
         backgroundColor: isDark ? 'rgba(86, 156, 214, 0.3)' : 'rgba(0, 120, 212, 0.2)',
       },

@@ -8,8 +8,48 @@ import { WorkspaceShell } from './components/workspace/WorkspaceShell';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { ToastContainer } from './components/ui/Toast';
 import { initTerminalTracker } from './lib/terminal-tracker';
+import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
 
 initTerminalTracker();
+initClaudeTerminalTracker();
+
+function NetiorTitleMark(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 512 512"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <g stroke="currentColor" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M132 170L256 108L380 170" />
+        <path d="M132 342L256 404L380 342" />
+        <path d="M132 170V342" opacity="0.72" />
+        <path d="M380 170V342" opacity="0.72" />
+        <path d="M256 108V404" opacity="0.46" />
+        <path d="M132 170L256 256L380 170" />
+        <path d="M132 342L256 256L380 342" />
+        <path d="M132 170H380" opacity="0.36" />
+        <path d="M132 342H380" opacity="0.36" />
+      </g>
+      <g fill="currentColor">
+        <circle cx="132" cy="170" r="26" />
+        <circle cx="256" cy="108" r="24" />
+        <circle cx="380" cy="170" r="26" />
+        <circle cx="256" cy="256" r="34" />
+        <circle cx="132" cy="342" r="26" />
+        <circle cx="256" cy="404" r="24" />
+        <circle cx="380" cy="342" r="26" />
+      </g>
+      <g fill="var(--color-accent, currentColor)">
+        <circle cx="256" cy="256" r="14" />
+        <circle cx="256" cy="108" r="10" />
+        <circle cx="256" cy="404" r="10" />
+      </g>
+    </svg>
+  );
+}
 
 function TitleBarBreadcrumb(): JSX.Element | null {
   const { breadcrumbs, canvasHistory, navigateToBreadcrumb, navigateBack } = useCanvasStore();
@@ -58,7 +98,10 @@ function TitleBar(): JSX.Element {
     >
       {/* Left: app name + project */}
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-sm font-medium text-secondary">MoC</span>
+        <div className="flex items-center gap-2 text-secondary">
+          <NetiorTitleMark />
+          <span className="text-sm font-medium text-secondary">Netior</span>
+        </div>
         {currentProject && (
           <>
             <span className="text-xs text-muted">/</span>

@@ -15,7 +15,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<ITerminalInstance | null>(null);
   const sessionId = tab.targetId;
-  const cwd = useModuleStore((s) => s.directories[0]?.dir_path);
+  const cwdRef = useRef(useModuleStore.getState().directories[0]?.dir_path);
   const updateTitle = useEditorStore((s) => s.updateTitle);
   const [searchVisible, setSearchVisible] = useState(false);
 
@@ -25,6 +25,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   }, []);
 
   useEffect(() => {
+    const cwd = cwdRef.current;
     if (!containerRef.current || !sessionId || !cwd) return;
 
     let disposed = false;
@@ -265,7 +266,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       instanceRef.current?.setVisible(false);
       instanceRef.current = null;
     };
-  }, [cwd, sessionId, tab.id, tab.title, updateTitle]);
+  }, [sessionId, tab.id, tab.title, updateTitle]);
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-surface-panel p-2">

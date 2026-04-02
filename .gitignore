@@ -12,6 +12,7 @@ out/
 
 # Electron
 release/
+!.claude/skills/release/
 
 # Environment
 .env

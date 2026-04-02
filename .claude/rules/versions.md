@@ -15,8 +15,8 @@ packages:
     version: "0.1.0"
     summary: "Narre AI 에이전트 서버 초기 구현 - Claude Agent SDK 기반 SSE 스트리밍, 슬래시 커맨드, UI 도구"
   desktop-app:
-    version: "0.1.4"
-    summary: "agent-server → narre-server 리네이밍, DEV 배지 및 터미널 빈 화면 수정"
+    version: "0.1.5"
+    summary: "마크다운 에디터 YAML frontmatter 라이브 프리뷰 위젯 추가"
   narre-eval:
     version: "0.1.0"
     summary: "Narre AI 어시스턴트 시나리오 기반 e2e 평가 인프라 초기 구현"

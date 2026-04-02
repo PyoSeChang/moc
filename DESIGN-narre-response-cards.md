@@ -158,7 +158,7 @@ react-markdown + remark-gfm으로 기존 plain text 교체.
 ### 도구 소속 분리
 
 ```
-netior-mcp (데이터 도구)           agent-server (UI 도구)
+netior-mcp (데이터 도구)           narre-server (UI 도구)
 ├── create_archetype            ├── propose
 ├── list_concepts               ├── ask
 ├── read_file                   ├── confirm
@@ -166,7 +166,7 @@ netior-mcp (데이터 도구)           agent-server (UI 도구)
 ```
 
 - netior-mcp: 순수 데이터 조작. Claude Code에서도 연결 가능.
-- agent-server UI 도구: Narre 전용. 프론트엔드 렌더링 필요하므로 Claude Code에서는 사용 불가.
+- narre-server UI 도구: Narre 전용. 프론트엔드 렌더링 필요하므로 Claude Code에서는 사용 불가.
 
 ### UI 도구 목록
 
@@ -182,7 +182,7 @@ summary, tool_log는 도구 호출 아님. 기존 SSE 이벤트(tool_start/tool_
 
 ```
 LLM이 UI 도구 호출 (예: propose)
-  → agent-server가 tool_call 가로챔
+  → narre-server가 tool_call 가로챔
   → SSE event: card { type, payload } 로 프론트엔드 전달
   → 프론트엔드가 카드 컴포넌트 렌더링
   → 유저가 편집/버튼 클릭
@@ -210,7 +210,7 @@ card 이벤트의 payload는 카드 타입에 따라 다름. 프론트엔드는 
 
 ## 핵심 원칙
 
-- 데이터 도구(netior-mcp)와 UI 도구(agent-server) 명확히 분리.
+- 데이터 도구(netior-mcp)와 UI 도구(narre-server) 명확히 분리.
 - UI 도구 호출 → SSE card 이벤트 → 프론트엔드 카드 → 유저 응답 → tool result. 이 루프가 핵심.
 - 카드 타입 추가 = UI 도구 정의 + 카드 컴포넌트 작성 + 등록. 렌더링 로직 변경 없이.
 - ProposalCard는 컬럼 정의 기반 공용 컴포넌트. 단계별 컬럼만 교체.

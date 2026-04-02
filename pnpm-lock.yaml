@@ -24,40 +24,6 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
-  packages/agent-server:
-    dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: latest
-        version: 0.2.87(zod@4.3.6)
-      '@netior/shared':
-        specifier: workspace:*
-        version: link:../shared
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.6
-      express:
-        specifier: ^4.21.0
-        version: 4.22.1
-      zod:
-        specifier: ^4.0.0
-        version: 4.3.6
-    devDependencies:
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.25
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.9.3
-
   packages/desktop-app:
     dependencies:
       '@codemirror/commands':
@@ -255,6 +221,40 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  packages/narre-server:
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: latest
+        version: 0.2.90(zod@4.3.6)
+      '@netior/shared':
+        specifier: workspace:*
+        version: link:../shared
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      express:
+        specifier: ^4.21.0
+        version: 4.22.1
+      zod:
+        specifier: ^4.0.0
+        version: 4.3.6
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   packages/netior-core:
     dependencies:
       '@netior/shared':
@@ -345,8 +345,8 @@ packages:
       tinyexec: 1.0.4
     dev: false
 
-  /@anthropic-ai/claude-agent-sdk@0.2.87(zod@4.3.6):
-    resolution: {integrity: sha512-WWmgBPxPhBOvNT0ujI8vPTI2lK+w5YEkEZ/y1mH0EDkK/0kBnxVJNhCtG5vnueiAViwLoUOFn66pbkDiivijdA==}
+  /@anthropic-ai/claude-agent-sdk@0.2.90(zod@4.3.6):
+    resolution: {integrity: sha512-up5bK0pUbthKIZtNE18WDrIYi0KNpZUhdgjGbkfH/mFQJxI6W/uE3mTiLrCX3UF0SqNl0fMtojBTZPJr2b3O4g==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       zod: ^4.0.0

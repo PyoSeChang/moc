@@ -161,7 +161,7 @@ Do not treat current full typecheck failure as evidence that the terminal refact
 This repo is not clean. There are unrelated modified files in:
 
 - Narre-related renderer/main files
-- agent-server
+- narre-server
 - theme reset
 - locale files
 - other local documents and workspace artifacts

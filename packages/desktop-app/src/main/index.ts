@@ -5,7 +5,7 @@ import { mkdirSync, existsSync } from 'fs';
 import { initDatabase, closeDatabase, getSetting, setSetting } from '@netior/core';
 import { registerAllIpc } from './ipc';
 import { ptyManager } from './pty/pty-manager';
-import { startAgentServer, stopAgentServer } from './process/agent-server-manager';
+import { startNarreServer, stopNarreServer } from './process/narre-server-manager';
 import { hookServer } from './hook-server/hook-server';
 import { setupHookScript, setupClaudeSettings } from './hook-server/hook-setup';
 
@@ -129,9 +129,9 @@ app.whenReady().then(async () => {
   initDatabase(dbPath, nativeBinding ? { nativeBinding } : undefined);
   registerAllIpc();
 
-  // Start Narre agent-server (Claude Agent SDK falls back to OAuth if no API key)
+  // Start Narre server (Claude Agent SDK falls back to OAuth if no API key)
   const apiKey = getSetting('anthropic_api_key') || '';
-  startAgentServer({ apiKey, dbPath, dataDir: dbDir });
+  startNarreServer({ apiKey, dbPath, dataDir: dbDir });
 
   // Window control IPC
   ipcMain.on('window:minimize', (event) => {
@@ -214,7 +214,7 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   ptyManager.killAll();
   hookServer.stop();
-  stopAgentServer();
+  stopNarreServer();
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();
 });

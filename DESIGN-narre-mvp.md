@@ -18,7 +18,7 @@ packages/
 ├── moc-core/        # DB 로직 추출 (repositories, migrations) — NEW
 ├── netior-mcp/         # moc-core를 HTTP MCP로 래핑 — NEW
 ├── desktop-app/     # Electron 앱, moc-core 직접 import (기존 + Narre UI)
-└── agent-server/    # Narre 에이전트, Claude Agent SDK (TypeScript) — NEW
+└── narre-server/    # Narre 에이전트, Claude Agent SDK (TypeScript) — NEW
 ```
 
 ### 데이터 흐름
@@ -26,7 +26,7 @@ packages/
 ```
 desktop-app (Renderer)         desktop-app (Main)          외부 프로세스
 ───────────────────           ──────────────────          ──────────────
-NarreEditor.tsx                ipc/narre-handlers.ts       agent-server (Narre)
+NarreEditor.tsx                ipc/narre-handlers.ts       narre-server (Narre)
 │                              │                            │
 │── user message ──IPC──→      │── HTTP ──→                 │
 │                              │                            │── tool call ──→ netior-mcp
@@ -50,7 +50,7 @@ NarreEditor.tsx                ipc/narre-handlers.ts       agent-server (Narre)
 - **동기화** → netior-mcp가 mutation 시 SSE 이벤트 발행 → desktop-app Main이 구독 → Renderer 스토어 refetch
 - **장애 격리** → netior-mcp가 죽어도 desktop-app 정상 동작
 
-### agent-server (Narre)
+### narre-server (Narre)
 
 - TypeScript (Claude Agent SDK) — `@netior/shared` 타입/상수 import 가능
 - netior-mcp를 MCP 서버로 연결 (HTTP transport)
@@ -378,7 +378,7 @@ EditorTabType: 'concept' | 'file' | 'archetype' | 'terminal' | 'edge'
 | 같은 이름 타입 생성 시도 | netior-mcp 에러 → Narre가 안내 |
 | 네트워크 끊김 (Claude API) | 에러 메시지 + 재시도 안내 |
 | 대량 개념 목록 요청 | 도구가 페이지네이션 또는 요약 반환 |
-| agent-server 프로세스 죽음 | Main에서 감지 → 에러 표시 + 재시작 |
+| narre-server 프로세스 죽음 | Main에서 감지 → 에러 표시 + 재시작 |
 | Narre가 DB 수정 + 사용자가 동시에 UI 수정 | WAL 모드로 DB 충돌 방지. SSE 이벤트로 UI 동기화 |
 | API 키 미설정 | Narre 탭 열 때 설정 안내 |
 | Narre가 5개 중 3개 생성 후 실패 | 부분 성공 허용. 완료된 것 보고 + 실패 원인 안내 |

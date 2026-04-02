@@ -20,7 +20,7 @@ const EVAL_DATA_DIR = join(APPDATA, 'netior', 'data', 'eval');
 const HEALTH_CHECK_TIMEOUT = 15_000;
 const HEALTH_CHECK_INTERVAL = 500;
 
-let agentProcess: ChildProcess | null = null;
+let narreProcess: ChildProcess | null = null;
 let seededProjectId: string | null = null;
 
 export function getEvalDbPath(): string {
@@ -111,20 +111,20 @@ export function teardownDb(): void {
   seededProjectId = null;
 }
 
-export async function startAgentServer(port: number): Promise<void> {
-  if (agentProcess) return;
+export async function startNarreServer(port: number): Promise<void> {
+  if (narreProcess) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY environment variable is required');
   }
 
-  const serverPath = resolveAgentServerPath();
+  const serverPath = resolveNarreServerPath();
   if (!serverPath) {
-    throw new Error('Could not find agent-server. Run: pnpm --filter @netior/agent-server build');
+    throw new Error('Could not find narre-server. Run: pnpm --filter @netior/narre-server build');
   }
 
-  agentProcess = spawn('node', [serverPath], {
+  narreProcess = spawn('node', [serverPath], {
     env: {
       ...process.env,
       PORT: String(port),
@@ -135,23 +135,23 @@ export async function startAgentServer(port: number): Promise<void> {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  agentProcess.stdout?.on('data', (data) => {
+  narreProcess.stdout?.on('data', (data) => {
     const line = data.toString().trim();
-    if (line) console.log(`  [agent-server] ${line}`);
+    if (line) console.log(`  [narre-server] ${line}`);
   });
 
-  agentProcess.stderr?.on('data', (data) => {
+  narreProcess.stderr?.on('data', (data) => {
     const line = data.toString().trim();
-    if (line) console.error(`  [agent-server:err] ${line}`);
+    if (line) console.error(`  [narre-server:err] ${line}`);
   });
 
   await waitForHealth(port);
 }
 
-export function stopAgentServer(): void {
-  if (agentProcess) {
-    agentProcess.kill();
-    agentProcess = null;
+export function stopNarreServer(): void {
+  if (narreProcess) {
+    narreProcess.kill();
+    narreProcess = null;
   }
 }
 
@@ -169,13 +169,13 @@ async function waitForHealth(port: number): Promise<void> {
     await new Promise((r) => setTimeout(r, HEALTH_CHECK_INTERVAL));
   }
 
-  throw new Error(`agent-server health check timed out after ${HEALTH_CHECK_TIMEOUT}ms`);
+  throw new Error(`narre-server health check timed out after ${HEALTH_CHECK_TIMEOUT}ms`);
 }
 
-function resolveAgentServerPath(): string | null {
+function resolveNarreServerPath(): string | null {
   const candidates = [
-    join(process.cwd(), 'packages/agent-server/dist/index.js'),
-    join(process.cwd(), '../agent-server/dist/index.js'),
+    join(process.cwd(), 'packages/narre-server/dist/index.js'),
+    join(process.cwd(), '../narre-server/dist/index.js'),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;

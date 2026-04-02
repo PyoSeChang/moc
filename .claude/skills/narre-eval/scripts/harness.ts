@@ -1,5 +1,5 @@
 /**
- * Narre Eval Harness — DB 초기화 + agent-server 프로세스 관리
+ * Narre Eval Harness — DB 초기화 + narre-server 프로세스 관리
  *
  * Usage:
  *   npx tsx scripts/harness.ts setup [seed-json-path]
@@ -29,7 +29,7 @@ const APPDATA = process.env.APPDATA || process.env.HOME || '.';
 const EVAL_DB_PATH = join(APPDATA, 'netior', 'data', 'netior-eval.db');
 const EVAL_DATA_DIR = join(APPDATA, 'netior', 'data', 'eval');
 const EVAL_PORT = 3199;
-const PID_FILE = join(EVAL_DATA_DIR, 'agent-server.pid');
+const PID_FILE = join(EVAL_DATA_DIR, 'narre-server.pid');
 
 async function main() {
   const command = process.argv[2];
@@ -188,7 +188,7 @@ async function startServer() {
     const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
     try {
       process.kill(pid, 0);
-      console.log(`agent-server already running (PID: ${pid})`);
+      console.log(`narre-server already running (PID: ${pid})`);
       return;
     } catch {
       unlinkSync(PID_FILE);
@@ -200,12 +200,12 @@ async function startServer() {
     throw new Error('ANTHROPIC_API_KEY environment variable is required');
   }
 
-  const serverPath = join(PROJECT_ROOT, 'packages/agent-server/dist/index.js');
+  const serverPath = join(PROJECT_ROOT, 'packages/narre-server/dist/index.js');
   if (!existsSync(serverPath)) {
-    throw new Error('agent-server not built. Run: pnpm --filter @netior/agent-server build');
+    throw new Error('narre-server not built. Run: pnpm --filter @netior/narre-server build');
   }
 
-  console.log(`Starting agent-server on port ${EVAL_PORT}...`);
+  console.log(`Starting narre-server on port ${EVAL_PORT}...`);
   const child = spawn('node', [serverPath], {
     env: {
       ...process.env,
@@ -220,7 +220,7 @@ async function startServer() {
 
   child.unref();
   writeFileSync(PID_FILE, String(child.pid), 'utf-8');
-  console.log(`agent-server started (PID: ${child.pid})`);
+  console.log(`narre-server started (PID: ${child.pid})`);
 
   // Wait for health
   const start = Date.now();
@@ -228,27 +228,27 @@ async function startServer() {
     try {
       const res = await fetch(`http://localhost:${EVAL_PORT}/health`);
       if (res.ok) {
-        console.log('agent-server is healthy');
+        console.log('narre-server is healthy');
         return;
       }
     } catch {}
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error('agent-server health check timed out');
+  throw new Error('narre-server health check timed out');
 }
 
 function stopServer() {
   if (!existsSync(PID_FILE)) {
-    console.log('No agent-server PID file found');
+    console.log('No narre-server PID file found');
     return;
   }
 
   const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
   try {
     process.kill(pid);
-    console.log(`Killed agent-server (PID: ${pid})`);
+    console.log(`Killed narre-server (PID: ${pid})`);
   } catch {
-    console.log(`agent-server (PID: ${pid}) already stopped`);
+    console.log(`narre-server (PID: ${pid}) already stopped`);
   }
   unlinkSync(PID_FILE);
 }
@@ -258,12 +258,12 @@ async function healthCheck() {
     const res = await fetch(`http://localhost:${EVAL_PORT}/health`);
     if (res.ok) {
       const data = await res.json();
-      console.log('agent-server is healthy:', JSON.stringify(data));
+      console.log('narre-server is healthy:', JSON.stringify(data));
     } else {
-      console.log(`agent-server responded with ${res.status}`);
+      console.log(`narre-server responded with ${res.status}`);
     }
   } catch (e) {
-    console.log('agent-server is not reachable');
+    console.log('narre-server is not reachable');
     process.exit(1);
   }
 }

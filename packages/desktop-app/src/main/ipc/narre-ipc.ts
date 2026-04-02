@@ -10,7 +10,7 @@ import {
   searchConcepts, listArchetypes, listRelationTypes, listCanvasTypes, listCanvases,
   getProjectById,
 } from '@netior/core';
-import { startAgentServer, isAgentServerRunning } from '../process/agent-server-manager';
+import { startNarreServer, isNarreServerRunning } from '../process/narre-server-manager';
 
 function getNarreDir(projectId: string): string {
   const dir = join(app.getPath('userData'), 'data', 'narre', projectId);
@@ -150,11 +150,11 @@ export function registerNarreIpc(): void {
   ipcMain.handle(IPC_CHANNELS.NARRE_SET_API_KEY, async (_e, key: string): Promise<IpcResult<boolean>> => {
     try {
       setSetting('anthropic_api_key', key);
-      // Start agent-server if not already running
-      if (key && !isAgentServerRunning()) {
+      // Start narre-server if not already running
+      if (key && !isNarreServerRunning()) {
         const dbDir = join(app.getPath('userData'), 'data');
         const dbPath = join(dbDir, 'netior.db'); // Will be overridden by env in dev
-        startAgentServer({ apiKey: key, dbPath, dataDir: dbDir });
+        startNarreServer({ apiKey: key, dbPath, dataDir: dbDir });
       }
       return { success: true, data: true };
     } catch (err) {
@@ -251,7 +251,7 @@ export function registerNarreIpc(): void {
         return { success: false, error: 'No main window available' };
       }
 
-      // Build project metadata for system prompt (agent-server doesn't access DB)
+      // Build project metadata for system prompt (narre-server doesn't access DB)
       const project = getProjectById(projectId);
       const archetypes = project ? listArchetypes(projectId) : [];
       const relationTypes = project ? listRelationTypes(projectId) : [];
@@ -306,7 +306,7 @@ export function registerNarreIpc(): void {
                 // Skip
               }
             }
-            // Don't send a duplicate done event — agent-server already sends one via the stream
+            // Don't send a duplicate done event — narre-server already sends one via the stream
           });
           res.on('error', (err) => {
             mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, {
@@ -321,10 +321,10 @@ export function registerNarreIpc(): void {
       );
 
       req.on('error', (err) => {
-        console.error('[narre] Agent server connection error:', err.message);
+        console.error('[narre] Narre server connection error:', err.message);
         mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, {
           type: 'error',
-          error: `Agent server connection failed: ${err.message}. Is the API key set?`,
+          error: `Narre server connection failed: ${err.message}. Is the API key set?`,
         } as NarreStreamEvent);
         // Send done so the UI exits streaming state
         mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, {

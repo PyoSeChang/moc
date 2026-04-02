@@ -318,7 +318,7 @@ function buildMentionTag(mention: NarreMention): string {
 }
 
 app.listen(PORT, () => {
-  console.log(`Narre agent-server listening on port ${PORT}`);
+  console.log(`Narre server listening on port ${PORT}`);
   console.log(`Data directory: ${MOC_DATA_DIR}`);
   console.log(`MCP DB path: ${MOC_DB_PATH}`);
 });

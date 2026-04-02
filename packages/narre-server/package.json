@@ -1,5 +1,5 @@
 {
-  "name": "@netior/agent-server",
+  "name": "@netior/narre-server",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

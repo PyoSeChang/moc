@@ -1,11 +1,11 @@
 ---
 name: narre-eval
-description: "Evaluate Narre AI assistant quality via scenario-based testing. TRIGGER when: user says '/narre-eval', 'eval narre', 'narre 평가', 'narre 테스트', or asks to test/evaluate Narre's tool calling, conversation quality, or type system management capabilities. Runs real e2e scenarios against agent-server, grades DB outcomes + conversation quality."
+description: "Evaluate Narre AI assistant quality via scenario-based testing. TRIGGER when: user says '/narre-eval', 'eval narre', 'narre 평가', 'narre 테스트', or asks to test/evaluate Narre's tool calling, conversation quality, or type system management capabilities. Runs real e2e scenarios against narre-server, grades DB outcomes + conversation quality."
 ---
 
 # Narre Eval
 
-Scenario-based evaluation of Narre (Netior's AI assistant). Run real conversations against agent-server and grade results by checking DB state and conversation quality.
+Scenario-based evaluation of Narre (Netior's AI assistant). Run real conversations against narre-server and grade results by checking DB state and conversation quality.
 
 ## Workflow
 
@@ -15,12 +15,12 @@ Run harness to initialize eval environment:
 
 ```bash
 # Build dependencies first (if not already built)
-pnpm --filter @netior/core build && pnpm --filter @netior/mcp build && pnpm --filter @netior/agent-server build
+pnpm --filter @netior/core build && pnpm --filter @netior/mcp build && pnpm --filter @netior/narre-server build
 
 # Initialize eval DB with seed data (optional seed JSON)
 npx tsx .claude/skills/narre-eval/scripts/harness.ts setup [seed.json]
 
-# Start agent-server on port 3199
+# Start narre-server on port 3199
 npx tsx .claude/skills/narre-eval/scripts/harness.ts start-server
 ```
 
@@ -119,5 +119,5 @@ Available scenarios: Init Project, Type Update, Cascade Delete.
 - Harness script: `.claude/skills/narre-eval/scripts/harness.ts`
 - Scenarios: `references/scenarios.md`
 - Results: `packages/narre-eval/results/{date}_{scenario}.md`
-- Agent-server: `packages/agent-server/` (port 3199 for eval)
+- Agent-server: `packages/narre-server/` (port 3199 for eval)
 - Design doc: `DESIGN-narre-eval.md`

@@ -20,7 +20,7 @@ Narre 채팅에서 `/` 접두사로 실행하는 커맨드 시스템. 대화형 
            │
      ┌─────┴─────┐
      ▼           ▼
-desktop-app    agent-server
+desktop-app    narre-server
 (피커 + 분기)  (검증 + 실행)
 ```
 
@@ -70,7 +70,7 @@ CommandArg:
     → 미매칭              → POST /chat (일반 메시지로 Narre에게)
 ```
 
-### agent-server — 검증 + 실행
+### narre-server — 검증 + 실행
 
 **공통:**
 - 요청 수신 시 커맨드 존재 여부 + type 서버 측 재검증
@@ -94,7 +94,7 @@ CommandArg:
 
 **커맨드 핸들러 레지스트리:**
 ```
-agent-server 내부:
+narre-server 내부:
   commandHandlers: Map<string, handler>
     "onboarding" → onboardingHandler (Narre 호출 + 전용 시스템 프롬프트)
     "usage"      → usageHandler (API 사용량 조회)
@@ -125,7 +125,7 @@ event: done       — 완료
 | 매칭 안 되는 `/xxx` 전송 | 일반 메시지로 Narre에게 전달 |
 | 커맨드 실행 중 동일 커맨드 재전송 | 서버에서 거부, 에러 반환 |
 | 인자 누락 (required arg) | 서버에서 검증, 에러 반환 |
-| agent-server 미실행 상태 | 프론트엔드에서 연결 불가 에러 표시 |
+| narre-server 미실행 상태 | 프론트엔드에서 연결 불가 에러 표시 |
 
 ## 초기 커맨드 목록
 
@@ -138,5 +138,5 @@ event: done       — 완료
 ## 선행 작업
 
 - `@netior/shared`: SlashCommand 타입 + SLASH_COMMANDS 상수 추가
-- `agent-server`: /command 엔드포인트 + 커맨드 라우터 + 핸들러 레지스트리
+- `narre-server`: /command 엔드포인트 + 커맨드 라우터 + 핸들러 레지스트리
 - `desktop-app`: NarreMentionInput에 "/" 피커 통합

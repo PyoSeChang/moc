@@ -1,7 +1,7 @@
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadScenarios } from './loader.js';
-import { setupDb, teardownDb, startAgentServer, stopAgentServer, getSeededProjectId } from './harness.js';
+import { setupDb, teardownDb, startNarreServer, stopNarreServer, getSeededProjectId } from './harness.js';
 import { runScenario } from './runner.js';
 import { gradeScenario } from './grader.js';
 import { recordResult, printSummary } from './report.js';
@@ -72,8 +72,8 @@ async function main() {
         console.log('  Setting up DB...');
         const projectId = setupDb(scenario.seed);
 
-        console.log('  Starting agent-server...');
-        await startAgentServer(options.port);
+        console.log('  Starting narre-server...');
+        await startNarreServer(options.port);
 
         // Run
         console.log('  Sending turns...');
@@ -115,7 +115,7 @@ async function main() {
         allResults.push(errResult);
         console.error(`  ERROR: ${(error as Error).message}`);
       } finally {
-        stopAgentServer();
+        stopNarreServer();
         teardownDb();
       }
     }

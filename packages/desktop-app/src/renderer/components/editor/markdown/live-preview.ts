@@ -73,6 +73,54 @@ class HrWidget extends WidgetType {
   }
 }
 
+class FrontmatterWidget extends WidgetType {
+  constructor(readonly entries: [string, string][]) { super(); }
+  eq(o: FrontmatterWidget) {
+    return this.entries.length === o.entries.length &&
+      this.entries.every((e, i) => e[0] === o.entries[i][0] && e[1] === o.entries[i][1]);
+  }
+  toDOM() {
+    const wrap = document.createElement('div');
+    wrap.className = 'md-frontmatter';
+
+    const header = document.createElement('div');
+    header.className = 'md-frontmatter-header';
+    header.textContent = '속성';
+    wrap.appendChild(header);
+
+    const table = document.createElement('table');
+    table.className = 'md-frontmatter-table';
+    const tbody = document.createElement('tbody');
+
+    for (const [key, value] of this.entries) {
+      const tr = document.createElement('tr');
+
+      const tdKey = document.createElement('td');
+      tdKey.className = 'md-frontmatter-key';
+      const icon = document.createElement('span');
+      icon.className = 'md-frontmatter-icon';
+      icon.textContent = '\u2261'; // ≡
+      tdKey.appendChild(icon);
+      const keyText = document.createElement('span');
+      keyText.textContent = key;
+      tdKey.appendChild(keyText);
+
+      const tdVal = document.createElement('td');
+      tdVal.className = 'md-frontmatter-value';
+      tdVal.textContent = value;
+
+      tr.appendChild(tdKey);
+      tr.appendChild(tdVal);
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+  ignoreEvent() { return false; }
+}
+
 class TableWidget extends WidgetType {
   constructor(readonly text: string) { super(); }
   eq(o: TableWidget) { return this.text === o.text; }
@@ -152,6 +200,39 @@ function addLineDecos(state: EditorState, from: number, to: number, d: Decoratio
   for (let i = a; i <= b; i++) out.push(d.range(state.doc.line(i).from));
 }
 
+function getFrontmatterRange(state: EditorState): { from: number; to: number } | null {
+  if (state.doc.lines < 3) return null;
+  const first = state.doc.line(1);
+  if (first.text.trim() !== '---') return null;
+  const limit = Math.min(state.doc.lines, 50); // frontmatter won't be 50+ lines
+  for (let i = 2; i <= limit; i++) {
+    if (state.doc.line(i).text.trim() === '---') {
+      return { from: first.from, to: state.doc.line(i).to };
+    }
+  }
+  return null;
+}
+
+function parseFrontmatterEntries(text: string): [string, string][] {
+  const lines = text.split('\n').slice(1, -1); // strip --- delimiters
+  const entries: [string, string][] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(\S[\w-]*):\s*(.*)$/);
+    if (!m) continue;
+    let val = m[2].replace(/^["']|["']$/g, '').trim();
+    // YAML block scalar (> or |): collect indented continuation lines
+    if (val === '>' || val === '|') {
+      const parts: string[] = [];
+      while (i + 1 < lines.length && /^\s+/.test(lines[i + 1])) {
+        parts.push(lines[++i].trim());
+      }
+      val = parts.join(val === '>' ? ' ' : '\n');
+    }
+    entries.push([m[1], val]);
+  }
+  return entries;
+}
+
 // ══════════════════════════════════════
 //  BUILD MARK + INLINE REPLACE DECOS
 //  (single-line replaces only — safe for ViewPlugin)
@@ -165,10 +246,14 @@ function buildMR(view: EditorView): MR {
   const m: Range<Decoration>[] = [];
   const r: Range<Decoration>[] = [];
   let inCode = false;
+  const fmRange = getFrontmatterRange(state);
 
   syntaxTree(state).iterate({
     enter(nd) {
       const n = nd.name;
+
+      // ── Skip frontmatter region ──
+      if (fmRange && nd.from >= fmRange.from && nd.to <= fmRange.to) return;
 
       // ── Fenced code ──
       if (n === 'FencedCode') { inCode = true; addLineDecos(state, nd.from, nd.to, codeLineD, m); return; }
@@ -293,6 +378,49 @@ function getMR(v: EditorView): MR {
 }
 
 // ══════════════════════════════════════
+//  FRONTMATTER STATE FIELD (block replace, multi-line)
+// ══════════════════════════════════════
+
+function buildFrontmatterDecos(state: EditorState): DecorationSet {
+  const fm = getFrontmatterRange(state);
+  if (!fm) return Decoration.none;
+
+  const fmStartLine = state.doc.lineAt(fm.from).number;
+  const fmEndLine = state.doc.lineAt(fm.to).number;
+
+  // Check if cursor is intentionally inside frontmatter (not default position 0,0)
+  let anyFocused = false;
+  for (const range of state.selection.ranges) {
+    if (range.from === 0 && range.to === 0) continue; // skip default cursor
+    const a = state.doc.lineAt(range.from).number;
+    const b = state.doc.lineAt(range.to).number;
+    for (let i = a; i <= b; i++) {
+      if (i >= fmStartLine && i <= fmEndLine) { anyFocused = true; break; }
+    }
+    if (anyFocused) break;
+  }
+
+  if (anyFocused) return Decoration.none;
+
+  const text = state.doc.sliceString(fm.from, fm.to);
+  const entries = parseFrontmatterEntries(text);
+  if (entries.length === 0) return Decoration.none;
+
+  return Decoration.set([
+    Decoration.replace({ widget: new FrontmatterWidget(entries), block: true }).range(fm.from, fm.to),
+  ]);
+}
+
+const frontmatterField = StateField.define<DecorationSet>({
+  create(state) { return buildFrontmatterDecos(state); },
+  update(decos, tr) {
+    if (tr.docChanged || tr.selection) return buildFrontmatterDecos(tr.state);
+    return decos;
+  },
+  provide: f => EditorView.decorations.from(f),
+});
+
+// ══════════════════════════════════════
 //  TABLE STATE FIELD (block replace, multi-line)
 // ══════════════════════════════════════
 
@@ -403,7 +531,7 @@ const replacePlugin = ViewPlugin.fromClass(
 //  EXPORT
 // ══════════════════════════════════════
 
-export const livePreviewPlugin = [markPlugin, replacePlugin, tableField, checkboxPlugin, linkHandler];
+export const livePreviewPlugin = [markPlugin, replacePlugin, frontmatterField, tableField, checkboxPlugin, linkHandler];
 
 // ══════════════════════════════════════
 //  THEME
@@ -453,6 +581,42 @@ export const livePreviewTheme = EditorView.theme({
   },
   '.md-checkbox:hover': { borderColor: 'var(--border-default)' },
   '.md-checkbox-checked': { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--text-on-accent)' },
+
+  '.md-frontmatter': {
+    border: '1px solid var(--border-subtle)',
+    borderRadius: '6px',
+    marginBottom: '12px',
+    overflow: 'hidden',
+  },
+  '.md-frontmatter-header': {
+    fontSize: '0.8em',
+    fontWeight: '600',
+    color: 'var(--text-muted)',
+    padding: '6px 12px',
+  },
+  '.md-frontmatter-table': {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.85em',
+  },
+  '.md-frontmatter-table td': {
+    padding: '4px 12px',
+    borderTop: '1px solid var(--border-subtle)',
+    verticalAlign: 'top',
+  },
+  '.md-frontmatter-key': {
+    color: 'var(--text-muted)',
+    fontWeight: '500',
+    whiteSpace: 'nowrap',
+    width: '1%',
+  },
+  '.md-frontmatter-value': {
+    color: 'var(--text-default)',
+  },
+  '.md-frontmatter-icon': {
+    marginRight: '6px',
+    opacity: '0.5',
+  },
 
   '.md-table-wrapper': { overflow: 'auto', margin: '4px 0' },
   '.md-table': { width: '100%', borderCollapse: 'collapse', fontSize: '0.9em' },

@@ -1,22 +1,41 @@
-import type { NarreMention, NarreStreamEvent } from '@netior/shared/types';
+import type {
+  NarreCard,
+  NarreMention,
+  NarreStreamEvent,
+  Project,
+  ProjectCreate,
+  Archetype,
+  ArchetypeCreate,
+  RelationType,
+  RelationTypeCreate,
+  CanvasType,
+  CanvasTypeCreate,
+  Concept,
+  ConceptCreate,
+  Module,
+  ModuleCreate,
+  ModuleDirectory,
+  ModuleDirectoryCreate,
+} from '@netior/shared/types';
 
 // ── Scenario Definition ──
+
+export type ScenarioType = 'single-turn' | 'conversation';
 
 export interface EvalScenario {
   id: string;
   description: string;
+  type: ScenarioType;
   tags: string[];
-  seed: SeedConfig;
   turns: Turn[];
-  assertions: Assertions;
-}
-
-export interface SeedConfig {
-  project: { name: string; root_dir: string };
-  archetypes?: Array<{ name: string; icon?: string; color?: string; node_shape?: string }>;
-  relation_types?: Array<{ name: string; directed?: boolean; line_style?: string; color?: string }>;
-  canvas_types?: Array<{ name: string; description?: string }>;
-  concepts?: Array<{ title: string; archetype_name?: string; color?: string; icon?: string }>;
+  verify: VerifyItem[];
+  qualitative: QualitativeItem[];
+  /** Injected by loader */
+  scenarioDir: string;
+  /** Injected by loader from seed.ts */
+  seed: (ctx: SeedContext) => Promise<void>;
+  /** Injected by loader from responder.ts (conversation only) */
+  responder?: (card: NarreCard, ctx: ResponderContext) => unknown;
 }
 
 export interface Turn {
@@ -25,42 +44,69 @@ export interface Turn {
   mentions?: NarreMention[];
 }
 
-// ── Assertions ──
+// ── Verify ──
 
-export interface Assertions {
-  db?: DbAssertion[];
-  db_absent?: DbAbsentAssertion[];
-  response?: ResponseAssertion[];
-  tool_count?: { min?: number; max?: number };
-  qualitative?: QualitativeAssertion[];
-}
-
-export interface DbAssertion {
-  table: string;
-  condition?: string;
-  expect: {
-    count?: number;
-    count_min?: number;
-    count_max?: number;
-    column_includes?: Record<string, string[]>;
-    not_null?: string[];
+export interface VerifyItem {
+  name: string;
+  db?: {
+    table: string;
+    condition?: string;
+    expect: {
+      count?: number;
+      count_min?: number;
+      count_max?: number;
+      column_includes?: Record<string, string[]>;
+      not_null?: string[];
+    };
+  };
+  db_absent?: {
+    table: string;
+    condition?: string;
+  };
+  tool?: {
+    name: string;
+    expect: {
+      count_min?: number;
+      count_max?: number;
+    };
+  };
+  response?: {
+    contains_all?: string[];
+    contains_any?: string[];
+    no_error?: boolean;
   };
 }
 
-export interface DbAbsentAssertion {
-  table: string;
-  condition?: string;
+export interface VerifyResult {
+  name: string;
+  passed: boolean;
+  detail?: string;
 }
 
-export interface ResponseAssertion {
-  contains_all?: string[];
-  contains_any?: string[];
-  no_error?: boolean;
-}
-
-export interface QualitativeAssertion {
+export interface QualitativeItem {
   rubric: string;
-  scale?: [number, number]; // default [1, 5]
+}
+
+// ── Seed Context ──
+
+export interface SeedContext {
+  tempDir: string;
+  scenarioDir: string;
+  createProject(data: ProjectCreate): Project;
+  createArchetype(data: ArchetypeCreate): Archetype;
+  createRelationType(data: RelationTypeCreate): RelationType;
+  createCanvasType(data: CanvasTypeCreate): CanvasType;
+  createConcept(data: ConceptCreate): Concept;
+  createModule(data: ModuleCreate): Module;
+  addModuleDirectory(data: ModuleDirectoryCreate): ModuleDirectory;
+  copyFixtures(): Promise<void>;
+}
+
+// ── Responder Context ──
+
+export interface ResponderContext {
+  cardIndex: number;
+  previousCards: NarreCard[];
 }
 
 // ── Transcript ──
@@ -87,12 +133,6 @@ export interface Transcript {
 
 // ── Results ──
 
-export interface AssertionResult {
-  name: string;
-  passed: boolean;
-  detail?: string;
-}
-
 export interface JudgeScore {
   rubric: string;
   score: number;
@@ -102,9 +142,7 @@ export interface JudgeScore {
 export interface ScenarioResult {
   scenarioId: string;
   timestamp: string;
-  dbAssertions: { passed: number; total: number; results: AssertionResult[] };
-  responseAssertions: { passed: number; total: number; results: AssertionResult[] };
-  toolCountCheck: AssertionResult | null;
+  verifyResults: { passed: number; total: number; results: VerifyResult[] };
   judgeScores: JudgeScore[];
   judgeAvg: number | null;
   durationMs: number;

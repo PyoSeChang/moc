@@ -23,7 +23,7 @@ packages:
     type: patch
     summary: "마크다운 에디터 YAML frontmatter 라이브 프리뷰 위젯 추가"
   narre-eval:
-    version: "0.1.0"
+    version: "0.2.0"
     type: minor
-    summary: "Narre AI 어시스턴트 시나리오 기반 e2e 평가 인프라 초기 구현"
+    summary: "폴더 기반 시나리오 구조, 시나리오 타입 구분, 이름 있는 verify 형식, conversation 자동 응답 지원"
 ```

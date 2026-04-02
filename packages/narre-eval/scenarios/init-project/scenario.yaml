@@ -1,0 +1,36 @@
+id: init-project
+description: "빈 프로젝트에 역사 도메인 타입 세팅 요청"
+type: single-turn
+tags: [archetype, init]
+
+turns:
+  - role: user
+    content: "역사 프로젝트야. 인물, 사건, 장소 아크타입이 필요해. 만들어줘."
+
+verify:
+  - name: "요청한 3개 아크타입이 생성됨"
+    db:
+      table: archetypes
+      expect:
+        count_min: 3
+        column_includes:
+          name: ["인물", "사건", "장소"]
+
+  - name: "응답에 아크타입 이름이 포함됨"
+    response:
+      contains_all: ["인물", "사건", "장소"]
+
+  - name: "에러 없음"
+    response:
+      no_error: true
+
+  - name: "도구 호출 횟수 적정"
+    tool:
+      name: create_archetype
+      expect:
+        count_min: 3
+        count_max: 20
+
+qualitative:
+  - rubric: "사용자가 요청한 3개 아크타입을 정확히 생성했는가"
+  - rubric: "생성 결과를 명확히 보고했는가"

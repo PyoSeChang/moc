@@ -1,7 +1,7 @@
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadScenarios } from './loader.js';
-import { setupDb, teardownDb, startNarreServer, stopNarreServer, getSeededProjectId } from './harness.js';
+import { setupScenario, teardownScenario, startNarreServer, stopNarreServer } from './harness.js';
 import { runScenario } from './runner.js';
 import { gradeScenario } from './grader.js';
 import { recordResult, printSummary } from './report.js';
@@ -46,10 +46,9 @@ async function main() {
   // Resolve paths
   const packageRoot = join(__dirname, '..');
   const scenariosDir = join(packageRoot, 'scenarios');
-  const resultsDir = join(packageRoot, 'results');
 
-  // Load scenarios
-  const scenarios = loadScenarios(scenariosDir, options);
+  // Load scenarios (folder-based)
+  const scenarios = await loadScenarios(scenariosDir, options);
   if (scenarios.length === 0) {
     console.error('No scenarios found matching filters.');
     process.exit(1);
@@ -67,10 +66,13 @@ async function main() {
     for (const scenario of scenarios) {
       console.log(`\n> Running: ${scenario.id} — ${scenario.description}`);
 
+      let tempDir: string | null = null;
+
       try {
         // Setup
-        console.log('  Setting up DB...');
-        const projectId = setupDb(scenario.seed);
+        console.log('  Setting up scenario...');
+        const setup = await setupScenario(scenario.scenarioDir, scenario.seed);
+        tempDir = setup.tempDir;
 
         console.log('  Starting narre-server...');
         await startNarreServer(options.port);
@@ -78,8 +80,7 @@ async function main() {
         // Run
         console.log('  Sending turns...');
         const startTime = Date.now();
-        const transcript = await runScenario(scenario.turns, projectId, options.port);
-        transcript.scenarioId = scenario.id;
+        const transcript = await runScenario(scenario, setup.projectId, options.port);
         const durationMs = Date.now() - startTime;
 
         console.log(`  Completed in ${(durationMs / 1000).toFixed(1)}s (${transcript.totalToolCalls} tool calls)`);
@@ -89,34 +90,33 @@ async function main() {
         const result = await gradeScenario(
           scenario.id,
           transcript,
-          scenario.assertions,
-          projectId,
+          scenario.verify,
+          scenario.qualitative,
+          setup.projectId,
           durationMs,
           options.judge,
         );
 
-        // Record
-        recordResult(resultsDir, result);
+        // Record in scenario folder
+        recordResult(scenario.scenarioDir, result);
         allResults.push(result);
       } catch (error) {
         const errResult: ScenarioResult = {
           scenarioId: scenario.id,
           timestamp: new Date().toISOString(),
-          dbAssertions: { passed: 0, total: 0, results: [] },
-          responseAssertions: { passed: 0, total: 0, results: [] },
-          toolCountCheck: null,
+          verifyResults: { passed: 0, total: 0, results: [] },
           judgeScores: [],
           judgeAvg: null,
           durationMs: 0,
           transcript: { scenarioId: scenario.id, sessionId: null, turns: [], totalToolCalls: 0 },
           error: (error as Error).message,
         };
-        recordResult(resultsDir, errResult);
+        recordResult(scenario.scenarioDir, errResult);
         allResults.push(errResult);
         console.error(`  ERROR: ${(error as Error).message}`);
       } finally {
         stopNarreServer();
-        teardownDb();
+        if (tempDir) teardownScenario(tempDir);
       }
     }
   }

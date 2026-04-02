@@ -49,6 +49,7 @@ Create `changelog/{short}/v{new-version}.md` with this exact format:
 package: "{short}"
 version: "{new-version}"
 date: {YYYY-MM-DD}
+type: {patch|minor|major}
 summary: "{한줄 한국어 요약}"
 ---
 

@@ -29,6 +29,7 @@ try {
 
     // Find latest changelog
     let summary = '초기 버전';
+    let type = 'patch';
     const changelogDir = join(root, 'changelog', short);
     if (existsSync(changelogDir)) {
       const files = readdirSync(changelogDir)
@@ -46,10 +47,11 @@ try {
         const content = readFileSync(join(changelogDir, files[0]), 'utf-8');
         const fm = parseFrontmatter(content);
         if (fm.summary) summary = fm.summary;
+        if (fm.type) type = fm.type;
       }
     }
 
-    actual[short] = { version, summary };
+    actual[short] = { version, type, summary };
   }
 
   // 2. Read current versions.md
@@ -64,7 +66,7 @@ try {
   for (const short of SHORT_ORDER) {
     if (!actual[short]) continue;
     const cur = currentYaml[short] || {};
-    if (cur.version !== actual[short].version || cur.summary !== actual[short].summary) {
+    if (cur.version !== actual[short].version || cur.type !== actual[short].type || cur.summary !== actual[short].summary) {
       needsUpdate = true;
       break;
     }
@@ -115,6 +117,9 @@ function parseVersionsYaml(content) {
       const valMatch = line.match(/^\s{4}(\w+):\s*"(.+?)"/);
       if (valMatch) {
         result[currentPkg][valMatch[1]] = valMatch[2];
+      } else {
+        const bareMatch = line.match(/^\s{4}(\w+):\s*(\S+)\s*$/);
+        if (bareMatch) result[currentPkg][bareMatch[1]] = bareMatch[2];
       }
     }
   }
@@ -125,9 +130,10 @@ function buildVersionsYaml(packages) {
   let yaml = 'packages:\n';
   for (const short of SHORT_ORDER) {
     if (!packages[short]) continue;
-    const { version, summary } = packages[short];
+    const { version, type, summary } = packages[short];
     yaml += `  ${short}:\n`;
     yaml += `    version: "${version}"\n`;
+    yaml += `    type: ${type}\n`;
     yaml += `    summary: "${summary}"\n`;
   }
   return yaml;

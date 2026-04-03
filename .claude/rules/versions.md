@@ -3,9 +3,9 @@
 ```yaml
 packages:
   shared:
-    version: "0.1.1"
+    version: "0.1.2"
     type: patch
-    summary: "터미널 Todo 및 에디터 최소화 관련 i18n 키 추가"
+    summary: "캔버스/프로젝트 관련 i18n 키 추가"
   core:
     version: "0.1.0"
     type: minor
@@ -19,9 +19,9 @@ packages:
     type: minor
     summary: "Narre AI 에이전트 서버 초기 구현 - Claude Agent SDK 기반 SSE 스트리밍, 슬래시 커맨드, UI 도구"
   desktop-app:
-    version: "0.2.2"
+    version: "0.2.3"
     type: patch
-    summary: "Claude Code 훅 환경변수 체크 롤백, 디렉토리 패널 자동 새로고침 깜빡임 수정"
+    summary: "다수 버그 수정, 사이드바 컨텍스트 메뉴, 타이틀바 프로젝트 전환, Narre 세션 유지"
   narre-eval:
     version: "0.2.0"
     type: minor

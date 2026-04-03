@@ -19,9 +19,9 @@ packages:
     type: minor
     summary: "Narre AI 에이전트 서버 초기 구현 - Claude Agent SDK 기반 SSE 스트리밍, 슬래시 커맨드, UI 도구"
   desktop-app:
-    version: "0.2.1"
+    version: "0.2.2"
     type: patch
-    summary: "디렉토리 패널 새로고침 버튼/자동 새로고침 추가, 폴더 기본 접힘 상태 변경, 단축키 오버레이 개선"
+    summary: "Claude Code 훅 CLAUDECODE 환경변수 체크 롤백 — 훅 서브프로세스에서 변수 미상속으로 감지 실패"
   narre-eval:
     version: "0.2.0"
     type: minor

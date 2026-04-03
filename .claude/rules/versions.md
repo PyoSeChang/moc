@@ -21,7 +21,7 @@ packages:
   desktop-app:
     version: "0.2.2"
     type: patch
-    summary: "Claude Code 훅 CLAUDECODE 환경변수 체크 롤백 — 훅 서브프로세스에서 변수 미상속으로 감지 실패"
+    summary: "Claude Code 훅 환경변수 체크 롤백, 디렉토리 패널 자동 새로고침 깜빡임 수정"
   narre-eval:
     version: "0.2.0"
     type: minor

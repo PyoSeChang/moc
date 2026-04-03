@@ -103,9 +103,23 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   refreshFileTree: async () => {
     const { rootDirs } = get();
-    if (rootDirs.length > 0) {
-      await get().loadFileTree(rootDirs);
-    }
+    if (rootDirs.length === 0) return;
+
+    // Silent refresh — no loading flag so FileTree stays mounted
+    const dirs = rootDirs;
+    const trees = await Promise.all(dirs.map((d) => fsService.readDirShallow(d, 2)));
+    const fileTree = dirs.length === 1
+      ? trees[0]
+      : dirs.map((dirPath, i) => {
+          const name = dirPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || dirPath;
+          return {
+            name,
+            path: dirPath.replace(/\\/g, '/'),
+            type: 'directory' as const,
+            children: trees[i],
+          };
+        });
+    set({ fileTree });
   },
 
   openFile: async (relativePath, rootDir) => {

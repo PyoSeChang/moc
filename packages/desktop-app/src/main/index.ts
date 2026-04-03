@@ -27,6 +27,17 @@ function getNativeBinding(): string | undefined {
 let mainWindow: BrowserWindow | null = null;
 const detachedWindows = new Map<string, BrowserWindow>();
 
+function sendWindowMaximizedState(win: BrowserWindow): void {
+  win.webContents.send('window:maximized-changed', win.isMaximized());
+}
+
+function attachWindowStateEvents(win: BrowserWindow): void {
+  win.on('maximize', () => sendWindowMaximizedState(win));
+  win.on('unmaximize', () => sendWindowMaximizedState(win));
+  win.on('enter-full-screen', () => sendWindowMaximizedState(win));
+  win.on('leave-full-screen', () => sendWindowMaximizedState(win));
+}
+
 function loadWindowBounds(): { width: number; height: number; x?: number; y?: number; isMaximized?: boolean } {
   const raw = getSetting('windowBounds');
   if (raw) {
@@ -65,6 +76,7 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
+  attachWindowStateEvents(mainWindow);
 
   if (saved.isMaximized) {
     mainWindow.maximize();
@@ -88,6 +100,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+    if (mainWindow) sendWindowMaximizedState(mainWindow);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -159,6 +172,9 @@ app.whenReady().then(async () => {
   ipcMain.on('window:close', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();
   });
+  ipcMain.handle('window:isMaximized', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
+  });
 
   // Detached editor window IPC
   ipcMain.handle('editor:detach', (_event, tabId: string, title: string) => {
@@ -185,6 +201,7 @@ app.whenReady().then(async () => {
     });
 
     detachedWindows.set(tabId, detached);
+    attachWindowStateEvents(detached);
 
     const hash = `#/detached/${encodeURIComponent(tabId)}/${encodeURIComponent(title || 'Editor')}`;
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -197,6 +214,7 @@ app.whenReady().then(async () => {
       detachedWindows.delete(tabId);
       mainWindow?.webContents.send('editor:detached-closed', tabId);
     });
+    detached.once('ready-to-show', () => sendWindowMaximizedState(detached));
   });
 
   ipcMain.on('editor:reattach', (_event, tabId: string, mode: string) => {

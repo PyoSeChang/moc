@@ -15,8 +15,8 @@ export interface OpenFile {
 
 export type ClipboardAction = 'copy' | 'cut';
 
-interface ClipboardState {
-  path: string;
+export interface ClipboardState {
+  paths: string[];
   action: ClipboardAction;
 }
 
@@ -37,7 +37,7 @@ interface FileStore {
   setActiveFile: (filePath: string) => void;
   updateContent: (filePath: string, content: string) => void;
   saveFile: (filePath: string) => Promise<void>;
-  setClipboard: (path: string, action: ClipboardAction) => void;
+  setClipboard: (paths: string[], action: ClipboardAction) => void;
   clearClipboard: () => void;
   clear: () => void;
 }
@@ -181,7 +181,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
     }));
   },
 
-  setClipboard: (path, action) => set({ clipboard: { path, action } }),
+  setClipboard: (paths, action) => set({ clipboard: { paths, action } }),
   clearClipboard: () => set({ clipboard: null }),
 
   clear: () => set({ fileTree: [], openFiles: [], activeFilePath: null, clipboard: null, rootDirs: [], loadingPaths: new Set() }),

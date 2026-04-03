@@ -1,10 +1,8 @@
 import React, { useMemo } from 'react';
-import { X, Minus, Maximize2 } from 'lucide-react';
 import type { EditorTab, EditorTabType, EditorViewMode } from '@netior/shared/types';
 import { EditorContent } from './EditorContent';
 import { EditorViewModeSwitch } from './EditorViewModeSwitch';
-import { IconButton } from '../ui/IconButton';
-import { useI18n } from '../../hooks/useI18n';
+import { WindowControls } from '../ui/WindowControls';
 
 interface DetachedEditorShellProps {
   tabId: string;
@@ -12,8 +10,6 @@ interface DetachedEditorShellProps {
 }
 
 export function DetachedEditorShell({ tabId, title }: DetachedEditorShellProps): JSX.Element {
-  const { t } = useI18n();
-
   const tab = useMemo<EditorTab>(() => {
     const colonIdx = tabId.indexOf(':');
     const type = (colonIdx > 0 ? tabId.slice(0, colonIdx) : 'file') as EditorTabType;
@@ -55,32 +51,8 @@ export function DetachedEditorShell({ tabId, title }: DetachedEditorShellProps):
             currentMode="detached"
             onModeChange={handleModeChange}
           />
-
-          <IconButton
-            label={t('common.minimize')}
-            className="w-7 h-7"
-            onClick={() => window.electron.window.minimize()}
-            tooltipPosition="bottom"
-          >
-            <Minus size={14} />
-          </IconButton>
-          <IconButton
-            label={t('common.maximize')}
-            className="w-7 h-7"
-            onClick={() => window.electron.window.maximize()}
-            tooltipPosition="bottom"
-          >
-            <Maximize2 size={14} />
-          </IconButton>
-          <IconButton
-            label={t('common.close')}
-            className="w-7 h-7"
-            onClick={() => window.electron.window.close()}
-            tooltipPosition="bottom"
-          >
-            <X size={14} />
-          </IconButton>
         </div>
+        <WindowControls />
       </div>
 
       {/* Editor content */}

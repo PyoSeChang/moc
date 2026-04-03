@@ -42,6 +42,20 @@ export async function deleteItem(targetPath: string): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.delete(targetPath));
 }
 
+export interface StashedDeleteResult {
+  originalPath: string;
+  stashPath: string;
+  isDirectory: boolean;
+}
+
+export async function stashDeleteItem(targetPath: string): Promise<StashedDeleteResult> {
+  return unwrapIpc(await window.electron.fs.stashDelete(targetPath));
+}
+
+export async function restoreDeletedItem(stashPath: string, originalPath: string): Promise<boolean> {
+  return unwrapIpc(await window.electron.fs.restoreDeleted(stashPath, originalPath));
+}
+
 export async function createFile(filePath: string): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.createFile(filePath));
 }
@@ -82,12 +96,20 @@ export async function hasClipboardFiles(): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.hasClipboardFiles());
 }
 
+export async function hasClipboardImage(): Promise<boolean> {
+  return unwrapIpc(await window.electron.fs.hasClipboardImage());
+}
+
 export async function readClipboardFiles(): Promise<string[]> {
   return unwrapIpc(await window.electron.fs.readClipboardFiles());
 }
 
+export async function saveClipboardImage(filePath: string): Promise<boolean> {
+  return unwrapIpc(await window.electron.fs.saveClipboardImage(filePath));
+}
+
 export const fsService = {
   readDir, readDirShallow, readFile, readBinaryFile, writeFile, openFolderDialog, openFileDialog,
-  renameItem, deleteItem, createFile, createDir, copyItem, moveItem,
-  showInExplorer, existsItem, watchDirs, unwatchDirs, onDirChanged, hasClipboardFiles, readClipboardFiles,
+  renameItem, deleteItem, stashDeleteItem, restoreDeletedItem, createFile, createDir, copyItem, moveItem,
+  showInExplorer, existsItem, watchDirs, unwatchDirs, onDirChanged, hasClipboardFiles, hasClipboardImage, readClipboardFiles, saveClipboardImage,
 };

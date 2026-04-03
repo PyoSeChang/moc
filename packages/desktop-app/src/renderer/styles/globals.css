@@ -183,3 +183,13 @@ body,
   color: var(--text-muted);
   pointer-events: none;
 }
+
+.window-control-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-default);
+}
+
+.window-control-button-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}

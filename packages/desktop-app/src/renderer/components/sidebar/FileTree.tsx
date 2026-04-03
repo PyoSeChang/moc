@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import type { FileTreeNode } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
@@ -7,7 +7,7 @@ import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { useFileStore } from '../../stores/file-store';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../ui/Toast';
-import { fsService } from '../../services';
+import { fsService, type StashedDeleteResult } from '../../services';
 import { isPrimaryModifier, logShortcut } from '../../shortcuts/shortcut-utils';
 
 interface FileTreeProps {
@@ -30,6 +30,112 @@ interface InlineInputState {
 interface VisibleTreeItem {
   node: FileTreeNode;
   depth: number;
+}
+
+interface DragPayload {
+  paths: string[];
+}
+
+interface UndoDeleteAction {
+  type: 'delete';
+  items: StashedDeleteResult[];
+}
+
+interface UndoCopyAction {
+  type: 'copy';
+  createdPaths: string[];
+}
+
+interface UndoMoveAction {
+  type: 'move';
+  moves: Array<{ from: string; to: string }>;
+}
+
+type UndoAction = UndoDeleteAction | UndoCopyAction | UndoMoveAction;
+
+const WINDOWS_RESERVED_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+const WINDOWS_INVALID_CHARS = /[<>:"/\\|?*\u0000-\u001f]/;
+
+function formatPastedImageBaseName(date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `Pasted image ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('Already exists') || message.includes('already exists') || message.includes('EEXIST');
+}
+
+function normalizePath(targetPath: string): string {
+  return targetPath.replace(/\\/g, '/');
+}
+
+function getBaseName(targetPath: string): string {
+  return normalizePath(targetPath).split('/').pop() ?? targetPath;
+}
+
+function getParentPath(targetPath: string): string {
+  return normalizePath(targetPath).split('/').slice(0, -1).join('/');
+}
+
+function isSameOrNestedPath(sourcePath: string, targetPath: string): boolean {
+  const source = normalizePath(sourcePath);
+  const target = normalizePath(targetPath);
+  return target === source || target.startsWith(`${source}/`);
+}
+
+function splitNameAndExtension(name: string): { stem: string; extension: string } {
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex <= 0) {
+    return { stem: name, extension: '' };
+  }
+  return {
+    stem: name.slice(0, lastDotIndex),
+    extension: name.slice(lastDotIndex),
+  };
+}
+
+function compactPaths(paths: string[]): string[] {
+  const normalized = [...new Set(paths.map(normalizePath))].sort((a, b) => a.length - b.length);
+  return normalized.filter((candidate, index) =>
+    !normalized.slice(0, index).some((existing) => isSameOrNestedPath(existing, candidate)),
+  );
+}
+
+function getSelectionRange(items: VisibleTreeItem[], anchorPath: string | null, targetPath: string): string[] {
+  const anchorIndex = anchorPath ? items.findIndex((item) => item.node.path === anchorPath) : -1;
+  const targetIndex = items.findIndex((item) => item.node.path === targetPath);
+  if (targetIndex === -1) return [targetPath];
+  const rangeStart = anchorIndex === -1 ? targetIndex : Math.min(anchorIndex, targetIndex);
+  const rangeEnd = anchorIndex === -1 ? targetIndex : Math.max(anchorIndex, targetIndex);
+  return items.slice(rangeStart, rangeEnd + 1).map((item) => item.node.path);
+}
+
+function validateFileName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Name cannot be empty.';
+  if (trimmed === '.' || trimmed === '..') return 'This name is not allowed.';
+  if (WINDOWS_INVALID_CHARS.test(trimmed)) return 'Name contains invalid characters.';
+  if (/[. ]$/.test(trimmed)) return 'Name cannot end with a space or period.';
+  if (WINDOWS_RESERVED_NAMES.test(trimmed)) return 'This name is reserved on Windows.';
+  return null;
+}
+
+async function getNextAvailablePath(targetPath: string): Promise<string> {
+  const normalizedTargetPath = normalizePath(targetPath);
+  const segments = normalizedTargetPath.split('/');
+  const originalName = segments.pop() ?? normalizedTargetPath;
+  const parentDir = segments.join('/');
+  const { stem, extension } = splitNameAndExtension(originalName);
+
+  let candidatePath = normalizedTargetPath;
+  let index = 1;
+  while (await fsService.existsItem(candidatePath)) {
+    const candidateName = `${stem} (${index})${extension}`;
+    candidatePath = parentDir ? `${parentDir}/${candidateName}` : candidateName;
+    index += 1;
+  }
+  return candidatePath;
 }
 
 // ─── Inline Input Components ───────────────────────────────────────
@@ -144,7 +250,8 @@ function FileTreeItem({
   depth,
   onFileClick,
   onContextMenu,
-  selectedPath,
+  selectedPaths,
+  focusedPath,
   expandedPaths,
   onSelect,
   onToggleExpand,
@@ -155,14 +262,22 @@ function FileTreeItem({
   newInputPlaceholder,
   onNewSubmit,
   onNewCancel,
+  cutPaths,
+  dropTargetPath,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  registerRow,
 }: {
   node: FileTreeNode;
   depth: number;
   onFileClick: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: FileTreeNode) => void;
-  selectedPath: string | null;
+  selectedPaths: Set<string>;
+  focusedPath: string | null;
   expandedPaths: Set<string>;
-  onSelect: (path: string) => void;
+  onSelect: (event: React.MouseEvent, path: string) => void;
   onToggleExpand: (node: FileTreeNode) => void;
   renamingPath: string | null;
   onRenameSubmit: (oldPath: string, newName: string) => void;
@@ -171,6 +286,13 @@ function FileTreeItem({
   newInputPlaceholder?: string;
   onNewSubmit: (parentPath: string, name: string, type: 'file' | 'directory') => void;
   onNewCancel: () => void;
+  cutPaths: Set<string>;
+  dropTargetPath: string | null;
+  onDragStart: (event: React.DragEvent, node: FileTreeNode) => void;
+  onDragOver: (event: React.DragEvent, node: FileTreeNode) => void;
+  onDragLeave: (event: React.DragEvent, node: FileTreeNode) => void;
+  onDrop: (event: React.DragEvent, node: FileTreeNode) => void;
+  registerRow: (path: string, element: HTMLDivElement | null) => void;
 }): JSX.Element {
   const isRenaming = renamingPath === node.path;
   const showNewInput = newInput && newInput.parentPath === node.path;
@@ -178,7 +300,11 @@ function FileTreeItem({
   const isLoadingChildren = loadingPaths.has(node.path);
   const needsLazyLoad = node.type === 'directory' && !node.children && node.hasChildren;
   const expanded = expandedPaths.has(node.path);
-  const isSelected = selectedPath === node.path;
+  const isSelected = selectedPaths.has(node.path);
+  const isFocused = focusedPath === node.path;
+  const isCut = [...cutPaths].some((path) => isSameOrNestedPath(path, node.path));
+  const dropTargetForNode = node.type === 'directory' ? node.path : getParentPath(node.path);
+  const isDropTarget = dropTargetPath === dropTargetForNode;
 
   // Auto-expand when creating new item inside this folder
   useEffect(() => {
@@ -189,32 +315,41 @@ function FileTreeItem({
 
   const handleToggle = useCallback(() => {
     if (!expanded && needsLazyLoad) {
-      loadChildren(node.path);
+      void loadChildren(node.path);
     }
     onToggleExpand(node);
   }, [expanded, needsLazyLoad, loadChildren, node, onToggleExpand]);
+
+  const rowClassName = `flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs outline-none transition-opacity ${
+    isSelected
+      ? 'bg-accent/10 text-accent'
+      : node.type === 'directory'
+        ? 'text-default hover:bg-surface-hover'
+        : 'text-secondary hover:bg-surface-hover hover:text-default'
+  } ${isFocused && !isSelected ? 'ring-1 ring-border-default' : ''} ${isCut ? 'opacity-45' : ''} ${
+    isDropTarget ? 'bg-accent/15' : ''
+  }`;
 
   if (node.type === 'directory') {
     return (
       <>
         <div
-          className={`flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs outline-none ${
-            isSelected
-              ? 'bg-accent/10 text-accent'
-              : 'text-default hover:bg-surface-hover'
-          }`}
+          ref={(element) => registerRow(node.path, element)}
+          className={rowClassName}
           style={{ paddingLeft: depth * 12 + 4 }}
           draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/netior-node', JSON.stringify({ type: 'dir', path: node.path }));
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-          onClick={() => {
-            onSelect(node.path);
-            handleToggle();
+          onDragStart={(e) => onDragStart(e, node)}
+          onDragOver={(e) => onDragOver(e, node)}
+          onDragLeave={(e) => onDragLeave(e, node)}
+          onDrop={(e) => onDrop(e, node)}
+          onClick={(e) => {
+            onSelect(e, node.path);
+            if (!(e.metaKey || e.ctrlKey || e.shiftKey)) {
+              handleToggle();
+            }
           }}
           onContextMenu={(e) => {
-            onSelect(node.path);
+            onSelect(e, node.path);
             onContextMenu(e, node);
           }}
         >
@@ -254,7 +389,8 @@ function FileTreeItem({
                 depth={depth + 1}
                 onFileClick={onFileClick}
                 onContextMenu={onContextMenu}
-                selectedPath={selectedPath}
+                selectedPaths={selectedPaths}
+                focusedPath={focusedPath}
                 expandedPaths={expandedPaths}
                 onSelect={onSelect}
                 onToggleExpand={onToggleExpand}
@@ -265,6 +401,13 @@ function FileTreeItem({
                 newInputPlaceholder={newInputPlaceholder}
                 onNewSubmit={onNewSubmit}
                 onNewCancel={onNewCancel}
+                cutPaths={cutPaths}
+                dropTargetPath={dropTargetPath}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                registerRow={registerRow}
               />
             ))}
           </>
@@ -275,23 +418,23 @@ function FileTreeItem({
 
   return (
     <div
-      className={`flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs outline-none ${
-        isSelected
-          ? 'bg-accent/10 text-accent'
-          : 'text-secondary hover:bg-surface-hover hover:text-default'
-      }`}
+      ref={(element) => registerRow(node.path, element)}
+      className={rowClassName}
       style={{ paddingLeft: depth * 12 + 20 }}
       draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('application/netior-node', JSON.stringify({ type: 'file', path: node.path }));
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
-      onClick={() => {
-        onSelect(node.path);
-        onFileClick(node.path);
+      onDragStart={(e) => onDragStart(e, node)}
+      onDragOver={(e) => onDragOver(e, node)}
+      onDragLeave={(e) => onDragLeave(e, node)}
+      onDrop={(e) => onDrop(e, node)}
+      onClick={(e) => {
+        const isMultiSelect = e.metaKey || e.ctrlKey || e.shiftKey;
+        onSelect(e, node.path);
+        if (!isMultiSelect) {
+          onFileClick(node.path);
+        }
       }}
       onContextMenu={(e) => {
-        onSelect(node.path);
+        onSelect(e, node.path);
         onContextMenu(e, node);
       }}
     >
@@ -315,12 +458,18 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [newInput, setNewInput] = useState<InlineInputState | null>(null);
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
+  const [selectionAnchorPath, setSelectionAnchorPath] = useState<string | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set());
-  const { clipboard, setClipboard, clearClipboard, refreshFileTree, rootDirs } = useFileStore();
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+  const { clipboard, setClipboard, clearClipboard, refreshFileTree, rootDirs, loadChildren } = useFileStore();
   const { t } = useI18n();
   const treeRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const undoStackRef = useRef<UndoAction[]>([]);
   const [hasSystemFiles, setHasSystemFiles] = useState(false);
+  const [hasClipboardImage, setHasClipboardImage] = useState(false);
 
   // Auto-expand only root wrapper nodes (multi-dir mode), not content folders
   useEffect(() => {
@@ -337,10 +486,21 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
   }, [nodes, rootDirs]);
 
   useEffect(() => {
-    if (!selectedPath && nodes.length > 0) {
-      setSelectedPath(nodes[0].path);
+    const pendingLoads = new Set<string>();
+    const visit = (items: FileTreeNode[]) => {
+      for (const item of items) {
+        if (item.type !== 'directory') continue;
+        if (expandedPaths.has(item.path) && item.hasChildren && !item.children) {
+          pendingLoads.add(item.path);
+        }
+        if (item.children) visit(item.children);
+      }
+    };
+    visit(nodes);
+    for (const dirPath of pendingLoads) {
+      void loadChildren(dirPath);
     }
-  }, [nodes, selectedPath]);
+  }, [nodes, expandedPaths, loadChildren]);
 
   const flattenVisibleNodes = useCallback((items: FileTreeNode[], depth = 0): VisibleTreeItem[] => {
     const result: VisibleTreeItem[] = [];
@@ -353,23 +513,69 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     return result;
   }, [expandedPaths]);
 
-  const visibleItems = flattenVisibleNodes(nodes);
-  const selectedNode = selectedPath
-    ? visibleItems.find((item) => item.node.path === selectedPath)?.node ?? null
+  const visibleItems = useMemo(() => flattenVisibleNodes(nodes), [nodes, flattenVisibleNodes]);
+  const visiblePathSet = useMemo(() => new Set(visibleItems.map((item) => item.node.path)), [visibleItems]);
+  const selectedNode = focusedPath
+    ? visibleItems.find((item) => item.node.path === focusedPath)?.node ?? null
     : null;
+  const cutPaths = useMemo(
+    () => new Set(clipboard?.action === 'cut' ? clipboard.paths.map(normalizePath) : []),
+    [clipboard],
+  );
+
+  useEffect(() => {
+    if (visibleItems.length === 0) {
+      setSelectedPaths(new Set());
+      setFocusedPath(null);
+      setSelectionAnchorPath(null);
+      return;
+    }
+    if (!focusedPath || !visiblePathSet.has(focusedPath)) {
+      const fallbackPath = visibleItems[0].node.path;
+      setFocusedPath(fallbackPath);
+      setSelectedPaths(new Set([fallbackPath]));
+      setSelectionAnchorPath(fallbackPath);
+      return;
+    }
+    setSelectedPaths((prev) => {
+      const next = new Set([...prev].filter((path) => visiblePathSet.has(path)));
+      return next.size > 0 ? next : new Set([focusedPath]);
+    });
+  }, [focusedPath, visibleItems, visiblePathSet]);
+
+  useEffect(() => {
+    if (!focusedPath) return;
+    rowRefs.current.get(focusedPath)?.scrollIntoView({ block: 'nearest' });
+  }, [focusedPath]);
+
+  const registerRow = useCallback((path: string, element: HTMLDivElement | null) => {
+    if (element) {
+      rowRefs.current.set(path, element);
+    } else {
+      rowRefs.current.delete(path);
+    }
+  }, []);
 
   const handleContextMenu = useCallback(async (e: React.MouseEvent, node: FileTreeNode) => {
     e.preventDefault();
     e.stopPropagation();
-    const has = await fsService.hasClipboardFiles().catch(() => false);
-    setHasSystemFiles(has);
+    const [hasFiles, hasImage] = await Promise.all([
+      fsService.hasClipboardFiles().catch(() => false),
+      fsService.hasClipboardImage().catch(() => false),
+    ]);
+    setHasSystemFiles(hasFiles);
+    setHasClipboardImage(hasImage);
     setContextMenu({ x: e.clientX, y: e.clientY, node });
   }, []);
 
   const handleBgContextMenu = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
-    const has = await fsService.hasClipboardFiles().catch(() => false);
-    setHasSystemFiles(has);
+    const [hasFiles, hasImage] = await Promise.all([
+      fsService.hasClipboardFiles().catch(() => false),
+      fsService.hasClipboardImage().catch(() => false),
+    ]);
+    setHasSystemFiles(hasFiles);
+    setHasClipboardImage(hasImage);
     setContextMenu({ x: e.clientX, y: e.clientY, node: null });
   }, []);
 
@@ -386,16 +592,73 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     });
   }, []);
 
+  const handleSelect = useCallback((event: React.MouseEvent, path: string) => {
+    const normalizedPath = normalizePath(path);
+
+    if (event.shiftKey) {
+      const range = getSelectionRange(visibleItems, selectionAnchorPath ?? focusedPath, normalizedPath);
+      setSelectedPaths(new Set(range));
+      setFocusedPath(normalizedPath);
+      return;
+    }
+
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedPaths((prev) => {
+        const next = new Set(prev);
+        if (next.has(normalizedPath)) {
+          next.delete(normalizedPath);
+        } else {
+          next.add(normalizedPath);
+        }
+        return next.size > 0 ? next : new Set([normalizedPath]);
+      });
+      setFocusedPath(normalizedPath);
+      setSelectionAnchorPath(normalizedPath);
+      return;
+    }
+
+    setSelectedPaths(new Set([normalizedPath]));
+    setFocusedPath(normalizedPath);
+    setSelectionAnchorPath(normalizedPath);
+  }, [focusedPath, selectionAnchorPath, visibleItems]);
+
+  const getActiveSelection = useCallback((): string[] => {
+    if (selectedPaths.size > 0) {
+      return compactPaths([...selectedPaths]);
+    }
+    return focusedPath ? [focusedPath] : [];
+  }, [focusedPath, selectedPaths]);
+
+  const syncClipboardPaths = useCallback((updater: (paths: string[]) => string[]) => {
+    if (!clipboard) return;
+    const nextPaths = compactPaths(updater(clipboard.paths));
+    if (nextPaths.length > 0) {
+      setClipboard(nextPaths, clipboard.action);
+    } else {
+      clearClipboard();
+    }
+  }, [clipboard, clearClipboard, setClipboard]);
+
   const handleRenameSubmit = useCallback(async (oldPath: string, newName: string) => {
-    const normalized = oldPath.replace(/\\/g, '/');
-    const parentDir = normalized.split('/').slice(0, -1).join('/');
-    const newPath = parentDir + '/' + newName;
+    const validationError = validateFileName(newName);
+    if (validationError) {
+      showToast('error', validationError);
+      return;
+    }
+
+    const parentDir = getParentPath(oldPath);
+    const newPath = `${parentDir}/${newName}`;
     let renamed = false;
     try {
+      if (normalizePath(oldPath) === normalizePath(newPath)) {
+        setRenamingPath(null);
+        return;
+      }
       await fsService.renameItem(oldPath, newPath);
       await refreshFileTree();
       renamed = true;
     } catch (err) {
+      console.error('[FileTree] Rename failed:', { oldPath, newPath, error: err });
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('Already exists')) {
         showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: newName }));
@@ -405,20 +668,38 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     }
     setRenamingPath(null);
     if (renamed) {
-      setSelectedPath(newPath);
+      setSelectedPaths(new Set([newPath]));
+      setFocusedPath(newPath);
+      setSelectionAnchorPath(newPath);
+      syncClipboardPaths((paths) => paths.map((path) => {
+        if (!isSameOrNestedPath(oldPath, path)) return path;
+        if (normalizePath(path) === normalizePath(oldPath)) return newPath;
+        return normalizePath(path).replace(normalizePath(oldPath), newPath);
+      }));
     }
-  }, [refreshFileTree, t]);
+  }, [refreshFileTree, syncClipboardPaths, t]);
 
   const handleNewSubmit = useCallback(async (parentPath: string, name: string, type: 'file' | 'directory') => {
-    const fullPath = parentPath.replace(/\\/g, '/') + '/' + name;
+    const validationError = validateFileName(name);
+    if (validationError) {
+      showToast('error', validationError);
+      return;
+    }
+
+    const requestedPath = normalizePath(parentPath) + '/' + name;
     try {
+      const fullPath = await getNextAvailablePath(requestedPath);
       if (type === 'file') {
         await fsService.createFile(fullPath);
       } else {
         await fsService.createDir(fullPath);
       }
       await refreshFileTree();
+      setSelectedPaths(new Set([fullPath]));
+      setFocusedPath(fullPath);
+      setSelectionAnchorPath(fullPath);
     } catch (err) {
+      console.error('[FileTree] Create failed:', { parentPath, requestedPath, type, error: err });
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('already exists') || msg.includes('Already exists')) {
         showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name }));
@@ -429,46 +710,127 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     setNewInput(null);
   }, [refreshFileTree, t]);
 
-  const handleDelete = useCallback(async (path: string) => {
+  const handleDelete = useCallback(async (paths: string[]) => {
+    const targets = compactPaths(paths);
+    if (targets.length === 0) return;
+
     try {
-      await fsService.deleteItem(path);
+      const stashedItems: StashedDeleteResult[] = [];
+      for (const path of targets) {
+        stashedItems.push(await fsService.stashDeleteItem(path));
+      }
+      undoStackRef.current.push({ type: 'delete', items: stashedItems });
       await refreshFileTree();
-      setSelectedPath(null);
+      setSelectedPaths(new Set());
+      setFocusedPath(null);
+      setSelectionAnchorPath(null);
+      syncClipboardPaths((clipboardPaths) =>
+        clipboardPaths.filter((clipboardPath) => !targets.some((target) => isSameOrNestedPath(target, clipboardPath))),
+      );
     } catch (err) {
+      console.error('[FileTree] Delete failed:', { paths: targets, error: err });
       showToast('error', t('fileTree.deleteFailed' as TranslationKey));
     }
-  }, [refreshFileTree, t]);
+  }, [refreshFileTree, syncClipboardPaths, t]);
 
   const handlePaste = useCallback(async (destDir: string) => {
     // Internal clipboard (cut/copy within the app)
-    if (clipboard) {
-      const srcName = clipboard.path.replace(/\\/g, '/').split('/').pop()!;
-      const destPath = destDir.replace(/\\/g, '/') + '/' + srcName;
+    const normalizedDestDir = normalizePath(destDir);
+    if (clipboard && clipboard.paths.length > 0) {
+      const sourcePaths = compactPaths(clipboard.paths);
+      const createdPaths: string[] = [];
+      const movedPaths: Array<{ from: string; to: string }> = [];
       try {
-        if (clipboard.action === 'copy') {
-          await fsService.copyItem(clipboard.path, destPath);
-        } else {
-          await fsService.moveItem(clipboard.path, destPath);
+        for (const srcPath of sourcePaths) {
+          const srcName = getBaseName(srcPath);
+          const requestedDestPath = `${normalizedDestDir}/${srcName}`;
+          if (clipboard.action === 'cut' && normalizePath(srcPath) === normalizePath(requestedDestPath)) {
+            continue;
+          }
+          const resolvedDestPath = await getNextAvailablePath(requestedDestPath);
+          if (clipboard.action === 'copy') {
+            await fsService.copyItem(srcPath, resolvedDestPath);
+            createdPaths.push(resolvedDestPath);
+          } else {
+            await fsService.moveItem(srcPath, resolvedDestPath);
+            movedPaths.push({ from: srcPath, to: resolvedDestPath });
+          }
+        }
+
+        if (clipboard.action === 'copy' && createdPaths.length > 0) {
+          undoStackRef.current.push({ type: 'copy', createdPaths });
+        }
+        if (clipboard.action === 'cut' && movedPaths.length > 0) {
+          undoStackRef.current.push({ type: 'move', moves: movedPaths });
           clearClipboard();
         }
         await refreshFileTree();
+        const finalPath = createdPaths.at(-1) ?? movedPaths.at(-1)?.to ?? null;
+        if (finalPath) {
+          setSelectedPaths(new Set([finalPath]));
+          setFocusedPath(finalPath);
+          setSelectionAnchorPath(finalPath);
+        }
       } catch (err) {
-        showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+        console.error('[FileTree] Internal paste failed:', {
+          action: clipboard.action,
+          srcPaths: sourcePaths,
+          destDir: normalizedDestDir,
+          error: err,
+        });
+        if (isAlreadyExistsError(err)) {
+          showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: getBaseName(sourcePaths[0] ?? normalizedDestDir) }));
+        } else {
+          showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+        }
       }
       return;
     }
     // System clipboard (files copied from Windows Explorer)
+    let currentSrcName = '';
+    let lastPastedPath = '';
     try {
       const paths = await fsService.readClipboardFiles();
-      if (paths.length === 0) return;
-      for (const srcPath of paths) {
-        const srcName = srcPath.replace(/\\/g, '/').split('/').pop()!;
-        const destPath = destDir.replace(/\\/g, '/') + '/' + srcName;
-        await fsService.copyItem(srcPath, destPath);
+      const createdPaths: string[] = [];
+      if (paths.length > 0) {
+        for (const srcPath of paths) {
+          currentSrcName = getBaseName(srcPath);
+          const requestedDestPath = normalizedDestDir + '/' + currentSrcName;
+          const destPath = await getNextAvailablePath(requestedDestPath);
+          await fsService.copyItem(srcPath, destPath);
+          createdPaths.push(destPath);
+          lastPastedPath = destPath;
+        }
+      } else if (await fsService.hasClipboardImage()) {
+        currentSrcName = `${formatPastedImageBaseName()}.png`;
+        const requestedDestPath = normalizedDestDir + '/' + currentSrcName;
+        const destPath = await getNextAvailablePath(requestedDestPath);
+        await fsService.saveClipboardImage(destPath);
+        createdPaths.push(destPath);
+        lastPastedPath = destPath;
+      } else {
+        return;
+      }
+      if (createdPaths.length > 0) {
+        undoStackRef.current.push({ type: 'copy', createdPaths });
       }
       await refreshFileTree();
+      if (lastPastedPath) {
+        setSelectedPaths(new Set([lastPastedPath]));
+        setFocusedPath(lastPastedPath);
+        setSelectionAnchorPath(lastPastedPath);
+      }
     } catch (err) {
-      showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+      console.error('[FileTree] System paste failed:', {
+        destDir,
+        currentSrcName,
+        error: err,
+      });
+      if (isAlreadyExistsError(err)) {
+        showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: currentSrcName || destDir }));
+      } else {
+        showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+      }
     }
   }, [clipboard, clearClipboard, refreshFileTree, t]);
 
@@ -480,11 +842,128 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
   /** Resolve parent directory for a node (for file nodes, use their parent dir) */
   const getParentDir = useCallback((node: FileTreeNode): string => {
     if (node.type === 'directory') return node.path;
-    return node.path.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+    return getParentPath(node.path);
   }, []);
+
+  const handleUndo = useCallback(async () => {
+    const action = undoStackRef.current.pop();
+    if (!action) return;
+
+    try {
+      if (action.type === 'delete') {
+        for (const item of action.items) {
+          await fsService.restoreDeletedItem(item.stashPath, item.originalPath);
+        }
+        await refreshFileTree();
+        const restoredPath = action.items.at(-1)?.originalPath;
+        if (restoredPath) {
+          setSelectedPaths(new Set([restoredPath]));
+          setFocusedPath(restoredPath);
+          setSelectionAnchorPath(restoredPath);
+        }
+        return;
+      }
+
+      if (action.type === 'copy') {
+        for (const path of [...action.createdPaths].reverse()) {
+          if (await fsService.existsItem(path)) {
+            await fsService.stashDeleteItem(path);
+          }
+        }
+        await refreshFileTree();
+        return;
+      }
+
+      for (const move of [...action.moves].reverse()) {
+        if (await fsService.existsItem(move.to) && !(await fsService.existsItem(move.from))) {
+          await fsService.moveItem(move.to, move.from);
+        }
+      }
+      await refreshFileTree();
+      const restoredPath = action.moves.at(-1)?.from;
+      if (restoredPath) {
+        setSelectedPaths(new Set([restoredPath]));
+        setFocusedPath(restoredPath);
+        setSelectionAnchorPath(restoredPath);
+      }
+    } catch (err) {
+      console.error('[FileTree] Undo failed:', { action, error: err });
+      showToast('error', 'Unable to undo the last file tree action.');
+    }
+  }, [refreshFileTree]);
+
+  const handleDragStart = useCallback((event: React.DragEvent, node: FileTreeNode) => {
+    const dragPaths = selectedPaths.has(node.path) ? getActiveSelection() : [node.path];
+    const payload: DragPayload = { paths: dragPaths };
+    event.dataTransfer.setData('application/netior-node', JSON.stringify(payload));
+    event.dataTransfer.effectAllowed = 'copyMove';
+  }, [getActiveSelection, selectedPaths]);
+
+  const handleDragOver = useCallback((event: React.DragEvent, node: FileTreeNode) => {
+    event.preventDefault();
+    setDropTargetPath(node.type === 'directory' ? node.path : getParentDir(node));
+    event.dataTransfer.dropEffect = event.ctrlKey ? 'copy' : 'move';
+  }, [getParentDir]);
+
+  const handleDragLeave = useCallback((event: React.DragEvent, _node: FileTreeNode) => {
+    event.preventDefault();
+    setDropTargetPath(null);
+  }, []);
+
+  const handleDrop = useCallback(async (event: React.DragEvent, node: FileTreeNode) => {
+    event.preventDefault();
+    setDropTargetPath(null);
+
+    const rawPayload = event.dataTransfer.getData('application/netior-node');
+    if (!rawPayload) return;
+
+    try {
+      const payload = JSON.parse(rawPayload) as DragPayload;
+      const dragPaths = compactPaths(payload.paths);
+      const destinationDir = node.type === 'directory' ? node.path : getParentDir(node);
+      const createdPaths: string[] = [];
+      const movedPaths: Array<{ from: string; to: string }> = [];
+
+      for (const srcPath of dragPaths) {
+        const requestedDestPath = `${normalizePath(destinationDir)}/${getBaseName(srcPath)}`;
+        if (!event.ctrlKey && normalizePath(srcPath) === normalizePath(requestedDestPath)) {
+          continue;
+        }
+        const resolvedDestPath = await getNextAvailablePath(requestedDestPath);
+        if (event.ctrlKey) {
+          await fsService.copyItem(srcPath, resolvedDestPath);
+          createdPaths.push(resolvedDestPath);
+        } else {
+          await fsService.moveItem(srcPath, resolvedDestPath);
+          movedPaths.push({ from: srcPath, to: resolvedDestPath });
+        }
+      }
+
+      if (createdPaths.length > 0) {
+        undoStackRef.current.push({ type: 'copy', createdPaths });
+      }
+      if (movedPaths.length > 0) {
+        undoStackRef.current.push({ type: 'move', moves: movedPaths });
+      }
+
+      await refreshFileTree();
+      const finalPath = createdPaths.at(-1) ?? movedPaths.at(-1)?.to;
+      if (finalPath) {
+        setSelectedPaths(new Set([finalPath]));
+        setFocusedPath(finalPath);
+        setSelectionAnchorPath(finalPath);
+      }
+    } catch (err) {
+      console.error('[FileTree] Drag drop failed:', { node, error: err });
+      showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+    }
+  }, [getParentDir, refreshFileTree, t]);
 
   const buildMenuItems = useCallback((): ContextMenuEntry[] => {
     const node = contextMenu?.node;
+    const selection = node
+      ? (selectedPaths.has(node.path) ? getActiveSelection() : [node.path])
+      : [];
 
     // Background context menu (empty space)
     if (!node) {
@@ -500,7 +979,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
         label: t('fileTree.newFolder' as TranslationKey),
         onClick: () => setNewInput({ parentPath: targetDir, type: 'directory' }),
       });
-      if (clipboard || hasSystemFiles) {
+      if (clipboard || hasSystemFiles || hasClipboardImage) {
         items.push({ type: 'divider' });
         items.push({
           label: t('fileTree.paste' as TranslationKey),
@@ -541,45 +1020,47 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     items.push({
       label: t('fileTree.copy' as TranslationKey),
       shortcut: 'Ctrl+C',
-      onClick: () => setClipboard(node.path, 'copy'),
+      onClick: () => setClipboard(selection, 'copy'),
     });
     items.push({
       label: t('fileTree.cut' as TranslationKey),
       shortcut: 'Ctrl+X',
-      onClick: () => setClipboard(node.path, 'cut'),
+      onClick: () => setClipboard(selection, 'cut'),
     });
 
-    if (node.type === 'directory' && (clipboard || hasSystemFiles)) {
+    if (clipboard || hasSystemFiles || hasClipboardImage) {
       items.push({
         label: t('fileTree.paste' as TranslationKey),
         shortcut: 'Ctrl+V',
-        onClick: () => handlePaste(node.path),
+        onClick: () => handlePaste(node.type === 'directory' ? node.path : parentDir),
       });
     }
 
     items.push({ type: 'divider' });
 
-    items.push({
-      label: t('fileTree.rename' as TranslationKey),
-      shortcut: 'F2',
-      onClick: () => setRenamingPath(node.path),
-    });
+    if (selection.length === 1) {
+      items.push({
+        label: t('fileTree.rename' as TranslationKey),
+        shortcut: 'F2',
+        onClick: () => setRenamingPath(selection[0]),
+      });
+    }
 
     items.push({
       label: t('fileTree.delete' as TranslationKey),
       danger: true,
-      onClick: () => handleDelete(node.path),
+      onClick: () => handleDelete(selection),
     });
 
     items.push({ type: 'divider' });
 
     items.push({
       label: t('fileTree.revealInExplorer' as TranslationKey),
-      onClick: () => fsService.showInExplorer(node.path),
+      onClick: () => fsService.showInExplorer(selection[0] ?? node.path),
     });
 
     return items;
-  }, [contextMenu, clipboard, rootDirs, onFileClick, setClipboard, handlePaste, handleDelete, getParentDir, t]);
+  }, [contextMenu, clipboard, hasSystemFiles, hasClipboardImage, rootDirs, onFileClick, setClipboard, handlePaste, handleDelete, getParentDir, getActiveSelection, selectedPaths, t]);
 
   const newInputPlaceholder = newInput?.type === 'file'
     ? t('fileTree.filenamePlaceholder' as TranslationKey)
@@ -587,17 +1068,24 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
 
   /** Check if newInput targets a root dir (not handled by any FileTreeItem) */
   const isRootNewInput = newInput != null &&
-    rootDirs.some((d) => d.replace(/\\/g, '/') === newInput.parentPath);
+    rootDirs.some((d) => normalizePath(d) === newInput.parentPath);
 
-  const moveSelection = useCallback((direction: 1 | -1) => {
+  const moveSelection = useCallback((direction: 1 | -1, extendSelection = false) => {
     if (visibleItems.length === 0) return;
-    const currentIndex = selectedPath
-      ? visibleItems.findIndex((item) => item.node.path === selectedPath)
+    const currentIndex = focusedPath
+      ? visibleItems.findIndex((item) => item.node.path === focusedPath)
       : -1;
     const baseIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = Math.max(0, Math.min(visibleItems.length - 1, baseIndex + direction));
-    setSelectedPath(visibleItems[nextIndex].node.path);
-  }, [visibleItems, selectedPath]);
+    const nextPath = visibleItems[nextIndex].node.path;
+    setFocusedPath(nextPath);
+    if (extendSelection) {
+      setSelectedPaths(new Set(getSelectionRange(visibleItems, selectionAnchorPath ?? focusedPath, nextPath)));
+    } else {
+      setSelectedPaths(new Set([nextPath]));
+      setSelectionAnchorPath(nextPath);
+    }
+  }, [focusedPath, selectionAnchorPath, visibleItems]);
 
   const handleSelectionOpen = useCallback(async () => {
     if (!selectedNode) return;
@@ -627,12 +1115,12 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      moveSelection(1);
+      moveSelection(1, e.shiftKey);
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      moveSelection(-1);
+      moveSelection(-1, e.shiftKey);
       return;
     }
     if (e.key === 'Enter') {
@@ -654,36 +1142,52 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       }
       return;
     }
-    if (e.key === 'F2' && selectedNode) {
+    const activeSelection = getActiveSelection();
+    if (e.key === 'F2' && activeSelection.length === 1) {
       e.preventDefault();
       logShortcut('shortcut.fileTree.renameSelection');
-      setRenamingPath(selectedNode.path);
+      setRenamingPath(activeSelection[0]);
       return;
     }
-    if (e.key === 'Delete' && selectedNode) {
+    if (e.key === 'Delete' && activeSelection.length > 0) {
       e.preventDefault();
       logShortcut('shortcut.fileTree.deleteSelection');
-      await handleDelete(selectedNode.path);
+      await handleDelete(activeSelection);
       return;
     }
-    if (!isPrimaryModifier(e.nativeEvent) || !selectedNode) return;
+    if (!isPrimaryModifier(e.nativeEvent)) return;
 
     const key = e.key.toLowerCase();
-    if (key === 'c') {
+    if (key === 'a') {
       e.preventDefault();
-      logShortcut('shortcut.fileTree.copySelection');
-      setClipboard(selectedNode.path, 'copy');
+      const paths = visibleItems.map((item) => item.node.path);
+      setSelectedPaths(new Set(paths));
+      if (paths.length > 0) {
+        setFocusedPath(paths[0]);
+        setSelectionAnchorPath(paths[0]);
+      }
       return;
     }
-    if (key === 'x') {
+    if (key === 'c' && activeSelection.length > 0) {
+      e.preventDefault();
+      logShortcut('shortcut.fileTree.copySelection');
+      setClipboard(activeSelection, 'copy');
+      return;
+    }
+    if (key === 'x' && activeSelection.length > 0) {
       e.preventDefault();
       logShortcut('shortcut.fileTree.cutSelection');
-      setClipboard(selectedNode.path, 'cut');
+      setClipboard(activeSelection, 'cut');
       return;
     }
     if (key === 'v') {
       e.preventDefault();
       await handlePasteSelection();
+      return;
+    }
+    if (key === 'z') {
+      e.preventDefault();
+      await handleUndo();
     }
   }, [
     contextMenu,
@@ -695,8 +1199,11 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     expandedPaths,
     toggleExpand,
     handleDelete,
+    getActiveSelection,
+    handleUndo,
+    visibleItems,
     setClipboard,
-    clipboard,
+    focusedPath,
     handlePasteSelection,
   ]);
 
@@ -727,9 +1234,10 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
           depth={0}
           onFileClick={onFileClick}
           onContextMenu={handleContextMenu}
-          selectedPath={selectedPath}
+          selectedPaths={selectedPaths}
+          focusedPath={focusedPath}
           expandedPaths={expandedPaths}
-          onSelect={setSelectedPath}
+          onSelect={handleSelect}
           onToggleExpand={toggleExpand}
           renamingPath={renamingPath}
           onRenameSubmit={handleRenameSubmit}
@@ -738,6 +1246,13 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
           newInputPlaceholder={newInputPlaceholder}
           onNewSubmit={handleNewSubmit}
           onNewCancel={() => setNewInput(null)}
+          cutPaths={cutPaths}
+          dropTargetPath={dropTargetPath}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          registerRow={registerRow}
         />
       ))}
 

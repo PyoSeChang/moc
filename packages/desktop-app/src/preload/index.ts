@@ -17,6 +17,12 @@ const electronAPI = {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized') as Promise<boolean>,
+    onMaximizedChanged: (callback: (isMaximized: boolean) => void) => {
+      const handler = (_event: IpcRendererEvent, isMaximized: boolean) => callback(isMaximized);
+      ipcRenderer.on('window:maximized-changed', handler);
+      return () => { ipcRenderer.removeListener('window:maximized-changed', handler); };
+    },
     onAppShortcut: (callback: (shortcut: string) => void) => {
       const handler = (_event: IpcRendererEvent, shortcut: string) => callback(shortcut);
       ipcRenderer.on('app:shortcut', handler);
@@ -143,6 +149,8 @@ const electronAPI = {
     rename: (oldPath: string, newPath: string) =>
       ipcRenderer.invoke('fs:rename', oldPath, newPath),
     delete: (targetPath: string) => ipcRenderer.invoke('fs:delete', targetPath),
+    stashDelete: (targetPath: string) => ipcRenderer.invoke('fs:stashDelete', targetPath),
+    restoreDeleted: (stashPath: string, originalPath: string) => ipcRenderer.invoke('fs:restoreDeleted', stashPath, originalPath),
     createFile: (filePath: string) => ipcRenderer.invoke('fs:createFile', filePath),
     createDir: (dirPath: string) => ipcRenderer.invoke('fs:createDir', dirPath),
     copy: (src: string, dest: string) => ipcRenderer.invoke('fs:copy', src, dest),
@@ -152,7 +160,9 @@ const electronAPI = {
     watchDirs: (dirs: string[]) => ipcRenderer.invoke('fs:watchDirs', dirs),
     unwatchDirs: () => ipcRenderer.invoke('fs:unwatchDirs'),
     hasClipboardFiles: () => ipcRenderer.invoke('fs:hasClipboardFiles'),
+    hasClipboardImage: () => ipcRenderer.invoke('fs:hasClipboardImage'),
     readClipboardFiles: () => ipcRenderer.invoke('fs:readClipboardFiles'),
+    saveClipboardImage: (filePath: string) => ipcRenderer.invoke('fs:saveClipboardImage', filePath),
     onDirChanged: (callback: () => void) => {
       const handler = () => callback();
       ipcRenderer.on('fs:dirChanged', handler);

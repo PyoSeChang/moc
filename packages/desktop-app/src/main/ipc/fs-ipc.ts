@@ -1,8 +1,22 @@
-import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron';
+import { ipcMain, dialog, shell, clipboard, BrowserWindow, app } from 'electron';
 import { readdir, readFile, writeFile, stat, rename, rm, mkdir, copyFile, cp } from 'fs/promises';
 import { join, resolve, extname, basename, dirname } from 'path';
 import { existsSync, watch, type FSWatcher } from 'fs';
 import type { IpcResult, FileTreeNode } from '@netior/shared/types';
+
+function normalizeFsPath(targetPath: string): string {
+  return resolve(targetPath).replace(/\\/g, '/').toLowerCase();
+}
+
+function isSameOrNestedPath(sourcePath: string, destPath: string): boolean {
+  const source = normalizeFsPath(sourcePath);
+  const dest = normalizeFsPath(destPath);
+  return dest === source || dest.startsWith(`${source}/`);
+}
+
+function getUndoTrashDir(): string {
+  return join(app.getPath('userData'), 'undo-trash');
+}
 
 async function buildFileTree(dirPath: string): Promise<FileTreeNode[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });
@@ -231,7 +245,16 @@ export function registerFsIpc(): void {
 
   ipcMain.handle('fs:copy', async (_e, src: string, dest: string): Promise<IpcResult<unknown>> => {
     try {
+      if (normalizeFsPath(src) === normalizeFsPath(dest)) {
+        return { success: false, error: 'Already exists' };
+      }
+      if (existsSync(dest)) {
+        return { success: false, error: 'Already exists' };
+      }
       const srcStat = await stat(src);
+      if (srcStat.isDirectory() && isSameOrNestedPath(src, dest)) {
+        return { success: false, error: 'Cannot copy a folder into itself' };
+      }
       if (srcStat.isDirectory()) {
         await cp(src, dest, { recursive: true });
       } else {
@@ -246,6 +269,16 @@ export function registerFsIpc(): void {
 
   ipcMain.handle('fs:move', async (_e, src: string, dest: string): Promise<IpcResult<unknown>> => {
     try {
+      if (normalizeFsPath(src) === normalizeFsPath(dest)) {
+        return { success: false, error: 'Already exists' };
+      }
+      if (existsSync(dest)) {
+        return { success: false, error: 'Already exists' };
+      }
+      const srcStat = await stat(src);
+      if (srcStat.isDirectory() && isSameOrNestedPath(src, dest)) {
+        return { success: false, error: 'Cannot move a folder into itself' };
+      }
       await mkdir(dirname(dest), { recursive: true });
       await rename(src, dest);
       return { success: true, data: true };
@@ -284,6 +317,54 @@ export function registerFsIpc(): void {
     return { success: true, data: hasFiles };
   });
 
+  ipcMain.handle('fs:stashDelete', async (_e, targetPath: string): Promise<IpcResult<unknown>> => {
+    try {
+      const normalizedTargetPath = resolve(targetPath);
+      if (!existsSync(normalizedTargetPath)) {
+        return { success: false, error: 'Target does not exist' };
+      }
+      const targetStat = await stat(normalizedTargetPath);
+      const trashDir = getUndoTrashDir();
+      await mkdir(trashDir, { recursive: true });
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${basename(normalizedTargetPath)}`;
+      const stashPath = join(trashDir, uniqueName);
+      await rename(normalizedTargetPath, stashPath);
+      return {
+        success: true,
+        data: {
+          originalPath: normalizedTargetPath.replace(/\\/g, '/'),
+          stashPath: stashPath.replace(/\\/g, '/'),
+          isDirectory: targetStat.isDirectory(),
+        },
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('fs:restoreDeleted', async (_e, stashPath: string, originalPath: string): Promise<IpcResult<unknown>> => {
+    try {
+      const resolvedStashPath = resolve(stashPath);
+      const resolvedOriginalPath = resolve(originalPath);
+      if (!existsSync(resolvedStashPath)) {
+        return { success: false, error: 'Stashed item no longer exists' };
+      }
+      if (existsSync(resolvedOriginalPath)) {
+        return { success: false, error: 'Already exists' };
+      }
+      await mkdir(dirname(resolvedOriginalPath), { recursive: true });
+      await rename(resolvedStashPath, resolvedOriginalPath);
+      return { success: true, data: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('fs:hasClipboardImage', (): IpcResult<boolean> => {
+    const image = clipboard.readImage();
+    return { success: true, data: !image.isEmpty() };
+  });
+
   // Read file paths from system clipboard (Windows: FileNameW format)
   ipcMain.handle('fs:readClipboardFiles', (): IpcResult<string[]> => {
     try {
@@ -291,13 +372,30 @@ export function registerFsIpc(): void {
       if (buf.length === 0) return { success: true, data: [] };
       // FileNameW is null-terminated UTF-16LE
       const raw = buf.toString('utf16le');
-      const filePath = raw.split('\0').filter(Boolean)[0];
-      if (filePath && existsSync(filePath)) {
-        return { success: true, data: [filePath] };
-      }
-      return { success: true, data: [] };
+      const filePaths = raw
+        .split('\0')
+        .filter(Boolean)
+        .filter((filePath) => existsSync(filePath));
+      return { success: true, data: filePaths };
     } catch {
       return { success: true, data: [] };
+    }
+  });
+
+  ipcMain.handle('fs:saveClipboardImage', async (_e, filePath: string): Promise<IpcResult<unknown>> => {
+    try {
+      const image = clipboard.readImage();
+      if (image.isEmpty()) {
+        return { success: false, error: 'Clipboard does not contain an image' };
+      }
+      if (existsSync(filePath)) {
+        return { success: false, error: 'Already exists' };
+      }
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, image.toPNG());
+      return { success: true, data: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
     }
   });
 }

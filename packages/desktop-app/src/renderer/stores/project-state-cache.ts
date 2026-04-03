@@ -5,7 +5,7 @@ import { useConceptStore } from './concept-store';
 import { useArchetypeStore } from './archetype-store';
 import { useRelationTypeStore } from './relation-type-store';
 import { useCanvasTypeStore } from './canvas-type-store';
-import { useFileStore, type OpenFile, type ClipboardAction } from './file-store';
+import { useFileStore, type OpenFile, type ClipboardAction, type ClipboardState } from './file-store';
 import type {
   Canvas, CanvasNode, Edge, Concept, RelationType,
   CanvasBreadcrumbItem, CanvasTreeNode,
@@ -63,7 +63,7 @@ interface FileSnapshot {
   fileTree: FileTreeNode[];
   openFiles: OpenFile[];
   activeFilePath: string | null;
-  clipboard: { path: string; action: ClipboardAction } | null;
+  clipboard: ClipboardState | null;
   rootDirs: string[];
 }
 

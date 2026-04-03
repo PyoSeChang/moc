@@ -14,7 +14,7 @@ vi.mock('../connection', async (importOriginal) => {
 import { createProject, listProjects, deleteProject } from '../repositories/project';
 import { createConcept, getConceptsByProject, updateConcept, deleteConcept, searchConcepts } from '../repositories/concept';
 import { createCanvas, listCanvases, updateCanvas, deleteCanvas, getCanvasFull, getCanvasesByConceptId, getCanvasAncestors, addCanvasNode, updateCanvasNode, removeCanvasNode, createEdge, getEdge, updateEdge, deleteEdge } from '../repositories/canvas';
-import { createConceptFile, getConceptFilesByConcept, deleteConceptFile } from '../repositories/concept-file';
+import { createFileEntity, getFileEntity, getFileEntityByPath, getFileEntitiesByProject, updateFileEntity, deleteFileEntity } from '../repositories/file';
 import { createModule, listModules, updateModule, deleteModule, addModuleDirectory, listModuleDirectories, removeModuleDirectory } from '../repositories/module';
 import { getEditorPrefs, upsertEditorPrefs } from '../repositories/editor-prefs';
 import { createRelationType, listRelationTypes, getRelationType, updateRelationType, deleteRelationType } from '../repositories/relation-type';
@@ -178,40 +178,61 @@ describe('Repositories', () => {
     });
   });
 
-  // --- ConceptFile ---
+  // --- File Entity ---
 
-  describe('ConceptFile', () => {
+  describe('FileEntity', () => {
     let projectId: string;
-    let conceptId: string;
 
     beforeEach(() => {
       projectId = createProject({ name: 'P', root_dir: '/tmp/p3' }).id;
-      conceptId = createConcept({ project_id: projectId, title: 'C' }).id;
     });
 
-    it('should create and query files', () => {
-      const f = createConceptFile({ concept_id: conceptId, file_path: 'notes.md' });
-      expect(f.file_path).toBe('notes.md');
+    it('should create and get file entity', () => {
+      const f = createFileEntity({ project_id: projectId, path: 'docs/readme.md', type: 'file' });
+      expect(f.path).toBe('docs/readme.md');
+      expect(f.type).toBe('file');
+      expect(f.metadata).toBeNull();
 
-      const files = getConceptFilesByConcept(conceptId);
-      expect(files).toHaveLength(1);
+      const fetched = getFileEntity(f.id);
+      expect(fetched?.id).toBe(f.id);
     });
 
-    it('should delete file', () => {
-      const f = createConceptFile({ concept_id: conceptId, file_path: 'a.md' });
-      expect(deleteConceptFile(f.id)).toBe(true);
-      expect(getConceptFilesByConcept(conceptId)).toHaveLength(0);
+    it('should get file entity by path', () => {
+      createFileEntity({ project_id: projectId, path: 'src/index.ts', type: 'file' });
+      const found = getFileEntityByPath(projectId, 'src/index.ts');
+      expect(found?.path).toBe('src/index.ts');
+      expect(getFileEntityByPath(projectId, 'nonexistent')).toBeUndefined();
     });
 
-    it('should enforce unique concept+file_path', () => {
-      createConceptFile({ concept_id: conceptId, file_path: 'dup.md' });
-      expect(() => createConceptFile({ concept_id: conceptId, file_path: 'dup.md' })).toThrow();
+    it('should list by project', () => {
+      createFileEntity({ project_id: projectId, path: 'a.md', type: 'file' });
+      createFileEntity({ project_id: projectId, path: 'docs', type: 'directory' });
+      const list = getFileEntitiesByProject(projectId);
+      expect(list).toHaveLength(2);
     });
 
-    it('should cascade delete when concept is deleted', () => {
-      createConceptFile({ concept_id: conceptId, file_path: 'x.md' });
-      deleteConcept(conceptId);
-      expect(getConceptFilesByConcept(conceptId)).toHaveLength(0);
+    it('should update metadata', () => {
+      const f = createFileEntity({ project_id: projectId, path: 'test.pdf', type: 'file' });
+      const meta = JSON.stringify({ pdf_toc: { entries: [] } });
+      const updated = updateFileEntity(f.id, { metadata: meta });
+      expect(updated?.metadata).toBe(meta);
+    });
+
+    it('should delete file entity', () => {
+      const f = createFileEntity({ project_id: projectId, path: 'del.md', type: 'file' });
+      expect(deleteFileEntity(f.id)).toBe(true);
+      expect(getFileEntity(f.id)).toBeUndefined();
+    });
+
+    it('should enforce unique project_id+path', () => {
+      createFileEntity({ project_id: projectId, path: 'dup.md', type: 'file' });
+      expect(() => createFileEntity({ project_id: projectId, path: 'dup.md', type: 'file' })).toThrow();
+    });
+
+    it('should cascade delete when project is deleted', () => {
+      createFileEntity({ project_id: projectId, path: 'cascade.md', type: 'file' });
+      deleteProject(projectId);
+      expect(getFileEntitiesByProject(projectId)).toHaveLength(0);
     });
   });
 
@@ -571,34 +592,56 @@ describe('Repositories', () => {
       canvasId = createCanvas({ project_id: projectId, name: 'Canvas' }).id;
     });
 
-    it('should add node with file_path', () => {
-      const node = addCanvasNode({ canvas_id: canvasId, file_path: '/readme.md', position_x: 0, position_y: 0 });
-      expect(node.file_path).toBe('/readme.md');
-      expect(node.concept_id).toBeNull();
-      expect(node.dir_path).toBeNull();
-    });
-
-    it('should add node with dir_path', () => {
-      const node = addCanvasNode({ canvas_id: canvasId, dir_path: '/docs', position_x: 0, position_y: 0 });
-      expect(node.dir_path).toBe('/docs');
+    it('should add node with file_id (file)', () => {
+      const file = createFileEntity({ project_id: projectId, path: 'readme.md', type: 'file' });
+      const node = addCanvasNode({ canvas_id: canvasId, file_id: file.id, position_x: 0, position_y: 0 });
+      expect(node.file_id).toBe(file.id);
       expect(node.concept_id).toBeNull();
     });
 
-    it('should reject node with no concept/file/dir', () => {
+    it('should add node with file_id (directory)', () => {
+      const dir = createFileEntity({ project_id: projectId, path: 'docs', type: 'directory' });
+      const node = addCanvasNode({ canvas_id: canvasId, file_id: dir.id, position_x: 0, position_y: 0 });
+      expect(node.file_id).toBe(dir.id);
+      expect(node.concept_id).toBeNull();
+    });
+
+    it('should reject node with no concept/file', () => {
       expect(() => addCanvasNode({ canvas_id: canvasId, position_x: 0, position_y: 0 })).toThrow();
     });
 
-    it('should reject node with multiple of concept/file/dir', () => {
+    it('should reject node with both concept and file', () => {
       const concept = createConcept({ project_id: projectId, title: 'C' });
-      expect(() => addCanvasNode({ canvas_id: canvasId, concept_id: concept.id, file_path: '/x.md', position_x: 0, position_y: 0 })).toThrow();
+      const file = createFileEntity({ project_id: projectId, path: 'x.md', type: 'file' });
+      expect(() => addCanvasNode({ canvas_id: canvasId, concept_id: concept.id, file_id: file.id, position_x: 0, position_y: 0 })).toThrow();
     });
 
-    it('should return file/dir nodes in getCanvasFull', () => {
-      addCanvasNode({ canvas_id: canvasId, file_path: '/test.md', position_x: 0, position_y: 0 });
+    it('should return file nodes with file data in getCanvasFull', () => {
+      const file = createFileEntity({ project_id: projectId, path: 'test.md', type: 'file' });
+      addCanvasNode({ canvas_id: canvasId, file_id: file.id, position_x: 0, position_y: 0 });
       const full = getCanvasFull(canvasId)!;
       expect(full.nodes).toHaveLength(1);
-      expect(full.nodes[0].file_path).toBe('/test.md');
+      expect(full.nodes[0].file_id).toBe(file.id);
+      expect(full.nodes[0].file?.path).toBe('test.md');
       expect(full.nodes[0].concept).toBeUndefined();
+    });
+
+    it('should support node metadata', () => {
+      const file = createFileEntity({ project_id: projectId, path: 'doc.pdf', type: 'file' });
+      const meta = JSON.stringify({ description: 'Reference material' });
+      const node = addCanvasNode({ canvas_id: canvasId, file_id: file.id, metadata: meta, position_x: 0, position_y: 0 });
+      expect(node.metadata).toBe(meta);
+
+      const updated = updateCanvasNode(node.id, { metadata: JSON.stringify({ description: 'Updated' }) });
+      expect(JSON.parse(updated!.metadata!).description).toBe('Updated');
+    });
+
+    it('should cascade delete node when file is deleted', () => {
+      const file = createFileEntity({ project_id: projectId, path: 'cascade.md', type: 'file' });
+      addCanvasNode({ canvas_id: canvasId, file_id: file.id, position_x: 0, position_y: 0 });
+      deleteFileEntity(file.id);
+      const full = getCanvasFull(canvasId)!;
+      expect(full.nodes).toHaveLength(0);
     });
   });
 

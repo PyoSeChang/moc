@@ -53,10 +53,13 @@ export const IPC_CHANNELS = {
   EDGE_UPDATE: 'edge:update',
   EDGE_DELETE: 'edge:delete',
 
-  // Concept File
-  CONCEPT_FILE_CREATE: 'conceptFile:create',
-  CONCEPT_FILE_GET_BY_CONCEPT: 'conceptFile:getByConcept',
-  CONCEPT_FILE_DELETE: 'conceptFile:delete',
+  // File Entity
+  FILE_CREATE: 'file:create',
+  FILE_GET: 'file:get',
+  FILE_GET_BY_PATH: 'file:getByPath',
+  FILE_GET_BY_PROJECT: 'file:getByProject',
+  FILE_UPDATE: 'file:update',
+  FILE_DELETE: 'file:delete',
 
   // Module
   MODULE_CREATE: 'module:create',

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import type { EditorTab, ConceptFile } from '@netior/shared/types';
-import { Eye, Bot, Paperclip } from 'lucide-react';
-import { conceptFileService, conceptPropertyService } from '../../services';
+import type { EditorTab } from '@netior/shared/types';
+import { Eye, Bot } from 'lucide-react';
+import { conceptPropertyService } from '../../services';
 import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -46,8 +46,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
   const concept = isDraft ? undefined : concepts.find((c) => c.id === tab.targetId);
   const [viewMode, setViewMode] = useState<ConceptViewMode>('human');
-  const [files, setFiles] = useState<ConceptFile[]>([]);
-  const rootDir = currentProject?.root_dir ?? '';
 
   // Load concept if missing
   useEffect(() => {
@@ -55,13 +53,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
       loadByProject(currentProject.id);
     }
   }, [isDraft, concept, currentProject, loadByProject]);
-
-  // Load files for existing concept
-  useEffect(() => {
-    if (!isDraft) {
-      conceptFileService.getByConcept(tab.targetId).then(setFiles).catch(() => {});
-    }
-  }, [isDraft, tab.targetId]);
 
   const session = useEditorSession<ConceptEditorState>({
     tabId: tab.id,
@@ -190,17 +181,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
   const archetypeFields = currentArchetypeId ? (fields[currentArchetypeId] ?? []) : [];
 
-  const handleFileClick = (filePath: string) => {
-    if (!rootDir) return;
-    const absolutePath = `${rootDir}/${filePath}`;
-    const fileName = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath;
-    useEditorStore.getState().openTab({
-      type: 'file',
-      targetId: absolutePath,
-      title: fileName,
-    });
-  };
-
   // Loading states
   if (!isDraft && !concept) {
     return (
@@ -318,25 +298,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
               onChange={(content) => update({ content: content || null })}
             />
 
-            {/* Attached files (existing only) */}
-            {!isDraft && files.length > 0 && (
-              <div className="flex flex-col gap-1 border-t border-subtle pt-4">
-                <span className="text-xs font-medium text-muted mb-1">Attached Files</span>
-                {files.map((f) => {
-                  const name = f.file_path.replace(/\\/g, '/').split('/').pop() ?? f.file_path;
-                  return (
-                    <button
-                      key={f.id}
-                      className="flex items-center gap-2 px-2 py-1 text-sm text-default hover:bg-surface-hover rounded transition-colors text-left"
-                      onClick={() => handleFileClick(f.file_path)}
-                    >
-                      <Paperclip size={12} className="text-muted shrink-0" />
-                      {name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </ScrollArea>
       )}

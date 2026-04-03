@@ -59,8 +59,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
   const sourceNode = edge ? nodes.find((n) => n.id === edge.source_node_id) : undefined;
   const targetNode = edge ? nodes.find((n) => n.id === edge.target_node_id) : undefined;
 
-  const sourceLabel = sourceNode?.concept?.title ?? sourceNode?.file_path?.split('/').pop() ?? sourceNode?.dir_path?.split('/').pop() ?? '?';
-  const targetLabel = targetNode?.concept?.title ?? targetNode?.file_path?.split('/').pop() ?? targetNode?.dir_path?.split('/').pop() ?? '?';
+  const sourceLabel = sourceNode?.concept?.title ?? sourceNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
+  const targetLabel = targetNode?.concept?.title ?? targetNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
 
   const relationTypeOptions = useMemo(() => [
     { value: '', label: t('edge.noRelationType') },

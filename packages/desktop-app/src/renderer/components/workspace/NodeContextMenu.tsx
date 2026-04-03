@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Layers, Link, Plus, Trash2 } from 'lucide-react';
+import { FileText, Layers, Link, Plus, Trash2 } from 'lucide-react';
 import type { Canvas } from '@netior/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
+import { useEditorStore } from '../../stores/editor-store';
 import { canvasService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import type { CanvasMode } from '../../stores/ui-store';
@@ -11,6 +12,8 @@ interface NodeContextMenuProps {
   y: number;
   nodeId: string;
   conceptId?: string;
+  fileId?: string;
+  filePath?: string;
   canvasCount: number;
   mode: CanvasMode;
   onAddConnection?: (nodeId: string) => void;
@@ -23,6 +26,8 @@ export function NodeContextMenu({
   y,
   nodeId,
   conceptId,
+  fileId,
+  filePath,
   canvasCount,
   mode,
   onAddConnection,
@@ -107,6 +112,25 @@ export function NodeContextMenu({
         >
           <Plus size={14} />
           {t('canvas.createCanvas')}
+        </button>
+      )}
+
+      {/* Edit metadata (file/dir nodes only) */}
+      {fileId && currentCanvas && (
+        <button
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text-default hover:bg-surface-hover cursor-pointer"
+          onClick={() => {
+            useEditorStore.getState().openTab({
+              type: 'fileMetadata',
+              targetId: fileId,
+              title: filePath?.replace(/\\/g, '/').split('/').pop() ?? 'Metadata',
+              canvasId: currentCanvas.id,
+            });
+            onClose();
+          }}
+        >
+          <FileText size={14} />
+          {t('fileMetadata.editMetadata')}
         </button>
       )}
 

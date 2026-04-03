@@ -8,6 +8,7 @@ import { WorkspaceShell } from './components/workspace/WorkspaceShell';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { ShortcutOverlay } from './components/shortcuts/ShortcutOverlay';
 import { ToastContainer } from './components/ui/Toast';
+import { MissingFilesDialog } from './components/home/MissingFilesDialog';
 import { initTerminalTracker } from './lib/terminal-tracker';
 import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
 import { useGlobalShortcuts } from './shortcuts/useGlobalShortcuts';
@@ -179,6 +180,7 @@ export default function App(): JSX.Element {
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       <ShortcutOverlay open={showShortcutOverlay} onClose={() => setShowShortcutOverlay(false)} />
       <ToastContainer />
+      <MissingFilesDialog />
     </div>
   );
 }

@@ -22,8 +22,8 @@ export interface RenderNode {
   conceptId?: string;
   canvasCount: number;
   nodeType: CanvasNodeType;
+  fileId?: string;
   filePath?: string;
-  dirPath?: string;
 }
 
 /** Edge data for rendering */

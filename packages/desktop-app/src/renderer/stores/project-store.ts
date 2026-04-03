@@ -1,14 +1,22 @@
 import { create } from 'zustand';
-import type { Project } from '@netior/shared/types';
-import { projectService, moduleService } from '../services';
+import type { Project, FileEntity } from '@netior/shared/types';
+import { projectService, moduleService, fileService } from '../services';
 import { unwrapIpc } from '../services/ipc';
 import { saveProjectState, restoreProjectState, clearAllProjectStores, deleteProjectState } from './project-state-cache';
+
+export interface MissingFileEntry {
+  fileEntity: FileEntity;
+  /** resolved action: 'reconnect' | 'delete' | 'ignore' */
+  action?: 'reconnect' | 'delete' | 'ignore';
+  newPath?: string;
+}
 
 interface ProjectStore {
   projects: Project[];
   currentProject: Project | null;
   loading: boolean;
   missingPathProject: Project | null;
+  missingFiles: MissingFileEntry[];
 
   loadProjects: () => Promise<void>;
   restoreLastProject: () => Promise<void>;
@@ -16,6 +24,9 @@ interface ProjectStore {
   openProject: (project: Project) => Promise<void>;
   resolveMissingPath: () => Promise<void>;
   dismissMissingPath: () => void;
+  validateFilePaths: (project: Project) => Promise<void>;
+  resolveMissingFile: (fileId: string, action: 'reconnect' | 'delete' | 'ignore', newPath?: string) => Promise<void>;
+  dismissMissingFiles: () => void;
   closeProject: () => void;
   deleteProject: (id: string) => Promise<void>;
 }
@@ -25,6 +36,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   currentProject: null,
   loading: false,
   missingPathProject: null,
+  missingFiles: [],
 
   loadProjects: async () => {
     set({ loading: true });
@@ -81,6 +93,46 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     set({ currentProject: resolvedProject });
     window.electron.config.set('lastProjectId', resolvedProject.id).catch(() => {});
+
+    // Validate file entity paths in background
+    get().validateFilePaths(resolvedProject).catch(() => {});
+  },
+
+  validateFilePaths: async (project) => {
+    try {
+      const files = await fileService.getByProject(project.id);
+      const missing: MissingFileEntry[] = [];
+      for (const f of files) {
+        const absPath = `${project.root_dir}/${f.path}`;
+        const exists = unwrapIpc(await window.electron.fs.exists(absPath));
+        if (!exists) {
+          missing.push({ fileEntity: f });
+        }
+      }
+      if (missing.length > 0) {
+        set({ missingFiles: missing });
+      }
+    } catch {
+      // ignore validation errors
+    }
+  },
+
+  resolveMissingFile: async (fileId, action, newPath) => {
+    if (action === 'delete') {
+      await fileService.delete(fileId);
+    } else if (action === 'reconnect' && newPath) {
+      // Update the file entity path (need to figure out relative path)
+      // For now just update metadata — actual path update would need a new API
+      // TODO: implement path update in FileRepository
+    }
+    // Remove from missing list
+    set((s) => ({
+      missingFiles: s.missingFiles.filter((m) => m.fileEntity.id !== fileId),
+    }));
+  },
+
+  dismissMissingFiles: () => {
+    set({ missingFiles: [] });
   },
 
   resolveMissingPath: async () => {

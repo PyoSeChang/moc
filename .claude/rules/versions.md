@@ -7,9 +7,9 @@ packages:
     type: minor
     summary: "File 1급 엔티티 타입, IPC 채널, 메타데이터 에디터 i18n 키 추가. ConceptFile 타입 제거."
   core:
-    version: "0.1.0"
+    version: "0.2.0"
     type: minor
-    summary: "DB 로직 추출 및 리포지토리 패턴 확립 — desktop-app에서 분리하여 MCP 서버와 공유 가능한 코어 패키지 초기 버전"
+    summary: "File 1급 엔티티 (files 테이블, FileRepository), canvas_nodes에 file_id/metadata 추가, concept_files 제거"
   mcp:
     version: "0.1.0"
     type: minor

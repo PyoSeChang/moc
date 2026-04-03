@@ -321,15 +321,19 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
   const { t } = useI18n();
   const treeRef = useRef<HTMLDivElement>(null);
 
+  // Auto-expand only root wrapper nodes (multi-dir mode), not content folders
   useEffect(() => {
+    const rootSet = new Set(rootDirs.map((d) => d.replace(/\\/g, '/')));
     setExpandedPaths((prev) => {
       const next = new Set(prev);
       for (const node of nodes) {
-        next.add(node.path);
+        if (rootSet.has(node.path)) {
+          next.add(node.path);
+        }
       }
       return next;
     });
-  }, [nodes]);
+  }, [nodes, rootDirs]);
 
   useEffect(() => {
     if (!selectedPath && nodes.length > 0) {

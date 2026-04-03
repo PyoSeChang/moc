@@ -1,7 +1,7 @@
-import { ipcMain, dialog, shell } from 'electron';
+import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import { readdir, readFile, writeFile, stat, rename, rm, mkdir, copyFile, cp } from 'fs/promises';
 import { join, extname, basename, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, watch, type FSWatcher } from 'fs';
 import type { IpcResult, FileTreeNode } from '@netior/shared/types';
 
 async function buildFileTree(dirPath: string): Promise<FileTreeNode[]> {
@@ -84,6 +84,42 @@ async function buildShallowTree(dirPath: string, maxDepth: number, currentDepth 
     if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+}
+
+// ─── Directory Watcher ────────────────────────────────────────────
+
+const activeWatchers: FSWatcher[] = [];
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearWatchers(): void {
+  for (const w of activeWatchers) w.close();
+  activeWatchers.length = 0;
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+}
+
+function notifyRenderers(): void {
+  if (debounceTimer) return;
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('fs:dirChanged');
+    }
+  }, 500);
+}
+
+function watchDirs(dirs: string[]): void {
+  clearWatchers();
+  for (const dir of dirs) {
+    try {
+      const watcher = watch(dir, { recursive: true }, () => notifyRenderers());
+      activeWatchers.push(watcher);
+    } catch {
+      // Directory may not exist or be inaccessible — skip silently
+    }
+  }
 }
 
 export function registerFsIpc(): void {
@@ -229,5 +265,15 @@ export function registerFsIpc(): void {
 
   ipcMain.handle('fs:exists', async (_e, targetPath: string): Promise<IpcResult<unknown>> => {
     return { success: true, data: existsSync(targetPath) };
+  });
+
+  ipcMain.handle('fs:watchDirs', (_e, dirs: string[]): IpcResult<unknown> => {
+    watchDirs(dirs);
+    return { success: true, data: true };
+  });
+
+  ipcMain.handle('fs:unwatchDirs', (): IpcResult<unknown> => {
+    clearWatchers();
+    return { success: true, data: true };
   });
 }

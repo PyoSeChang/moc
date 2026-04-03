@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
 import type { Project } from '@netior/shared/types';
 import { useCanvasStore } from '../../stores/canvas-store';
 import { useFileStore } from '../../stores/file-store';
@@ -18,14 +19,18 @@ import { useCanvasTypeStore } from '../../stores/canvas-type-store';
 import { Divider } from '../ui/Divider';
 import { ScrollArea } from '../ui/ScrollArea';
 import { Spinner } from '../ui/Spinner';
+import { Tooltip } from '../ui/Tooltip';
+import { fsService } from '../../services';
+import { useI18n } from '../../hooks/useI18n';
 
 interface SidebarProps {
   project: Project;
 }
 
 export function Sidebar({ project }: SidebarProps): JSX.Element {
+  const { t } = useI18n();
   const { sidebarView, sidebarWidth } = useUIStore();
-  const { loadFileTree, fileTree, loading: fileLoading } = useFileStore();
+  const { loadFileTree, fileTree, refreshFileTree, loading: fileLoading } = useFileStore();
   const { loadCanvases, loadCanvasTree } = useCanvasStore();
   const { loadModules, directories } = useModuleStore();
   const { loadByProject: loadConcepts } = useConceptStore();
@@ -45,9 +50,24 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
 
   useEffect(() => {
     if (directories.length > 0) {
-      loadFileTree(directories.map((d) => d.dir_path));
+      const dirs = directories.map((d) => d.dir_path);
+      loadFileTree(dirs);
+      fsService.watchDirs(dirs);
     }
+    return () => { fsService.unwatchDirs(); };
   }, [directories, loadFileTree]);
+
+  // Auto-refresh on filesystem changes
+  useEffect(() => {
+    const unsubscribe = fsService.onDirChanged(() => {
+      refreshFileTree();
+    });
+    return unsubscribe;
+  }, [refreshFileTree]);
+
+  const handleRefresh = useCallback(() => {
+    refreshFileTree();
+  }, [refreshFileTree]);
 
   const handleFileClick = (absolutePath: string) => {
     const fileName = absolutePath.replace(/\\/g, '/').split('/').pop() ?? absolutePath;
@@ -68,16 +88,28 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
           {sidebarView === 'canvases' && <CanvasList projectId={project.id} />}
           {sidebarView === 'files' && (
             <>
-              <ModuleSelector
-                projectId={project.id}
-                onAddDirectory={async () => {
-                  const { activeModuleId, addDirectory } = useModuleStore.getState();
-                  if (!activeModuleId) return;
-                  const { fsService } = await import('../../services');
-                  const dirPath = await fsService.openFolderDialog();
-                  if (dirPath) await addDirectory({ module_id: activeModuleId, dir_path: dirPath });
-                }}
-              />
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <ModuleSelector
+                    projectId={project.id}
+                    onAddDirectory={async () => {
+                      const { activeModuleId, addDirectory } = useModuleStore.getState();
+                      if (!activeModuleId) return;
+                      const { fsService } = await import('../../services');
+                      const dirPath = await fsService.openFolderDialog();
+                      if (dirPath) await addDirectory({ module_id: activeModuleId, dir_path: dirPath });
+                    }}
+                  />
+                </div>
+                <Tooltip content={t('fileTree.refresh')} position="bottom">
+                  <button
+                    className="mr-2 shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+                    onClick={handleRefresh}
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </Tooltip>
+              </div>
               {fileLoading ? (
                 <div className="flex justify-center py-8">
                   <Spinner size="sm" />

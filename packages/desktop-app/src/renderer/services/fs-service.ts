@@ -66,8 +66,20 @@ export async function existsItem(targetPath: string): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.exists(targetPath));
 }
 
+export async function watchDirs(dirs: string[]): Promise<void> {
+  await window.electron.fs.watchDirs(dirs);
+}
+
+export async function unwatchDirs(): Promise<void> {
+  await window.electron.fs.unwatchDirs();
+}
+
+export function onDirChanged(callback: () => void): () => void {
+  return window.electron.fs.onDirChanged(callback);
+}
+
 export const fsService = {
   readDir, readDirShallow, readFile, readBinaryFile, writeFile, openFolderDialog, openFileDialog,
   renameItem, deleteItem, createFile, createDir, copyItem, moveItem,
-  showInExplorer, existsItem,
+  showInExplorer, existsItem, watchDirs, unwatchDirs, onDirChanged,
 };

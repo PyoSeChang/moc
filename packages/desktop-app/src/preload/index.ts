@@ -68,10 +68,13 @@ const electronAPI = {
       ipcRenderer.invoke('edge:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('edge:delete', id),
   },
-  conceptFile: {
-    create: (data: Record<string, unknown>) => ipcRenderer.invoke('conceptFile:create', data),
-    getByConcept: (conceptId: string) => ipcRenderer.invoke('conceptFile:getByConcept', conceptId),
-    delete: (id: string) => ipcRenderer.invoke('conceptFile:delete', id),
+  fileEntity: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('file:create', data),
+    get: (id: string) => ipcRenderer.invoke('file:get', id),
+    getByPath: (projectId: string, path: string) => ipcRenderer.invoke('file:getByPath', projectId, path),
+    getByProject: (projectId: string) => ipcRenderer.invoke('file:getByProject', projectId),
+    update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('file:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('file:delete', id),
   },
   module: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('module:create', data),

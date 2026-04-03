@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
-  Edge, EdgeCreate, Concept, RelationType,
+  Edge, EdgeCreate, Concept, FileEntity, RelationType,
   CanvasBreadcrumbItem, CanvasTreeNode,
 } from '@netior/shared/types';
 import { canvasService } from '../services';
@@ -10,6 +10,7 @@ import type { CanvasFullData } from '../services/canvas-service';
 
 export interface CanvasNodeWithConcept extends CanvasNode {
   concept?: Concept;
+  file?: FileEntity;
   canvas_count: number;
 }
 

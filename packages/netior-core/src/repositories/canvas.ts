@@ -5,6 +5,7 @@ import type {
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate, EdgeUpdate,
   Concept,
+  FileEntity,
   RelationType,
   CanvasBreadcrumbItem,
 } from '@netior/shared/types';
@@ -206,7 +207,7 @@ export function deleteCanvas(id: string): boolean {
 
 export interface CanvasFullData {
   canvas: Canvas;
-  nodes: (CanvasNode & { concept?: Concept; canvas_count: number })[];
+  nodes: (CanvasNode & { concept?: Concept; file?: FileEntity; canvas_count: number })[];
   edges: (Edge & { relation_type?: RelationType })[];
 }
 
@@ -221,20 +222,24 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
   const nodes = db.prepare(
     `SELECT cn.*, c.title, c.color, c.icon, c.archetype_id, c.project_id as concept_project_id,
             c.created_at as concept_created_at, c.updated_at as concept_updated_at,
+            f.id as f_id, f.project_id as f_project_id, f.path as f_path, f.type as f_type,
+            f.metadata as f_metadata, f.created_at as f_created_at, f.updated_at as f_updated_at,
             (SELECT COUNT(*) FROM canvases sub WHERE sub.concept_id = cn.concept_id) as canvas_count
      FROM canvas_nodes cn
      LEFT JOIN concepts c ON cn.concept_id = c.id
+     LEFT JOIN files f ON cn.file_id = f.id
      WHERE cn.canvas_id = ?`,
   ).all(canvasId) as (Record<string, unknown>)[];
 
   const parsedNodes = nodes.map((row) => {
     const hasConcept = row.concept_id != null && row.title != null;
+    const hasFile = row.f_id != null;
     return {
       id: row.id as string,
       canvas_id: row.canvas_id as string,
       concept_id: (row.concept_id as string | null) ?? null,
-      file_path: (row.file_path as string | null) ?? null,
-      dir_path: (row.dir_path as string | null) ?? null,
+      file_id: (row.file_id as string | null) ?? null,
+      metadata: (row.metadata as string | null) ?? null,
       position_x: row.position_x as number,
       position_y: row.position_y as number,
       width: row.width as number | null,
@@ -251,6 +256,17 @@ export function getCanvasFull(canvasId: string): CanvasFullData | undefined {
           agent_content: null,
           created_at: row.concept_created_at as string,
           updated_at: row.concept_updated_at as string,
+        },
+      } : {}),
+      ...(hasFile ? {
+        file: {
+          id: row.f_id as string,
+          project_id: row.f_project_id as string,
+          path: row.f_path as string,
+          type: row.f_type as string,
+          metadata: (row.f_metadata as string | null) ?? null,
+          created_at: row.f_created_at as string,
+          updated_at: row.f_updated_at as string,
         },
       } : {}),
       canvas_count: (row.canvas_count as number) ?? 0,
@@ -305,18 +321,18 @@ export function addCanvasNode(data: CanvasNodeCreate): CanvasNode {
   const db = getDatabase();
   const id = randomUUID();
 
-  // Validate: exactly one of concept_id, file_path, dir_path must be set
-  const setCount = [data.concept_id, data.file_path, data.dir_path].filter(Boolean).length;
+  // Validate: exactly one of concept_id, file_id must be set
+  const setCount = [data.concept_id, data.file_id].filter(Boolean).length;
   if (setCount !== 1) {
-    throw new Error('Exactly one of concept_id, file_path, or dir_path must be provided');
+    throw new Error('Exactly one of concept_id or file_id must be provided');
   }
 
   db.prepare(
-    `INSERT INTO canvas_nodes (id, canvas_id, concept_id, file_path, dir_path, position_x, position_y, width, height)
+    `INSERT INTO canvas_nodes (id, canvas_id, concept_id, file_id, metadata, position_x, position_y, width, height)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.canvas_id,
-    data.concept_id ?? null, data.file_path ?? null, data.dir_path ?? null,
+    data.concept_id ?? null, data.file_id ?? null, data.metadata ?? null,
     data.position_x, data.position_y, data.width ?? null, data.height ?? null,
   );
 
@@ -329,12 +345,13 @@ export function updateCanvasNode(id: string, data: CanvasNodeUpdate): CanvasNode
   if (!existing) return undefined;
 
   db.prepare(
-    `UPDATE canvas_nodes SET position_x = ?, position_y = ?, width = ?, height = ? WHERE id = ?`,
+    `UPDATE canvas_nodes SET position_x = ?, position_y = ?, width = ?, height = ?, metadata = ? WHERE id = ?`,
   ).run(
     data.position_x !== undefined ? data.position_x : existing.position_x,
     data.position_y !== undefined ? data.position_y : existing.position_y,
     data.width !== undefined ? data.width : existing.width,
     data.height !== undefined ? data.height : existing.height,
+    data.metadata !== undefined ? data.metadata : existing.metadata,
     id,
   );
 

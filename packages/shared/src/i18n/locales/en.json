@@ -4,6 +4,7 @@
     "delete": "Delete",
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving...",
     "search": "Search",
     "rename": "Rename",
     "open": "Open",
@@ -527,5 +528,21 @@
       "summarySuccess": "Complete",
       "summaryError": "Failed"
     }
+  },
+  "fileMetadata": {
+    "editMetadata": "Edit metadata",
+    "fileProperties": "File Properties",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe what this file/folder is about",
+    "contentType": "Content Type",
+    "topics": "Topics",
+    "canvasContext": "Role in this Canvas",
+    "nodeDescription": "Role Description",
+    "nodeDescriptionPlaceholder": "Describe the role of this file/folder in this canvas",
+    "relevantPages": "Relevant Pages",
+    "missingFilesTitle": "Missing Files",
+    "missingFilesMessage": "The following files/folders could not be found on disk.",
+    "ignore": "Ignore",
+    "ignoreAll": "Ignore All"
   }
 }

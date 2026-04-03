@@ -2,13 +2,13 @@ import type {
   Canvas, CanvasCreate, CanvasUpdate,
   CanvasNode, CanvasNodeCreate, CanvasNodeUpdate,
   Edge, EdgeCreate, EdgeUpdate,
-  Concept, RelationType, CanvasBreadcrumbItem,
+  Concept, FileEntity, RelationType, CanvasBreadcrumbItem,
   CanvasTreeNode,
 } from '@netior/shared/types';
 
 export interface CanvasFullData {
   canvas: Canvas;
-  nodes: (CanvasNode & { concept?: Concept; canvas_count: number })[];
+  nodes: (CanvasNode & { concept?: Concept; file?: FileEntity; canvas_count: number })[];
   edges: (Edge & { relation_type?: RelationType })[];
 }
 import { unwrapIpc } from './ipc';

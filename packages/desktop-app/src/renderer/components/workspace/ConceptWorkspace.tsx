@@ -8,7 +8,7 @@ import { useInteraction } from './InteractionLayer';
 import { EdgeContextMenu } from './EdgeContextMenu';
 import { FileNodeAddModal } from './FileNodeAddModal';
 import { useCanvasStore, type CanvasNodeWithConcept, type EdgeWithRelationType } from '../../stores/canvas-store';
-import { canvasService } from '../../services';
+import { canvasService, fileService } from '../../services';
 import { conceptPropertyService } from '../../services';
 import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -48,12 +48,13 @@ function toRenderNodes(nodes: CanvasNodeWithConcept[], archetypes: Archetype[]):
       };
     }
     // file or dir node
-    const isFile = !!n.file_path;
+    const isFile = n.file?.type === 'file';
+    const filePath = n.file?.path;
     return {
       id: n.id,
       x: n.position_x,
       y: n.position_y,
-      label: (isFile ? n.file_path : n.dir_path)?.split('/').pop() || '?',
+      label: filePath?.replace(/\\/g, '/').split('/').pop() || '?',
       icon: isFile ? '📄' : '📁',
       semanticType: isFile ? 'file' : 'directory',
       semanticTypeLabel: isFile ? 'File' : 'Directory',
@@ -61,8 +62,8 @@ function toRenderNodes(nodes: CanvasNodeWithConcept[], archetypes: Archetype[]):
       height: n.height ?? 50,
       canvasCount: 0,
       nodeType: isFile ? 'file' as const : 'dir' as const,
-      filePath: n.file_path ?? undefined,
-      dirPath: n.dir_path ?? undefined,
+      fileId: n.file_id ?? undefined,
+      filePath: filePath ?? undefined,
     };
   });
 }
@@ -72,6 +73,8 @@ interface ContextMenuState {
   y: number;
   nodeId: string;
   conceptId?: string;
+  fileId?: string;
+  filePath?: string;
   canvasCount: number;
 }
 
@@ -510,9 +513,18 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
         if (!rect) return;
         const worldX = (e.clientX - rect.left - panX) / zoom;
         const worldY = (e.clientY - rect.top - panY) / zoom;
+        // Create or find existing FileEntity, then add node with file_id
+        let fileEntity = await fileService.getByPath(projectId, data.path);
+        if (!fileEntity) {
+          fileEntity = await fileService.create({
+            project_id: projectId,
+            path: data.path,
+            type: data.type === 'file' ? 'file' : 'directory',
+          });
+        }
         await addNode({
           canvas_id: currentCanvas.id,
-          ...(data.type === 'file' ? { file_path: data.path } : { dir_path: data.path }),
+          file_id: fileEntity.id,
           position_x: worldX,
           position_y: worldY,
         });
@@ -565,8 +577,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
           if (!edge) return;
           const srcNode = nodes.find((n) => n.id === edge.source_node_id);
           const tgtNode = nodes.find((n) => n.id === edge.target_node_id);
-          const srcLabel = srcNode?.concept?.title ?? srcNode?.file_path?.split('/').pop() ?? '?';
-          const tgtLabel = tgtNode?.concept?.title ?? tgtNode?.file_path?.split('/').pop() ?? '?';
+          const srcLabel = srcNode?.concept?.title ?? srcNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
+          const tgtLabel = tgtNode?.concept?.title ?? tgtNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
           useEditorStore.getState().openTab({
             type: 'edge',
             targetId: edgeId,
@@ -607,6 +619,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
                   x, y,
                   nodeId: targetId,
                   conceptId: node.concept_id ?? undefined,
+                  fileId: node.file_id ?? undefined,
+                  filePath: node.file?.path ?? undefined,
                   canvasCount: node.canvas_count,
                 });
               }
@@ -671,11 +685,11 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
               targetId: node.concept_id,
               title: node.concept.title,
             });
-          } else if (node?.file_path) {
+          } else if (node?.file?.path) {
             useEditorStore.getState().openTab({
               type: 'file',
-              targetId: node.file_path,
-              title: node.file_path.split('/').pop() || 'File',
+              targetId: node.file.path,
+              title: node.file.path.replace(/\\/g, '/').split('/').pop() || 'File',
             });
           }
         }}
@@ -689,6 +703,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
                 y,
                 nodeId: targetId,
                 conceptId: node.concept_id ?? undefined,
+                fileId: node.file_id ?? undefined,
+                filePath: node.file?.path ?? undefined,
                 canvasCount: node.canvas_count,
               });
             }
@@ -704,6 +720,8 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
           y={contextMenu.y}
           nodeId={contextMenu.nodeId}
           conceptId={contextMenu.conceptId}
+          fileId={contextMenu.fileId}
+          filePath={contextMenu.filePath}
           canvasCount={contextMenu.canvasCount}
           mode={canvasMode}
           onAddConnection={(nodeId) => {
@@ -777,9 +795,17 @@ export function ConceptWorkspace({ projectId }: ConceptWorkspaceProps): JSX.Elem
         onClose={() => setFileNodeModalOpen(false)}
         onSelect={async (path, type) => {
           if (!currentCanvas) return;
+          let fileEntity = await fileService.getByPath(projectId, path);
+          if (!fileEntity) {
+            fileEntity = await fileService.create({
+              project_id: projectId,
+              path,
+              type: type === 'file' ? 'file' : 'directory',
+            });
+          }
           await addNode({
             canvas_id: currentCanvas.id,
-            ...(type === 'file' ? { file_path: path } : { dir_path: path }),
+            file_id: fileEntity.id,
             position_x: canvasContextMenu?.worldX ?? 0,
             position_y: canvasContextMenu?.worldY ?? 0,
           });

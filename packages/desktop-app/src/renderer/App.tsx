@@ -11,6 +11,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { ShortcutOverlay } from './components/shortcuts/ShortcutOverlay';
 import { ToastContainer } from './components/ui/Toast';
 import { WindowControls } from './components/ui/WindowControls';
+import { MissingFilesDialog } from './components/home/MissingFilesDialog';
 import { initTerminalTracker } from './lib/terminal-tracker';
 import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
 import { initTerminalAgentNotifier } from './lib/terminal-agent-notifier';
@@ -225,6 +226,7 @@ export default function App(): JSX.Element {
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       <ShortcutOverlay open={showShortcutOverlay} onClose={() => setShowShortcutOverlay(false)} />
       <ToastContainer />
+      <MissingFilesDialog />
     </div>
   );
 }

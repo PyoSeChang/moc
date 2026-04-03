@@ -90,6 +90,32 @@ export interface CanvasUpdate {
 }
 
 // ============================================
+// File (1급 엔티티 — 파일/디렉토리)
+// ============================================
+
+export type FileEntityType = 'file' | 'directory';
+
+export interface FileEntity {
+  id: string;
+  project_id: string;
+  path: string;
+  type: FileEntityType;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FileEntityCreate {
+  project_id: string;
+  path: string;
+  type: FileEntityType;
+}
+
+export interface FileEntityUpdate {
+  metadata?: string | null;
+}
+
+// ============================================
 // CanvasNode
 // ============================================
 
@@ -97,8 +123,8 @@ export interface CanvasNode {
   id: string;
   canvas_id: string;
   concept_id: string | null;
-  file_path: string | null;
-  dir_path: string | null;
+  file_id: string | null;
+  metadata: string | null;
   position_x: number;
   position_y: number;
   width: number | null;
@@ -108,8 +134,8 @@ export interface CanvasNode {
 export interface CanvasNodeCreate {
   canvas_id: string;
   concept_id?: string;
-  file_path?: string;
-  dir_path?: string;
+  file_id?: string;
+  metadata?: string;
   position_x: number;
   position_y: number;
   width?: number;
@@ -121,6 +147,7 @@ export interface CanvasNodeUpdate {
   position_y?: number;
   width?: number | null;
   height?: number | null;
+  metadata?: string | null;
 }
 
 // ============================================
@@ -157,22 +184,6 @@ export interface EdgeUpdate {
   color?: string | null;
   line_style?: string | null;
   directed?: boolean | null;
-}
-
-// ============================================
-// ConceptFile
-// ============================================
-
-export interface ConceptFile {
-  id: string;
-  concept_id: string;
-  file_path: string;
-  created_at: string;
-}
-
-export interface ConceptFileCreate {
-  concept_id: string;
-  file_path: string;
 }
 
 // ============================================
@@ -435,7 +446,7 @@ export interface CanvasBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre' | 'fileMetadata';
 
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';
@@ -471,6 +482,8 @@ export interface EditorTab {
   activeFilePath: string | null;
   /** Override editor type for file tabs (when user switches via context menu) */
   editorType?: string;
+  /** Canvas context for fileMetadata tabs (which canvas this node belongs to) */
+  canvasId?: string;
   /** Draft data for unsaved new entities (concept creation flow) */
   draftData?: {
     canvasId?: string;

@@ -9,7 +9,7 @@ export * from './repositories/canvas';
 export * from './repositories/archetype';
 export * from './repositories/relation-type';
 export * from './repositories/canvas-type';
-export * from './repositories/concept-file';
+export * from './repositories/file';
 export * from './repositories/concept-property';
 export * from './repositories/editor-prefs';
 export * from './repositories/module';

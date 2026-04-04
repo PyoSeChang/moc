@@ -33,9 +33,9 @@ packages:
     impact: local
     contracts: []
   narre-eval:
-    version: "0.2.0"
-    type: minor
-    summary: "폴더 기반 시나리오 구조, 시나리오 타입 구분, 이름 있는 verify 형식, conversation 자동 응답 지원"
-    impact: local
-    contracts: []
+    version: "1.0.0"
+    type: major
+    summary: "평가 플랫폼으로 전면 재설계 — 시나리오 번들, 어댑터, 메트릭, 비교, 강화된 검증"
+    impact: cross-package
+    contracts: [tooling]
 ```

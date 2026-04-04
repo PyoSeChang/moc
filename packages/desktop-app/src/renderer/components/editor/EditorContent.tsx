@@ -10,7 +10,7 @@ import { EdgeEditor } from './EdgeEditor';
 import { CanvasEditor } from './CanvasEditor';
 import { NarreEditor } from './NarreEditor';
 import { FileMetadataEditor } from './FileMetadataEditor';
-import { useEditorStore } from '../../stores/editor-store';
+import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -19,12 +19,15 @@ interface EditorContentProps {
 /**
  * Content router: resolves tab.type to the appropriate editor component.
  * This is the single entry point for all editor content rendering.
- * Shell components (FloatWindow, side pane, full mode) render this.
+ * Shell components (FloatWindow, side pane, full mode, detached) render this.
  */
 export function EditorContent({ tab }: EditorContentProps): JSX.Element {
-  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const isActive = useEditorStore((s) => {
+    if (tab.hostId === MAIN_HOST_ID) return s.activeTabId === tab.id;
+    const host = s.hosts[tab.hostId];
+    return host?.activeTabId === tab.id;
+  });
   const containerRef = useRef<HTMLDivElement>(null);
-  const isActive = activeTabId === tab.id;
 
   // Focus the editor content when this tab becomes globally active.
   // Terminals handle their own focus via focusWhenReady() on mount,

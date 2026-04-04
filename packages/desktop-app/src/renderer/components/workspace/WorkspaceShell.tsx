@@ -14,7 +14,7 @@ import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
 import { CloseConfirmDialog } from '../editor/CloseConfirmDialog';
 import { ResizeHandle } from '../ui/ResizeHandle';
-import { useEditorStore, getActiveTabFromLayout, collectLeaves } from '../../stores/editor-store';
+import { useEditorStore, getActiveTabFromLayout, collectLeaves, MAIN_HOST_ID } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
 
@@ -24,7 +24,7 @@ interface WorkspaceShellProps {
 
 export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const activeTabId = useEditorStore((s) => s.activeTabId);
-  const tabs = useEditorStore((s) => s.tabs);
+  const tabs = useEditorStore((s) => s.tabs.filter((t) => t.hostId === MAIN_HOST_ID));
   const sideLayout = useEditorStore((s) => s.sideLayout);
   const {
     setActiveTab, closeTab, requestCloseTab, setViewMode, toggleMinimize,
@@ -32,21 +32,27 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   } = useEditorStore();
   const { sidebarOpen, setSidebarWidth } = useUIStore();
 
-  // Listen for detached window events
+  // Listen for detached window close events (host-level)
   useEffect(() => {
-    const cleanupClosed = window.electron.editor.onDetachedClosed((tabId: string) => {
-      const tab = useEditorStore.getState().tabs.find((t) => t.id === tabId);
-      if (tab?.viewMode === 'detached') {
-        closeTab(tabId);
+    const cleanupClosed = window.electron.editor.onDetachedClosed((hostId: string) => {
+      const store = useEditorStore.getState();
+      const hostTabs = store.tabs.filter((t) => t.hostId === hostId);
+      // Close all tabs in the closed host
+      for (const tab of hostTabs) {
+        store.closeTab(tab.id);
+      }
+      // Clean up host entry if still present
+      if (store.hosts[hostId]) {
+        store.removeHost(hostId);
       }
     });
 
-    const cleanupReattach = window.electron.editor.onReattachToMode((tabId: string, mode: string) => {
-      setViewMode(tabId, mode as EditorViewMode);
+    const cleanupReattach = window.electron.editor.onReattachToMode((tabId: string, _mode: string) => {
+      useEditorStore.getState().moveTabToHost(tabId, MAIN_HOST_ID);
     });
 
     return () => { cleanupClosed(); cleanupReattach(); };
-  }, [closeTab, setViewMode]);
+  }, []);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 

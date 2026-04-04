@@ -4,7 +4,7 @@ import type { SplitLeaf, SplitBranch, SplitNode } from '@netior/shared/types';
 // Minimal window.electron mock for editor-store import
 const mockElectron = {
   terminal: { shutdown: vi.fn().mockResolvedValue(undefined) },
-  editor: { detach: vi.fn() },
+  editor: { detach: vi.fn(), closeDetachedWindow: vi.fn() },
   config: { get: vi.fn().mockResolvedValue({ success: true, data: null }), set: vi.fn() },
   window: { onAppShortcut: vi.fn().mockReturnValue(() => {}) },
 };
@@ -26,7 +26,7 @@ function makeBranch(left: SplitNode, right: SplitNode, direction: 'horizontal' |
 
 function makeTab(id: string) {
   return {
-    id, type: 'file', targetId: id, title: id, viewMode: 'side',
+    id, type: 'file', targetId: id, title: id, hostId: 'main', viewMode: 'side',
     floatRect: { x: 0, y: 0, width: 0, height: 0 }, isMinimized: false,
     sideSplitRatio: 0.5, isDirty: false, activeFilePath: null,
   } as any;
@@ -66,7 +66,7 @@ describe('collectLeaves', () => {
 describe('getActiveLeaf', () => {
   beforeEach(() => {
     useEditorStore.setState({
-      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null,
+      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: 'main',
     });
   });
 
@@ -105,7 +105,7 @@ describe('getActiveLeaf', () => {
 describe('closeTab fallback', () => {
   beforeEach(() => {
     useEditorStore.setState({
-      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, pendingCloseTabId: null,
+      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: 'main', pendingCloseTabId: null,
     });
   });
 

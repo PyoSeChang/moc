@@ -6,12 +6,11 @@ import './styles/globals.css';
 
 function Root(): JSX.Element {
   const hash = window.location.hash;
-  const detachedMatch = hash.match(/^#\/detached\/([^/]+)\/(.+)$/);
+  const detachedMatch = hash.match(/^#\/detached\/([^/]+)$/);
 
   if (detachedMatch) {
-    const tabId = decodeURIComponent(detachedMatch[1]);
-    const title = decodeURIComponent(detachedMatch[2]);
-    return <DetachedEditorShell tabId={tabId} title={title} />;
+    const hostId = decodeURIComponent(detachedMatch[1]);
+    return <DetachedEditorShell hostId={hostId} />;
   }
 
   return <App />;

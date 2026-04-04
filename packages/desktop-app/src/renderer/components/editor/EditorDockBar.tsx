@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { useEditorStore } from '../../stores/editor-store';
+import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
 import { Tooltip } from '../ui/Tooltip';
 
@@ -8,7 +8,7 @@ export function EditorDockBar(): JSX.Element | null {
   const { t } = useI18n();
   const { tabs, activeTabId, toggleMinimize, requestCloseTab } = useEditorStore();
 
-  const minimizedTabs = tabs.filter((t) => t.isMinimized);
+  const minimizedTabs = tabs.filter((t) => t.isMinimized && t.hostId === MAIN_HOST_ID);
 
   if (minimizedTabs.length === 0) return null;
 

@@ -268,10 +268,11 @@ const electronAPI = {
     },
   },
   editor: {
-    detach: (tabId: string, title: string) => ipcRenderer.invoke('editor:detach', tabId, title),
+    detach: (hostId: string, title: string) => ipcRenderer.invoke('editor:detach', hostId, title),
     reattach: (tabId: string, mode: string) => ipcRenderer.send('editor:reattach', tabId, mode),
-    onDetachedClosed: (callback: (tabId: string) => void) => {
-      const handler = (_event: IpcRendererEvent, tabId: string) => callback(tabId);
+    closeDetachedWindow: (hostId: string) => ipcRenderer.send('editor:closeDetachedWindow', hostId),
+    onDetachedClosed: (callback: (hostId: string) => void) => {
+      const handler = (_event: IpcRendererEvent, hostId: string) => callback(hostId);
       ipcRenderer.on('editor:detached-closed', handler);
       return () => { ipcRenderer.removeListener('editor:detached-closed', handler); };
     },

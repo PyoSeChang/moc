@@ -12,14 +12,8 @@ import { ShortcutOverlay } from './components/shortcuts/ShortcutOverlay';
 import { ToastContainer } from './components/ui/Toast';
 import { WindowControls } from './components/ui/WindowControls';
 import { MissingFilesDialog } from './components/home/MissingFilesDialog';
-import { initTerminalTracker } from './lib/terminal-tracker';
-import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
-import { initTerminalAgentNotifier } from './lib/terminal-agent-notifier';
 import { useGlobalShortcuts } from './shortcuts/useGlobalShortcuts';
-
-initTerminalTracker();
-initClaudeTerminalTracker();
-initTerminalAgentNotifier();
+import { useNetiorSync } from './hooks/useNetiorSync';
 
 function NetiorTitleMark(): JSX.Element {
   return (
@@ -206,6 +200,7 @@ export default function App(): JSX.Element {
   useGlobalShortcuts();
 
   const { currentProject } = useProjectStore();
+  useNetiorSync(currentProject?.id ?? null);
   const {
     showSettings,
     showShortcutOverlay,

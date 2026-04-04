@@ -188,11 +188,11 @@ app.whenReady().then(async () => {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
   });
 
-  // Detached editor window IPC
-  ipcMain.handle('editor:detach', (_event, tabId: string, title: string) => {
+  // Detached editor window IPC (host-based)
+  ipcMain.handle('editor:detach', (_event, hostId: string, title: string) => {
     // Focus existing detached window if already open
-    if (detachedWindows.has(tabId)) {
-      detachedWindows.get(tabId)!.focus();
+    if (detachedWindows.has(hostId)) {
+      detachedWindows.get(hostId)!.focus();
       return;
     }
 
@@ -212,10 +212,40 @@ app.whenReady().then(async () => {
       },
     });
 
-    detachedWindows.set(tabId, detached);
+    detachedWindows.set(hostId, detached);
     attachWindowStateEvents(detached);
 
-    const hash = `#/detached/${encodeURIComponent(tabId)}/${encodeURIComponent(title || 'Editor')}`;
+    // Intercept shortcuts for detached windows too
+    detached.webContents.on('before-input-event', (event, input) => {
+      const hasPrimaryModifier = input.control || input.meta;
+      if (hasPrimaryModifier && input.type === 'keyDown') {
+        if (!input.alt && input.key === 'Tab') {
+          event.preventDefault();
+          detached.webContents.send('app:shortcut', input.shift ? 'previousTab' : 'nextTab');
+          return;
+        }
+
+        if (!input.alt && !input.shift && /^[1-9]$/.test(input.key)) {
+          event.preventDefault();
+          detached.webContents.send('app:shortcut', `openTabByIndex:${input.key}`);
+          return;
+        }
+
+        if (!input.alt && (input.key === '-' || input.key === '=' || input.key === '+' || input.key === '0')) {
+          event.preventDefault();
+          detached.webContents.send('terminal:font-size', input.key);
+          return;
+        }
+
+        if (!input.alt && !input.shift && input.key === '.') {
+          event.preventDefault();
+          detached.webContents.send('app:shortcut', 'jumpToLastAgent');
+          return;
+        }
+      }
+    });
+
+    const hash = `#/detached/${encodeURIComponent(hostId)}`;
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
       detached.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${hash}`);
     } else {
@@ -223,20 +253,58 @@ app.whenReady().then(async () => {
     }
 
     detached.on('closed', () => {
-      detachedWindows.delete(tabId);
-      mainWindow?.webContents.send('editor:detached-closed', tabId);
+      detachedWindows.delete(hostId);
+      mainWindow?.webContents.send('editor:detached-closed', hostId);
     });
     detached.once('ready-to-show', () => sendWindowMaximizedState(detached));
   });
 
   ipcMain.on('editor:reattach', (_event, tabId: string, mode: string) => {
     mainWindow?.webContents.send('editor:reattach-to-mode', tabId, mode);
-    const win = detachedWindows.get(tabId);
+  });
+
+  ipcMain.on('editor:closeDetachedWindow', (_event, hostId: string) => {
+    const win = detachedWindows.get(hostId);
     if (win) win.close();
   });
 
+  // Editor state sync relay — main process caches state and broadcasts to all other windows
+  let cachedEditorState: unknown = null;
+
+  ipcMain.handle('editor:getState', () => {
+    return cachedEditorState;
+  });
+
+  ipcMain.on('editor:pushState', (event, state: unknown) => {
+    cachedEditorState = state;
+    const sender = BrowserWindow.fromWebContents(event.sender);
+    // Broadcast to all other windows
+    if (mainWindow && mainWindow !== sender && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('editor:syncState', state);
+    }
+    for (const [, win] of detachedWindows) {
+      if (win !== sender && !win.isDestroyed()) {
+        win.webContents.send('editor:syncState', state);
+      }
+    }
+  });
+
+  // Cross-window tab drag state (IPC relay for dataTransfer sandboxing)
+  let pendingDragTabId: string | null = null;
+  ipcMain.on('editor:dragStart', (_event, tabId: string) => {
+    pendingDragTabId = tabId;
+    console.log(`[DragIPC] dragStart tabId=${tabId}`);
+  });
+  ipcMain.handle('editor:getDragData', () => pendingDragTabId);
+  ipcMain.on('editor:getDragDataSync', (event) => {
+    event.returnValue = pendingDragTabId;
+  });
+  ipcMain.on('editor:dragEnd', () => {
+    console.log(`[DragIPC] dragEnd clearing tabId=${pendingDragTabId}`);
+    pendingDragTabId = null;
+  });
+
   createWindow();
-  ptyManager.init(mainWindow!);
 
   // Start Claude Code hook server for terminal integration
   hookServer.init(mainWindow!);

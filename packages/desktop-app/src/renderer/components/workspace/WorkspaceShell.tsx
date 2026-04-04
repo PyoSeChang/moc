@@ -14,9 +14,9 @@ import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
 import { CloseConfirmDialog } from '../editor/CloseConfirmDialog';
 import { ResizeHandle } from '../ui/ResizeHandle';
-import { useEditorStore, getActiveTabFromLayout, collectLeaves } from '../../stores/editor-store';
+import { useEditorStore, getActiveTabFromLayout, collectLeaves, MAIN_HOST_ID } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
-import { isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
+import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
 
 interface WorkspaceShellProps {
   project: Project;
@@ -24,29 +24,39 @@ interface WorkspaceShellProps {
 
 export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const activeTabId = useEditorStore((s) => s.activeTabId);
-  const tabs = useEditorStore((s) => s.tabs);
+  const tabs = useEditorStore((s) => s.tabs.filter((t) => t.hostId === MAIN_HOST_ID));
   const sideLayout = useEditorStore((s) => s.sideLayout);
   const {
     setActiveTab, closeTab, requestCloseTab, setViewMode, toggleMinimize,
-    updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, updateFloatRect,
+    updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, moveTabToHost, updateFloatRect,
   } = useEditorStore();
   const { sidebarOpen, setSidebarWidth } = useUIStore();
 
-  // Listen for detached window events
+  // Listen for detached window close events (host-level).
+  // Window close semantics: closing a detached window destroys its tabs,
+  // similar to closing a browser window. This is intentional — the user
+  // explicitly closes the OS window, and tabs are not silently reattached
+  // to main. Use "Move to Main Window" to preserve tabs before closing.
   useEffect(() => {
-    const cleanupClosed = window.electron.editor.onDetachedClosed((tabId: string) => {
-      const tab = useEditorStore.getState().tabs.find((t) => t.id === tabId);
-      if (tab?.viewMode === 'detached') {
-        closeTab(tabId);
+    const cleanupClosed = window.electron.editor.onDetachedClosed((hostId: string) => {
+      console.log(`[MainWindow] onDetachedClosed — hostId=${hostId}`);
+      const store = useEditorStore.getState();
+      const hostTabs = store.tabs.filter((t) => t.hostId === hostId);
+      console.log(`[MainWindow] cleaning up ${hostTabs.length} tabs for closed host`);
+      for (const tab of hostTabs) {
+        store.closeTab(tab.id);
+      }
+      if (store.hosts[hostId]) {
+        store.removeHost(hostId);
       }
     });
 
-    const cleanupReattach = window.electron.editor.onReattachToMode((tabId: string, mode: string) => {
-      setViewMode(tabId, mode as EditorViewMode);
+    const cleanupReattach = window.electron.editor.onReattachToMode((tabId: string, _mode: string) => {
+      useEditorStore.getState().moveTabToHost(tabId, MAIN_HOST_ID);
     });
 
     return () => { cleanupClosed(); cleanupReattach(); };
-  }, [closeTab, setViewMode]);
+  }, []);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -58,14 +68,32 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const sideActiveTabId = sideLayout ? getActiveTabFromLayout(sideLayout, activeTabId) : null;
   const sideActiveTab = sideActiveTabId ? tabs.find((t) => t.id === sideActiveTabId) : null;
 
+  const applyDropModeToMain = useCallback((tabId: string, mode: 'side' | 'float') => {
+    const tab = useEditorStore.getState().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    if (tab.hostId === MAIN_HOST_ID) {
+      setViewMode(tabId, mode);
+      if (mode === 'side') {
+        setActiveTab(tabId);
+      }
+      return;
+    }
+
+    console.log(`[WorkspaceShell] reattach via drop tabId=${tabId}, fromHost=${tab.hostId}, toMode=${mode}`);
+    moveTabToHost(tabId, MAIN_HOST_ID, mode);
+  }, [moveTabToHost, setActiveTab, setViewMode]);
+
   // Track if a tab drag is happening
   const [showSideDropHint, setShowSideDropHint] = useState(false);
+  const [showFloatDropHint, setShowFloatDropHint] = useState(false);
   const [isTabDragging, setIsTabDragging] = useState(false);
 
   useEffect(() => {
     const resetDragState = () => {
       setIsTabDragging(false);
       setShowSideDropHint(false);
+      setShowFloatDropHint(false);
     };
     document.addEventListener('dragend', resetDragState);
     return () => document.removeEventListener('dragend', resetDragState);
@@ -204,15 +232,27 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     if (isTabDrag(e)) setIsTabDragging(true);
   }, []);
 
+  const handleShellDragOver = useCallback((e: React.DragEvent) => {
+    if (!isTabDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!hasSideEditor) {
+      setShowSideDropHint(true);
+      setShowFloatDropHint(true);
+    }
+  }, [hasSideEditor]);
+
   const handleShellDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsTabDragging(false);
     setShowSideDropHint(false);
+    setShowFloatDropHint(false);
   }, []);
 
   const handleShellDrop = useCallback(() => {
     setIsTabDragging(false);
     setShowSideDropHint(false);
+    setShowFloatDropHint(false);
   }, []);
 
   // Canvas area: drop → float mode
@@ -220,34 +260,36 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     if (!isTabDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (!hasSideEditor) setShowSideDropHint(true);
+    if (!hasSideEditor) {
+      setShowSideDropHint(true);
+      setShowFloatDropHint(true);
+    }
   }, [hasSideEditor]);
 
-  const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-    setShowSideDropHint(false);
-  }, []);
-
-  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+  const handleCanvasDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setShowSideDropHint(false);
+    setShowFloatDropHint(false);
     setIsTabDragging(false);
-    const tabId = getTabDragData(e);
+    const tabId = await getTabDragDataAsync(e);
+    console.log(`[WorkspaceShell] float drop tabId=${tabId}, x=${e.clientX}, y=${e.clientY}`);
     if (!tabId) return;
-    setViewMode(tabId, 'float');
+    applyDropModeToMain(tabId, 'float');
     updateFloatRect(tabId, { x: e.clientX - 50, y: e.clientY - 20 });
-  }, [setViewMode, updateFloatRect]);
+  }, [applyDropModeToMain, updateFloatRect]);
 
   // Side drop hint: drop on right edge → side mode
-  const handleSideHintDrop = useCallback((e: React.DragEvent) => {
+  const handleSideHintDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setShowSideDropHint(false);
-    const tabId = getTabDragData(e);
+    setShowFloatDropHint(false);
+    setIsTabDragging(false);
+    const tabId = await getTabDragDataAsync(e);
+    console.log(`[WorkspaceShell] side drop tabId=${tabId}`);
     if (!tabId) return;
-    setViewMode(tabId, 'side');
-    setActiveTab(tabId);
-  }, [setViewMode, setActiveTab]);
+    applyDropModeToMain(tabId, 'side');
+  }, [applyDropModeToMain]);
 
   return (
     <div className="relative flex h-full">
@@ -263,8 +305,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
       <div className="flex flex-1 flex-col overflow-hidden">
         <div
           ref={editorContainerRef}
-          className="flex flex-1 overflow-hidden"
+          className="relative flex flex-1 overflow-hidden"
           onDragEnter={handleShellDragEnter}
+          onDragOver={handleShellDragOver}
           onDragLeave={handleShellDragLeave}
           onDrop={handleShellDrop}
         >
@@ -278,20 +321,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                 className="relative flex flex-col overflow-hidden"
                 style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
                 onDragOver={handleCanvasDragOver}
-                onDragLeave={handleCanvasDragLeave}
                 onDrop={handleCanvasDrop}
               >
                 <ConceptWorkspace projectId={project.id} />
-
-                {showSideDropHint && !hasSideEditor && (
-                  <div
-                    className="absolute right-0 top-0 bottom-0 w-16 bg-accent/20 border-l-2 border-accent transition-all flex items-center justify-center"
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
-                    onDrop={handleSideHintDrop}
-                  >
-                    <span className="text-xs text-accent font-medium -rotate-90 whitespace-nowrap">Side</span>
-                  </div>
-                )}
               </div>
 
               {/* Side editor */}
@@ -311,6 +343,30 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                     />
                   </div>
                 </>
+              )}
+            </>
+          )}
+          {isTabDragging && !hasSideEditor && (
+            <>
+              {showFloatDropHint && (
+                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+                  <div
+                    className="pointer-events-auto rounded-lg border-2 border-dashed border-accent bg-accent/10 px-6 py-3 text-sm font-medium text-accent"
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
+                    onDrop={handleCanvasDrop}
+                  >
+                    Float
+                  </div>
+                </div>
+              )}
+              {showSideDropHint && (
+                <div
+                  className="absolute right-0 top-0 bottom-0 z-20 w-20 bg-accent/20 border-l-2 border-accent flex items-center justify-center"
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
+                  onDrop={handleSideHintDrop}
+                >
+                  <span className="text-xs text-accent font-medium -rotate-90 whitespace-nowrap">Side</span>
+                </div>
               )}
             </>
           )}

@@ -6,12 +6,15 @@ import {
   addCanvasNode, updateCanvasNode, removeCanvasNode,
   createEdge, getEdge, updateEdge, deleteEdge,
 } from '@netior/core';
+import { broadcastChange } from './broadcast-change';
 
 export function registerCanvasIpc(): void {
   // Canvas CRUD
   ipcMain.handle('canvas:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: createCanvas(data) };
+      const result = createCanvas(data);
+      broadcastChange({ type: 'canvases', action: 'created', id: result.id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -27,7 +30,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('canvas:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateCanvas(id, data) };
+      const result = updateCanvas(id, data);
+      broadcastChange({ type: 'canvases', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -35,7 +40,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('canvas:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: deleteCanvas(id) };
+      const result = deleteCanvas(id);
+      broadcastChange({ type: 'canvases', action: 'deleted', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -76,7 +83,9 @@ export function registerCanvasIpc(): void {
   // Canvas Node
   ipcMain.handle('canvasNode:add', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: addCanvasNode(data) };
+      const result = addCanvasNode(data);
+      broadcastChange({ type: 'canvases', action: 'updated', id: data.canvas_id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -84,7 +93,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('canvasNode:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateCanvasNode(id, data) };
+      const result = updateCanvasNode(id, data);
+      broadcastChange({ type: 'canvases', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -92,7 +103,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('canvasNode:remove', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: removeCanvasNode(id) };
+      const result = removeCanvasNode(id);
+      broadcastChange({ type: 'canvases', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -101,7 +114,9 @@ export function registerCanvasIpc(): void {
   // Edge
   ipcMain.handle('edge:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: createEdge(data) };
+      const result = createEdge(data);
+      broadcastChange({ type: 'edges', action: 'created', id: result.id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -117,7 +132,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('edge:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateEdge(id, data) };
+      const result = updateEdge(id, data);
+      broadcastChange({ type: 'edges', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -125,7 +142,9 @@ export function registerCanvasIpc(): void {
 
   ipcMain.handle('edge:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: deleteEdge(id) };
+      const result = deleteEdge(id);
+      broadcastChange({ type: 'edges', action: 'deleted', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

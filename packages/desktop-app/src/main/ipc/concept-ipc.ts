@@ -3,11 +3,14 @@ import type { IpcResult } from '@netior/shared/types';
 import {
   createConcept, getConceptsByProject, updateConcept, deleteConcept, searchConcepts,
 } from '@netior/core';
+import { broadcastChange } from './broadcast-change';
 
 export function registerConceptIpc(): void {
   ipcMain.handle('concept:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: createConcept(data) };
+      const result = createConcept(data);
+      broadcastChange({ type: 'concepts', action: 'created', id: result.id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -23,7 +26,9 @@ export function registerConceptIpc(): void {
 
   ipcMain.handle('concept:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateConcept(id, data) };
+      const result = updateConcept(id, data);
+      broadcastChange({ type: 'concepts', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -31,7 +36,9 @@ export function registerConceptIpc(): void {
 
   ipcMain.handle('concept:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: deleteConcept(id) };
+      const result = deleteConcept(id);
+      broadcastChange({ type: 'concepts', action: 'deleted', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

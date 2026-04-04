@@ -4,11 +4,14 @@ import {
   createRelationType, listRelationTypes, getRelationType,
   updateRelationType, deleteRelationType,
 } from '@netior/core';
+import { broadcastChange } from './broadcast-change';
 
 export function registerRelationTypeIpc(): void {
   ipcMain.handle('relationType:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: createRelationType(data) };
+      const result = createRelationType(data);
+      broadcastChange({ type: 'relationTypes', action: 'created', id: result.id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -32,7 +35,9 @@ export function registerRelationTypeIpc(): void {
 
   ipcMain.handle('relationType:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateRelationType(id, data) };
+      const result = updateRelationType(id, data);
+      broadcastChange({ type: 'relationTypes', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -40,7 +45,9 @@ export function registerRelationTypeIpc(): void {
 
   ipcMain.handle('relationType:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: deleteRelationType(id) };
+      const result = deleteRelationType(id);
+      broadcastChange({ type: 'relationTypes', action: 'deleted', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

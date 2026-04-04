@@ -7,6 +7,14 @@ import { clearViewState } from '../hooks/useViewState';
 import { isTerminalAlive } from '../lib/terminal-tracker';
 import { cleanupSession as cleanupTodoSession } from '../lib/terminal-todo-store';
 
+export const MAIN_HOST_ID = 'main';
+
+interface DetachedHostState {
+  id: string;
+  label: string;
+  activeTabId: string | null;
+}
+
 interface OpenTabParams {
   type: EditorTabType;
   targetId: string;
@@ -15,17 +23,23 @@ interface OpenTabParams {
   draftData?: EditorTab['draftData'];
   canvasId?: string;
   terminalCwd?: string;
+  /** Host to open the tab in (defaults to MAIN_HOST_ID) */
+  hostId?: string;
 }
 
 interface EditorStore {
   tabs: EditorTab[];
-  activeTabId: string | null;
 
-  // Split layout trees for side/full panes (each leaf holds its own tab list)
+  // Main host state (backward-compatible top-level fields)
+  activeTabId: string | null;
   sideLayout: SplitNode | null;
   fullLayout: SplitNode | null;
 
-  /** Generic open: works for concept, file, or any future type */
+  // Host management
+  hosts: Record<string, DetachedHostState>;
+  focusedHostId: string;
+
+  // Tab operations
   openTab: (params: OpenTabParams) => Promise<void>;
   closeTab: (tabId: string) => void;
   closeOtherTabs: (tabId: string) => void;
@@ -57,6 +71,16 @@ interface EditorStore {
   moveTabToPane: (tabId: string, targetPaneTabId: string, mode: 'side' | 'full') => void;
   updateSplitRatio: (mode: 'side' | 'full', path: number[], ratio: number) => void;
 
+  // Host operations
+  createHost: (label?: string) => string;
+  removeHost: (hostId: string) => void;
+  detachTab: (tabId: string) => string;
+  reattachTab: (tabId: string) => void;
+  moveTabToHost: (tabId: string, targetHostId: string, viewMode?: EditorViewMode) => void;
+  setHostActiveTab: (hostId: string, tabId: string) => void;
+  getHostTabs: (hostId: string) => EditorTab[];
+  setFocusedHost: (hostId: string) => void;
+
   clear: () => void;
 }
 
@@ -79,6 +103,20 @@ function debouncedSavePrefs(targetId: string, data: Record<string, unknown>) {
 
 function makeTabId(type: EditorTabType, targetId: string): string {
   return `${type}:${targetId}`;
+}
+
+let hostCounter = 0;
+
+function makeHostId(): string {
+  return `detached:${Date.now()}-${++hostCounter}`;
+}
+
+function closeDetachedHostSoon(hostId: string): void {
+  console.log(`[EditorStore] schedule closeDetachedWindow hostId=${hostId}`);
+  setTimeout(() => {
+    console.log(`[EditorStore] closeDetachedWindow hostId=${hostId}`);
+    window.electron.editor.closeDetachedWindow(hostId);
+  }, 0);
 }
 
 // ── Split layout tree helpers ──
@@ -166,7 +204,6 @@ function removeTabFromTree(node: SplitNode, tabId: string): RemoveResult {
   const leftResult = removeTabFromTree(left, tabId);
   if (leftResult.tree !== left) {
     if (!leftResult.tree) {
-      // Left leaf collapsed — fallback to right side's first leaf
       return { tree: right, fallbackTabId: leftResult.fallbackTabId ?? getFirstLeaf(right).activeTabId };
     }
     return { tree: { ...node, children: [leftResult.tree, right] }, fallbackTabId: leftResult.fallbackTabId };
@@ -174,7 +211,6 @@ function removeTabFromTree(node: SplitNode, tabId: string): RemoveResult {
   const rightResult = removeTabFromTree(right, tabId);
   if (rightResult.tree !== right) {
     if (!rightResult.tree) {
-      // Right leaf collapsed — fallback to left side's nearest (last) leaf
       return { tree: left, fallbackTabId: rightResult.fallbackTabId ?? getLastLeaf(left).activeTabId };
     }
     return { tree: { ...node, children: [left, rightResult.tree] }, fallbackTabId: rightResult.fallbackTabId };
@@ -265,28 +301,48 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTabId: null,
   sideLayout: null,
   fullLayout: null,
+  hosts: {},
+  focusedHostId: MAIN_HOST_ID,
   pendingCloseTabId: null,
 
-  openTab: async ({ type, targetId, title, viewMode, draftData, canvasId, terminalCwd }) => {
+  openTab: async ({ type, targetId, title, viewMode, draftData, canvasId, terminalCwd, hostId }) => {
     const { tabs } = get();
     const tabId = makeTabId(type, targetId);
+    const resolvedHostId = hostId ?? MAIN_HOST_ID;
 
     // Reuse existing tab
     const existing = tabs.find((t) => t.id === tabId);
     if (existing) {
-      const layoutUpdate: Partial<EditorStore> = {};
-      const { sideLayout, fullLayout } = get();
-      if (sideLayout && containsTab(sideLayout, tabId)) {
-        layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+      // If tab exists in a different host, move it
+      if (existing.hostId !== resolvedHostId) {
+        get().moveTabToHost(tabId, resolvedHostId);
+        return;
       }
-      if (fullLayout && containsTab(fullLayout, tabId)) {
-        layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
+
+      if (resolvedHostId === MAIN_HOST_ID) {
+        const layoutUpdate: Partial<EditorStore> = {};
+        const { sideLayout, fullLayout } = get();
+        if (sideLayout && containsTab(sideLayout, tabId)) {
+          layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+        }
+        if (fullLayout && containsTab(fullLayout, tabId)) {
+          layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
+        }
+        set({
+          ...layoutUpdate,
+          activeTabId: tabId,
+          tabs: tabs.map((t) => (t.id === tabId ? { ...t, isMinimized: false } : t)),
+        });
+      } else {
+        // Activate in detached host
+        set((s) => ({
+          hosts: {
+            ...s.hosts,
+            [resolvedHostId]: { ...s.hosts[resolvedHostId], activeTabId: tabId },
+          },
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isMinimized: false } : t)),
+        }));
       }
-      set({
-        ...layoutUpdate,
-        activeTabId: tabId,
-        tabs: tabs.map((t) => (t.id === tabId ? { ...t, isMinimized: false } : t)),
-      });
       return;
     }
 
@@ -305,15 +361,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     // Resolve view mode
     let resolvedMode: EditorViewMode;
-    if (viewMode) {
+    if (resolvedHostId !== MAIN_HOST_ID) {
+      // Detached hosts don't use side/full/float — tabs just live in the host
+      resolvedMode = 'side';
+    } else if (viewMode) {
       resolvedMode = viewMode;
     } else {
       const savedMode = prefs?.view_mode as EditorViewMode | undefined;
       if (savedMode === 'float') {
         resolvedMode = 'float';
       } else {
-        const hasSide = tabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
-        const hasFull = tabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
+        const mainTabs = tabs.filter((t) => t.hostId === MAIN_HOST_ID);
+        const hasSide = mainTabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
+        const hasFull = mainTabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
         resolvedMode = hasFull ? 'full' : hasSide ? 'side' : 'side';
       }
     }
@@ -323,6 +383,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       type,
       targetId,
       title,
+      hostId: resolvedHostId,
       viewMode: resolvedMode,
       floatRect: {
         x: prefs?.float_x ?? DEFAULT_FLOAT_RECT.x + stagger,
@@ -339,7 +400,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       terminalCwd,
     };
 
-    // For side/full: add to the focused leaf in the layout tree
+    if (resolvedHostId !== MAIN_HOST_ID) {
+      // Add to detached host
+      set((s) => ({
+        tabs: [...s.tabs, tab],
+        hosts: {
+          ...s.hosts,
+          [resolvedHostId]: { ...s.hosts[resolvedHostId], activeTabId: tabId },
+        },
+      }));
+      return;
+    }
+
+    // Main host: add to layout if side/full
     if (resolvedMode === 'side' || resolvedMode === 'full') {
       let layout = getLayoutForMode(get(), resolvedMode);
       if (!layout) {
@@ -362,11 +435,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   closeTab: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId);
-    if (tab && tab.type === 'terminal') {
+    if (!tab) return;
+
+    if (tab.type === 'terminal') {
       window.electron.terminal.shutdown(tab.targetId).catch(() => {});
       cleanupTodoSession(tab.targetId);
     }
-    if (tab && tab.type === 'concept' && !tab.targetId.startsWith('draft-')) {
+    if (tab.type === 'concept' && !tab.targetId.startsWith('draft-')) {
       editorPrefsService.upsert(tab.targetId, {
         view_mode: tab.viewMode,
         float_x: tab.floatRect.x,
@@ -382,43 +457,78 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     clearDraftCache(tabId);
     clearViewState(tabId);
 
-    // Remove from layout trees, collecting pane-local fallback
-    const layoutUpdate: Partial<EditorStore> = {};
-    let paneFallbackTabId: string | null = null;
-    const { sideLayout, fullLayout } = get();
-    if (sideLayout && containsTab(sideLayout, tabId)) {
-      const result = removeTabFromTree(sideLayout, tabId);
-      layoutUpdate.sideLayout = result.tree;
-      paneFallbackTabId = result.fallbackTabId;
-    }
-    if (fullLayout && containsTab(fullLayout, tabId)) {
-      const result = removeTabFromTree(fullLayout, tabId);
-      layoutUpdate.fullLayout = result.tree;
-      paneFallbackTabId = result.fallbackTabId;
-    }
+    const hostId = tab.hostId;
 
-    set((s) => {
-      const tabs = s.tabs.filter((t) => t.id !== tabId);
-      let activeTabId = s.activeTabId;
-      if (activeTabId === tabId) {
-        // Prefer pane-local fallback, then global last tab
-        activeTabId = paneFallbackTabId ?? (tabs.length > 0 ? tabs[tabs.length - 1].id : null);
+    if (hostId === MAIN_HOST_ID) {
+      // Remove from main host layout trees
+      const layoutUpdate: Partial<EditorStore> = {};
+      let paneFallbackTabId: string | null = null;
+      const { sideLayout, fullLayout } = get();
+      if (sideLayout && containsTab(sideLayout, tabId)) {
+        const result = removeTabFromTree(sideLayout, tabId);
+        layoutUpdate.sideLayout = result.tree;
+        paneFallbackTabId = result.fallbackTabId;
       }
-      return { ...layoutUpdate, tabs, activeTabId };
-    });
+      if (fullLayout && containsTab(fullLayout, tabId)) {
+        const result = removeTabFromTree(fullLayout, tabId);
+        layoutUpdate.fullLayout = result.tree;
+        paneFallbackTabId = result.fallbackTabId;
+      }
+
+      set((s) => {
+        const tabs = s.tabs.filter((t) => t.id !== tabId);
+        let activeTabId = s.activeTabId;
+        if (activeTabId === tabId) {
+          const mainTabs = tabs.filter((t) => t.hostId === MAIN_HOST_ID);
+          activeTabId = paneFallbackTabId ?? (mainTabs.length > 0 ? mainTabs[mainTabs.length - 1].id : null);
+        }
+        return { ...layoutUpdate, tabs, activeTabId };
+      });
+    } else {
+      // Remove from detached host
+      set((s) => {
+        const tabs = s.tabs.filter((t) => t.id !== tabId);
+        const host = s.hosts[hostId];
+        if (!host) return { tabs };
+
+        const hostTabs = tabs.filter((t) => t.hostId === hostId);
+        if (hostTabs.length === 0) {
+          // Last tab closed — remove host, close window
+          const { [hostId]: _, ...remainingHosts } = s.hosts;
+          closeDetachedHostSoon(hostId);
+          return {
+            tabs,
+            hosts: remainingHosts,
+            focusedHostId: s.focusedHostId === hostId ? MAIN_HOST_ID : s.focusedHostId,
+          };
+        }
+
+        const newActiveTabId = host.activeTabId === tabId
+          ? hostTabs[hostTabs.length - 1].id
+          : host.activeTabId;
+
+        return {
+          tabs,
+          hosts: { ...s.hosts, [hostId]: { ...host, activeTabId: newActiveTabId } },
+        };
+      });
+    }
   },
 
   closeOtherTabs: (tabId) => {
-    const { tabs } = get();
-    const toClose = tabs.filter((t) => t.id !== tabId);
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const toClose = get().tabs.filter((t) => t.id !== tabId && t.hostId === tab.hostId);
     for (const t of toClose) get().closeTab(t.id);
   },
 
   closeTabsToRight: (tabId) => {
-    const { tabs } = get();
-    const idx = tabs.findIndex((t) => t.id === tabId);
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const hostTabs = get().tabs.filter((t) => t.hostId === tab.hostId);
+    const idx = hostTabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return;
-    const toClose = tabs.slice(idx + 1);
+    const toClose = hostTabs.slice(idx + 1);
     for (const t of toClose) get().closeTab(t.id);
   },
 
@@ -428,32 +538,39 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   setActiveTab: (tabId) => {
-    const layoutUpdate: Partial<EditorStore> = {};
-    const { sideLayout, fullLayout } = get();
-    if (sideLayout && containsTab(sideLayout, tabId)) {
-      layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    if (tab.hostId === MAIN_HOST_ID) {
+      const layoutUpdate: Partial<EditorStore> = {};
+      const { sideLayout, fullLayout } = get();
+      if (sideLayout && containsTab(sideLayout, tabId)) {
+        layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+      }
+      if (fullLayout && containsTab(fullLayout, tabId)) {
+        layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
+      }
+      set({ ...layoutUpdate, activeTabId: tabId });
+    } else {
+      const host = get().hosts[tab.hostId];
+      if (host) {
+        set((s) => ({
+          hosts: { ...s.hosts, [tab.hostId]: { ...host, activeTabId: tabId } },
+        }));
+      }
     }
-    if (fullLayout && containsTab(fullLayout, tabId)) {
-      layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
-    }
-    set({ ...layoutUpdate, activeTabId: tabId });
   },
 
   setViewMode: (tabId, mode) => {
     const oldTab = get().tabs.find((t) => t.id === tabId);
     if (!oldTab) return;
+    if (oldTab.hostId !== MAIN_HOST_ID) return; // view mode changes only apply to main host tabs
 
     const oldMode = oldTab.viewMode;
 
-    // Detached mode
+    // Detached mode → use detachTab instead
     if (mode === 'detached') {
-      window.electron.editor.detach(tabId, oldTab.title);
-      const layoutUpdate = removeFromLayout(get(), oldMode, tabId);
-      set((s) => ({
-        ...layoutUpdate,
-        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: 'detached' } : t)),
-      }));
-      if (oldTab.type === 'concept') debouncedSavePrefs(oldTab.targetId, { view_mode: mode });
+      get().detachTab(tabId);
       return;
     }
 
@@ -468,9 +585,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       return;
     }
 
-    // full ↔ side: group switch — all tabs in oldMode move together, layout tree transfers
+    // full ↔ side: group switch
     if ((oldMode === 'side' || oldMode === 'full') && (mode === 'side' || mode === 'full') && oldMode !== mode) {
-      const tabsInOldMode = get().tabs.filter((t) => t.viewMode === oldMode);
+      const tabsInOldMode = get().tabs.filter((t) => t.viewMode === oldMode && t.hostId === MAIN_HOST_ID);
       const tabIds = tabsInOldMode.map((t) => t.id);
 
       const { sideLayout, fullLayout } = get();
@@ -494,7 +611,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       return;
     }
 
-    // Default: single tab joining side or full from float/detached/other
+    // Default: single tab joining side or full
     if (mode === 'side' || mode === 'full') {
       let layout = getLayoutForMode(get(), mode);
       if (!layout) {
@@ -520,17 +637,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   toggleMinimize: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId);
-    if (!tab) return;
+    if (!tab || tab.hostId !== MAIN_HOST_ID) return;
 
     const mode = tab.viewMode;
     const newMinimized = !tab.isMinimized;
 
     if (mode === 'side' || mode === 'full') {
       if (!newMinimized) {
-        // Restoring: re-insert tabs that are not in the layout tree
         const layout = getLayoutForMode(get(), mode);
         let layoutUpdate: Partial<EditorStore> = {};
-        const tabsInMode = get().tabs.filter((t) => t.viewMode === mode && t.isMinimized);
+        const tabsInMode = get().tabs.filter((t) => t.viewMode === mode && t.isMinimized && t.hostId === MAIN_HOST_ID);
         let currentLayout = layout;
         for (const t of tabsInMode) {
           if (currentLayout && !containsTab(currentLayout, t.id)) {
@@ -546,13 +662,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         set((s) => ({
           ...layoutUpdate,
           tabs: s.tabs.map((t) =>
-            t.viewMode === mode ? { ...t, isMinimized: false } : t,
+            t.viewMode === mode && t.hostId === MAIN_HOST_ID ? { ...t, isMinimized: false } : t,
           ),
         }));
       } else {
         set((s) => ({
           tabs: s.tabs.map((t) =>
-            t.viewMode === mode ? { ...t, isMinimized: true } : t,
+            t.viewMode === mode && t.hostId === MAIN_HOST_ID ? { ...t, isMinimized: true } : t,
           ),
         }));
       }
@@ -567,7 +683,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   minimizeSingleTab: (tabId) => {
     const tab = get().tabs.find((t) => t.id === tabId);
-    if (!tab || tab.isMinimized) return;
+    if (!tab || tab.isMinimized || tab.hostId !== MAIN_HOST_ID) return;
 
     const mode = tab.viewMode;
     let layoutUpdate: Partial<EditorStore> = {};
@@ -680,13 +796,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set({ pendingCloseTabId: null });
   },
 
-  // ── Split layout operations ──
+  // ── Split layout operations (main host only) ──
 
   splitTab: (targetTabId, newTabId, direction, position) => {
     if (targetTabId === newTabId) return;
 
     const targetTab = get().tabs.find((t) => t.id === targetTabId);
-    if (!targetTab) return;
+    if (!targetTab || targetTab.hostId !== MAIN_HOST_ID) return;
 
     const mode = targetTab.viewMode;
     if (mode !== 'side' && mode !== 'full') return;
@@ -697,7 +813,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const newTab = get().tabs.find((t) => t.id === newTabId);
     if (!newTab) return;
 
-    // Remove newTab from this layout if already present (it gets its own leaf)
+    // Remove newTab from this layout if already present
     if (containsTab(layout, newTabId)) {
       const { tree } = removeTabFromTree(layout, newTabId);
       if (!tree) return;
@@ -715,13 +831,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       set((s) => ({
         ...oldLayoutUpdate,
         ...setLayoutForMode(mode, newLayout),
-        tabs: s.tabs.map((t) => (t.id === newTabId ? { ...t, viewMode: mode, isMinimized: false } : t)),
+        tabs: s.tabs.map((t) => (t.id === newTabId ? { ...t, viewMode: mode, isMinimized: false, hostId: MAIN_HOST_ID } : t)),
         activeTabId: newTabId,
       }));
     }
   },
 
   moveTabToPane: (tabId, targetPaneTabId, mode) => {
+    console.log(`[EditorStore] moveTabToPane start tabId=${tabId}, targetPaneTabId=${targetPaneTabId}, mode=${mode}`);
     if (tabId === targetPaneTabId) return;
 
     let layout = getLayoutForMode(get(), mode);
@@ -730,28 +847,50 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const tab = get().tabs.find((t) => t.id === tabId);
     if (!tab) return;
 
-    // Remove from old mode's layout if different
     const oldLayoutUpdate: Partial<EditorStore> = {};
     if (tab.viewMode !== mode && (tab.viewMode === 'side' || tab.viewMode === 'full')) {
       Object.assign(oldLayoutUpdate, removeFromLayout(get(), tab.viewMode, tabId));
     }
 
-    // Remove from current position in same layout (if present, e.g. moving between panes)
     if (containsTab(layout, tabId)) {
       const { tree } = removeTabFromTree(layout, tabId);
       if (!tree) return;
       layout = tree;
     }
 
-    // Add to target leaf
     layout = addTabToLeaf(layout, targetPaneTabId, tabId);
 
-    set((s) => ({
-      ...oldLayoutUpdate,
-      ...setLayoutForMode(mode, layout!),
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode, isMinimized: false } : t)),
-      activeTabId: tabId,
-    }));
+    const sourceHostId = tab.hostId;
+
+    set((s) => {
+      let hostsUpdate = s.hosts;
+
+      // Clean up source detached host if tab came from one
+      if (sourceHostId !== MAIN_HOST_ID) {
+        const remainingHostTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === sourceHostId);
+        if (remainingHostTabs.length === 0) {
+          const { [sourceHostId]: _, ...rest } = hostsUpdate;
+          hostsUpdate = rest;
+          closeDetachedHostSoon(sourceHostId);
+        } else {
+          const host = hostsUpdate[sourceHostId];
+          if (host && host.activeTabId === tabId) {
+            hostsUpdate = {
+              ...hostsUpdate,
+              [sourceHostId]: { ...host, activeTabId: remainingHostTabs[remainingHostTabs.length - 1].id },
+            };
+          }
+        }
+      }
+
+      return {
+        ...oldLayoutUpdate,
+        ...setLayoutForMode(mode, layout!),
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode, isMinimized: false, hostId: MAIN_HOST_ID } : t)),
+        activeTabId: tabId,
+        hosts: hostsUpdate,
+      };
+    });
   },
 
   updateSplitRatio: (mode, path, ratio) => {
@@ -761,9 +900,208 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set(setLayoutForMode(mode, newLayout));
   },
 
+  // ── Host operations ──
+
+  createHost: (label) => {
+    const hostId = makeHostId();
+    set((s) => ({
+      hosts: {
+        ...s.hosts,
+        [hostId]: { id: hostId, label: label ?? 'Editor', activeTabId: null },
+      },
+    }));
+    return hostId;
+  },
+
+  removeHost: (hostId) => {
+    if (hostId === MAIN_HOST_ID) return;
+    const hostTabs = get().tabs.filter((t) => t.hostId === hostId);
+
+    // Reattach all tabs to main
+    for (const tab of hostTabs) {
+      get().moveTabToHost(tab.id, MAIN_HOST_ID);
+    }
+
+    set((s) => {
+      const { [hostId]: _, ...remainingHosts } = s.hosts;
+      return {
+        hosts: remainingHosts,
+        focusedHostId: s.focusedHostId === hostId ? MAIN_HOST_ID : s.focusedHostId,
+      };
+    });
+  },
+
+  detachTab: (tabId) => {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return MAIN_HOST_ID;
+    console.log(`[EditorStore] detachTab tabId=${tabId}, title=${tab.title}, sourceHost=${tab.hostId}`);
+
+    // Create new host
+    const hostId = get().createHost(tab.title);
+
+    // Remove from main layout if needed
+    const layoutUpdate = removeFromLayout(get(), tab.viewMode, tabId);
+
+    // Move tab to new host
+    set((s) => ({
+      ...layoutUpdate,
+      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, hostId, viewMode: 'side' } : t)),
+      hosts: {
+        ...s.hosts,
+        [hostId]: { ...s.hosts[hostId], activeTabId: tabId },
+      },
+      // Update main activeTabId if this was the active tab
+      activeTabId: s.activeTabId === tabId
+        ? (() => {
+          const mainTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === MAIN_HOST_ID);
+          return mainTabs.length > 0 ? mainTabs[mainTabs.length - 1].id : null;
+        })()
+        : s.activeTabId,
+    }));
+
+    // Open detached window
+    console.log(`[EditorStore] detachTab openDetachedWindow hostId=${hostId}, tabId=${tabId}`);
+    window.electron.editor.detach(hostId, tab.title);
+
+    return hostId;
+  },
+
+  reattachTab: (tabId) => {
+    get().moveTabToHost(tabId, MAIN_HOST_ID);
+  },
+
+  moveTabToHost: (tabId, targetHostId, viewMode) => {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    console.log(`[EditorStore] moveTabToHost start tabId=${tabId}, targetHostId=${targetHostId}, requestedViewMode=${viewMode ?? 'none'}, tabHost=${tab?.hostId ?? 'missing'}`);
+    if (!tab) {
+      console.warn(`[EditorStore] moveTabToHost abort missing tabId=${tabId}`);
+      return;
+    }
+    if (tab.hostId === targetHostId) {
+      console.warn(`[EditorStore] moveTabToHost abort same-host tabId=${tabId}, hostId=${targetHostId}`);
+      return;
+    }
+
+    const sourceHostId = tab.hostId;
+
+    if (sourceHostId === MAIN_HOST_ID) {
+      // Remove from main layout
+      const layoutUpdate = removeFromLayout(get(), tab.viewMode, tabId);
+
+      set((s) => {
+        const mainTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === MAIN_HOST_ID);
+        const newActiveTabId = s.activeTabId === tabId
+          ? (mainTabs.length > 0 ? mainTabs[mainTabs.length - 1].id : null)
+          : s.activeTabId;
+
+        return {
+          ...layoutUpdate,
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, hostId: targetHostId, viewMode: 'side' } : t)),
+          activeTabId: newActiveTabId,
+          hosts: targetHostId !== MAIN_HOST_ID
+            ? { ...s.hosts, [targetHostId]: { ...s.hosts[targetHostId], activeTabId: tabId } }
+            : s.hosts,
+        };
+      });
+      console.log(`[EditorStore] moveTabToHost main->host tabId=${tabId}, targetHostId=${targetHostId}`);
+    } else {
+      // Moving from detached host
+      set((s) => {
+        const host = s.hosts[sourceHostId];
+        const remainingHostTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === sourceHostId);
+
+        let hostsUpdate = { ...s.hosts };
+
+        // Update source host
+        if (remainingHostTabs.length === 0) {
+          // Last tab removed — clean up host
+          const { [sourceHostId]: _, ...rest } = hostsUpdate;
+          hostsUpdate = rest;
+          closeDetachedHostSoon(sourceHostId);
+        } else if (host) {
+          hostsUpdate[sourceHostId] = {
+            ...host,
+            activeTabId: host.activeTabId === tabId
+              ? remainingHostTabs[remainingHostTabs.length - 1].id
+              : host.activeTabId,
+          };
+        }
+
+        // Update target host
+        if (targetHostId !== MAIN_HOST_ID && hostsUpdate[targetHostId]) {
+          hostsUpdate[targetHostId] = { ...hostsUpdate[targetHostId], activeTabId: tabId };
+        }
+
+        const tabUpdate: Partial<EditorTab> = { hostId: targetHostId };
+        if (targetHostId === MAIN_HOST_ID) {
+          if (viewMode && viewMode !== 'detached') {
+            tabUpdate.viewMode = viewMode;
+          } else {
+            // Determine view mode for main based on what's currently open
+            const mainTabs = s.tabs.filter((t) => t.hostId === MAIN_HOST_ID);
+            const hasFull = mainTabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
+            const hasSide = mainTabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
+            tabUpdate.viewMode = hasFull ? 'full' : hasSide ? 'side' : 'side';
+          }
+        }
+
+        const updatedTabs = s.tabs.map((t) => (t.id === tabId ? { ...t, ...tabUpdate } : t));
+
+        // Add to main layout if moving to main. Float tabs stay out of split layouts.
+        let layoutUpdate: Partial<EditorStore> = {};
+        if (targetHostId === MAIN_HOST_ID) {
+          const mode = tabUpdate.viewMode;
+          if (mode === 'side' || mode === 'full') {
+            let layout = getLayoutForMode(s as EditorStore, mode);
+            if (!layout) {
+              layout = { type: 'leaf', tabIds: [tabId], activeTabId: tabId };
+            } else {
+              const focusedLeaf = s.activeTabId ? findLeafWithTab(layout, s.activeTabId) : null;
+              const targetLeafTabId = focusedLeaf ? focusedLeaf.activeTabId : getFirstLeaf(layout).activeTabId;
+              layout = addTabToLeaf(layout, targetLeafTabId, tabId);
+            }
+            layoutUpdate = setLayoutForMode(mode, layout);
+          }
+        }
+
+        return {
+          ...layoutUpdate,
+          tabs: updatedTabs,
+          hosts: hostsUpdate,
+          activeTabId: targetHostId === MAIN_HOST_ID ? tabId : s.activeTabId,
+          focusedHostId: s.focusedHostId === sourceHostId && remainingHostTabs.length === 0
+            ? MAIN_HOST_ID
+            : s.focusedHostId,
+        };
+      });
+      console.log(`[EditorStore] moveTabToHost detached->host tabId=${tabId}, sourceHostId=${sourceHostId}, targetHostId=${targetHostId}`);
+    }
+  },
+
+  setHostActiveTab: (hostId, tabId) => {
+    if (hostId === MAIN_HOST_ID) {
+      get().setActiveTab(tabId);
+    } else {
+      const host = get().hosts[hostId];
+      if (host) {
+        set((s) => ({
+          hosts: { ...s.hosts, [hostId]: { ...host, activeTabId: tabId } },
+        }));
+      }
+    }
+  },
+
+  getHostTabs: (hostId) => {
+    return get().tabs.filter((t) => t.hostId === hostId);
+  },
+
+  setFocusedHost: (hostId) => {
+    set({ focusedHostId: hostId });
+  },
+
   clear: () => {
     Object.values(floatSaveTimers).forEach(clearTimeout);
     floatSaveTimers = {};
-    set({ tabs: [], activeTabId: null, sideLayout: null, fullLayout: null });
+    set({ tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: MAIN_HOST_ID });
   },
 }));

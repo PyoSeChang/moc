@@ -1,6 +1,6 @@
 import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, type WebContents } from 'electron';
 import { basename } from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS } from '@netior/shared/constants';
@@ -9,6 +9,7 @@ import type {
   TerminalSessionInfo,
   TerminalSessionState,
 } from '@netior/shared/types';
+
 
 function resolveShell(config?: TerminalLaunchConfig): { command: string; args: string[]; title: string } {
   if (config?.shell) {
@@ -39,15 +40,13 @@ function resolveShell(config?: TerminalLaunchConfig): { command: string; args: s
 interface TerminalSessionRecord {
   info: TerminalSessionInfo;
   process: IPty | null;
+  outputBuffer: string;
 }
+
+const MAX_REPLAY_CHARS = 200_000;
 
 class TerminalBackendService {
   private sessions = new Map<string, TerminalSessionRecord>();
-  private mainWindow: BrowserWindow | null = null;
-
-  init(mainWindow: BrowserWindow): void {
-    this.mainWindow = mainWindow;
-  }
 
   createInstance(sessionId: string, launchConfig: TerminalLaunchConfig): TerminalSessionInfo {
     const existing = this.sessions.get(sessionId);
@@ -67,13 +66,16 @@ class TerminalBackendService {
       rows: 30,
     };
 
-    this.sessions.set(sessionId, { info, process: null });
+    this.sessions.set(sessionId, { info, process: null, outputBuffer: '' });
     return info;
   }
 
-  attach(sessionId: string): TerminalSessionInfo {
+  attach(sessionId: string, target?: WebContents): TerminalSessionInfo {
     const record = this.requireSession(sessionId);
-    if (record.process) return record.info;
+    if (record.process) {
+      this.replaySession(record, target);
+      return record.info;
+    }
 
     record.info.exitCode = null;
     const ptyProcess = pty.spawn(record.info.shellPath, record.info.shellArgs, {
@@ -96,6 +98,10 @@ class TerminalBackendService {
     this.setState(record, 'starting');
 
     ptyProcess.onData((data) => {
+      record.outputBuffer = `${record.outputBuffer}${data}`;
+      if (record.outputBuffer.length > MAX_REPLAY_CHARS) {
+        record.outputBuffer = record.outputBuffer.slice(-MAX_REPLAY_CHARS);
+      }
       this.send(IPC_CHANNELS.TERMINAL_DATA, { sessionId, data });
     });
 
@@ -165,8 +171,38 @@ class TerminalBackendService {
   }
 
   private send(channel: string, payload: unknown): void {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, payload);
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(channel, payload);
+      }
+    }
+  }
+
+  private replaySession(record: TerminalSessionRecord, target?: WebContents): void {
+    if (!target || target.isDestroyed()) return;
+
+    console.log(`[PTY] replaySession sessionId=${record.info.sessionId}, state=${record.info.state}, bufferChars=${record.outputBuffer.length}`);
+
+    target.send(IPC_CHANNELS.TERMINAL_READY, {
+      sessionId: record.info.sessionId,
+      pid: record.info.pid,
+      cwd: record.info.cwd,
+      title: record.info.title,
+    });
+    target.send(IPC_CHANNELS.TERMINAL_STATE_CHANGED, {
+      sessionId: record.info.sessionId,
+      state: record.info.state,
+      exitCode: record.info.exitCode,
+    });
+    target.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGED, {
+      sessionId: record.info.sessionId,
+      title: record.info.title,
+    });
+    if (record.outputBuffer) {
+      target.send(IPC_CHANNELS.TERMINAL_DATA, {
+        sessionId: record.info.sessionId,
+        data: record.outputBuffer,
+      });
     }
   }
 }

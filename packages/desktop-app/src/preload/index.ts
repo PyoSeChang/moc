@@ -268,10 +268,11 @@ const electronAPI = {
     },
   },
   editor: {
-    detach: (tabId: string, title: string) => ipcRenderer.invoke('editor:detach', tabId, title),
+    detach: (hostId: string, title: string) => ipcRenderer.invoke('editor:detach', hostId, title),
     reattach: (tabId: string, mode: string) => ipcRenderer.send('editor:reattach', tabId, mode),
-    onDetachedClosed: (callback: (tabId: string) => void) => {
-      const handler = (_event: IpcRendererEvent, tabId: string) => callback(tabId);
+    closeDetachedWindow: (hostId: string) => ipcRenderer.send('editor:closeDetachedWindow', hostId),
+    onDetachedClosed: (callback: (hostId: string) => void) => {
+      const handler = (_event: IpcRendererEvent, hostId: string) => callback(hostId);
       ipcRenderer.on('editor:detached-closed', handler);
       return () => { ipcRenderer.removeListener('editor:detached-closed', handler); };
     },
@@ -280,6 +281,19 @@ const electronAPI = {
       ipcRenderer.on('editor:reattach-to-mode', handler);
       return () => { ipcRenderer.removeListener('editor:reattach-to-mode', handler); };
     },
+    // Cross-window state sync
+    pushState: (state: unknown) => ipcRenderer.send('editor:pushState', state),
+    getState: () => ipcRenderer.invoke('editor:getState') as Promise<unknown>,
+    onStateSync: (callback: (state: unknown) => void) => {
+      const handler = (_event: IpcRendererEvent, state: unknown) => callback(state);
+      ipcRenderer.on('editor:syncState', handler);
+      return () => { ipcRenderer.removeListener('editor:syncState', handler); };
+    },
+    // Cross-window tab drag
+    setDragTab: (tabId: string) => ipcRenderer.send('editor:dragStart', tabId),
+    getDragTab: () => ipcRenderer.invoke('editor:getDragData') as Promise<string | null>,
+    getDragTabSync: () => ipcRenderer.sendSync('editor:getDragDataSync') as string | null,
+    clearDragTab: () => ipcRenderer.send('editor:dragEnd'),
   },
 };
 

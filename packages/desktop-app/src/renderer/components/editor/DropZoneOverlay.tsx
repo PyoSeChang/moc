@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import type { SplitDirection } from '@netior/shared/types';
-import { isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
+import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
 
 export type DropZone = 'top' | 'bottom' | 'left' | 'right' | 'center';
 
@@ -52,6 +52,7 @@ export function DropZoneOverlay({ onDrop, centerOnly, active }: DropZoneOverlayP
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
+      console.log(`[DropZoneOverlay] dragOver centerOnly=${!!centerOnly}, zone=${getZone(e, centerOnly)}, types=${JSON.stringify(Array.from(e.dataTransfer.types))}`);
       setActiveZone(getZone(e, centerOnly));
     },
     [centerOnly],
@@ -63,17 +64,17 @@ export function DropZoneOverlay({ onDrop, centerOnly, active }: DropZoneOverlayP
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
+    async (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      const tabId = getTabDragData(e);
-      if (!tabId) return;
-
       const zone = getZone(e, centerOnly);
       const { direction, position } = zoneToSplit(zone);
-      onDrop({ tabId, zone, direction, position });
-
       setActiveZone(null);
+
+      const tabId = await getTabDragDataAsync(e);
+      console.log(`[DropZoneOverlay] drop centerOnly=${!!centerOnly}, zone=${zone}, tabId=${tabId}`);
+      if (!tabId) return;
+      onDrop({ tabId, zone, direction, position });
     },
     [onDrop, centerOnly],
   );

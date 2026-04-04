@@ -466,6 +466,21 @@ export interface CanvasBreadcrumbItem {
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
 export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre' | 'fileMetadata';
 
+/** Identifies a window that hosts editor tabs (main window or detached window) */
+export interface EditorHostState {
+  id: string;
+  /** Display label for the window (shown in context menu "Move to > ...") */
+  label: string;
+  /** 'main' for the primary window, 'detached' for pop-out windows */
+  kind: 'main' | 'detached';
+  /** Per-host active tab id */
+  activeTabId: string | null;
+  /** Split layout tree for side-mode tabs in this host */
+  sideLayout: SplitNode | null;
+  /** Split layout tree for full-mode tabs in this host */
+  fullLayout: SplitNode | null;
+}
+
 // Split layout tree for side/full editor panes
 export type SplitDirection = 'horizontal' | 'vertical';
 
@@ -491,6 +506,8 @@ export interface EditorTab {
   title: string;
   /** Target entity identifier: conceptId for concept tabs, absolutePath for file tabs */
   targetId: string;
+  /** Host window this tab belongs to */
+  hostId: string;
   viewMode: EditorViewMode;
   floatRect: { x: number; y: number; width: number; height: number };
   isMinimized: boolean;

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react';
 import { X, Terminal, Shapes, Link, Layout, Sparkles, Box, FileText } from 'lucide-react';
 import type { EditorTab } from '@netior/shared/types';
-import { setTabDragData, isTabDrag, getTabDragData } from '../../hooks/useTabDrag';
+import { setTabDragData, isTabDrag, getTabDragDataAsync, clearTabDragData } from '../../hooks/useTabDrag';
 import { ContextMenu } from '../ui/ContextMenu';
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import { buildTabContextMenu, buildStripContextMenu } from './tab-context-menu';
@@ -14,6 +14,8 @@ interface EditorTabStripProps {
   activeTabId: string | null;
   /** Whether this pane is the globally focused pane */
   isFocusedPane?: boolean;
+  /** Host id for context menu actions (defaults to main) */
+  hostId?: string;
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onTabDrop?: (tabId: string) => void;
@@ -104,6 +106,7 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
       ref={isActive ? (activeRef as React.LegacyRef<HTMLDivElement>) : undefined}
       draggable={!isRenaming}
       onDragStart={(e) => setTabDragData(e, tab.id)}
+      onDragEnd={() => clearTabDragData()}
       className={`group flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
         isActive
           ? `tab-active bg-surface-panel text-default border-l border-r border-default ${
@@ -111,7 +114,7 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
             }`
           : 'relative text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'
       }`}
-      style={{ height: 30 }}
+      style={{ height: 30, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onClick={() => !isRenaming && onActivate(tab.id)}
       onContextMenu={(e) => onContextMenu(e, tab)}
     >
@@ -168,7 +171,7 @@ function InlineRenameInput({ value, onSubmit, onCancel }: { value: string; onSub
   );
 }
 
-export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, onActivate, onClose, onTabDrop, rightSlot }: EditorTabStripProps): JSX.Element {
+export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId, onActivate, onClose, onTabDrop, rightSlot }: EditorTabStripProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -209,29 +212,32 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, onActi
 
   const handleStripContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    setCtxMenu({ x: e.clientX, y: e.clientY, items: buildStripContextMenu(tabs) });
-  }, [tabs]);
+    setCtxMenu({ x: e.clientX, y: e.clientY, items: buildStripContextMenu(tabs, hostId) });
+  }, [tabs, hostId]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!isTabDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    console.log(`[EditorTabStrip] dragOver host=${hostId ?? 'main'}, types=${JSON.stringify(Array.from(e.dataTransfer.types))}`);
     setDragOver(true);
-  }, []);
+  }, [hostId]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const tabId = getTabDragData(e);
-    if (tabId && onTabDrop) {
+    if (!onTabDrop) return;
+    const tabId = await getTabDragDataAsync(e);
+    console.log(`[EditorTabStrip] drop host=${hostId ?? 'main'}, tabId=${tabId}`);
+    if (tabId) {
       onTabDrop(tabId);
     }
-  }, [onTabDrop]);
+  }, [hostId, onTabDrop]);
 
   const handleRenameSubmit = useCallback((tabId: string, newTitle: string) => {
     useEditorStore.getState().updateTitle(tabId, newTitle, true);
@@ -243,7 +249,7 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, onActi
       className={`tab-strip flex shrink-0 items-end bg-surface-base transition-colors ${
         dragOver ? 'bg-accent/10' : ''
       }`}
-      style={{ height: 35 }}
+      style={{ height: 35, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

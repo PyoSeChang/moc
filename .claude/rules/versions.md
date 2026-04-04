@@ -3,17 +3,17 @@
 ```yaml
 packages:
   shared:
-    version: "0.4.0"
+    version: "0.5.0"
     type: minor
-    summary: "패인 전환, 에이전트 점프 단축키 i18n 키 추가"
-    impact: local
+    summary: "/index 슬래시 커맨드, 파일 멘션 i18n, PDF TOC 입력 폼 i18n 추가"
+    impact: cross-package
     contracts: []
   core:
-    version: "0.2.0"
+    version: "0.3.0"
     type: minor
-    summary: "File 1급 엔티티 (files 테이블, FileRepository), canvas_nodes에 file_id/metadata 추가, concept_files 제거"
-    impact: local
-    contracts: []
+    summary: "updateFileMetadataField 함수 추가 -- 파일 메타데이터 단일 키 머지 저장"
+    impact: cross-package
+    contracts: [api]
   mcp:
     version: "0.2.0"
     type: minor
@@ -21,15 +21,15 @@ packages:
     impact: cross-package
     contracts: [tooling]
   narre-server:
-    version: "0.1.0"
+    version: "0.2.0"
     type: minor
-    summary: "Narre AI 에이전트 서버 초기 구현 - Claude Agent SDK 기반 SSE 스트리밍, 슬래시 커맨드, UI 도구"
-    impact: local
-    contracts: []
+    summary: "/index TOC 추출 프롬프트, NETIOR_ELECTRON_PATH MCP 네이티브 모듈 호환"
+    impact: cross-package
+    contracts: [prompt, tooling]
   desktop-app:
-    version: "0.5.1"
-    type: patch
-    summary: "초기 버전"
+    version: "0.6.0"
+    type: minor
+    summary: "Narre /index PDF 목차 워크플로우, 파일 멘션 시스템, ELECTRON_RUN_AS_NODE MCP 호환"
     impact: local
     contracts: []
   narre-eval:

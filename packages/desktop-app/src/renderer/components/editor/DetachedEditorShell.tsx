@@ -6,8 +6,10 @@ import { EditorViewModeSwitch } from './EditorViewModeSwitch';
 import { CloseConfirmDialog } from './CloseConfirmDialog';
 import { WindowControls } from '../ui/WindowControls';
 import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
+import { useProjectStore } from '../../stores/project-store';
 import { useDetachedShortcuts } from '../../shortcuts/useDetachedShortcuts';
 import { initDetachedBridge } from '../../lib/editor-state-bridge';
+import { useNetiorSync } from '../../hooks/useNetiorSync';
 
 interface DetachedEditorShellProps {
   hostId: string;
@@ -25,6 +27,9 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
     });
     return () => cleanup?.();
   }, []);
+
+  const projectId = useProjectStore((s) => s.currentProject?.id ?? null);
+  useNetiorSync(projectId);
 
   const tabs = useEditorStore((s) => s.tabs.filter((t) => t.hostId === hostId));
   const host = useEditorStore((s) => s.hosts[hostId]);

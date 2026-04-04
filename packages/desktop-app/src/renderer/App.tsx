@@ -17,6 +17,7 @@ import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
 import { initTerminalAgentNotifier } from './lib/terminal-agent-notifier';
 import { useGlobalShortcuts } from './shortcuts/useGlobalShortcuts';
 import { initMainBridge } from './lib/editor-state-bridge';
+import { useNetiorSync } from './hooks/useNetiorSync';
 
 initTerminalTracker();
 initClaudeTerminalTracker();
@@ -208,6 +209,7 @@ export default function App(): JSX.Element {
   useGlobalShortcuts();
 
   const { currentProject } = useProjectStore();
+  useNetiorSync(currentProject?.id ?? null);
   const {
     showSettings,
     showShortcutOverlay,

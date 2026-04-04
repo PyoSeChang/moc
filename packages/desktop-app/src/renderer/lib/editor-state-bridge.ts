@@ -18,7 +18,14 @@
  */
 
 import { useEditorStore } from '../stores/editor-store';
-import type { EditorTab, SplitNode } from '@netior/shared/types';
+import { useProjectStore } from '../stores/project-store';
+import { useConceptStore } from '../stores/concept-store';
+import { useArchetypeStore } from '../stores/archetype-store';
+import { useRelationTypeStore } from '../stores/relation-type-store';
+import { useCanvasTypeStore } from '../stores/canvas-type-store';
+import { useCanvasStore } from '../stores/canvas-store';
+import { useModuleStore } from '../stores/module-store';
+import type { EditorTab, Project, SplitNode } from '@netior/shared/types';
 
 interface SyncState {
   tabs: EditorTab[];
@@ -26,11 +33,14 @@ interface SyncState {
   sideLayout: SplitNode | null;
   fullLayout: SplitNode | null;
   hosts: Record<string, { id: string; label: string; activeTabId: string | null }>;
+  focusedHostId: string;
+  currentProject: Project | null;
 }
 
 let _isSyncing = false;
 let _syncScheduled = false;
 let _unsubscribe: (() => void) | null = null;
+let _projectUnsubscribe: (() => void) | null = null;
 let _cleanupListener: (() => void) | null = null;
 
 function getSyncState(): SyncState {
@@ -41,6 +51,8 @@ function getSyncState(): SyncState {
     sideLayout: s.sideLayout,
     fullLayout: s.fullLayout,
     hosts: s.hosts,
+    focusedHostId: s.focusedHostId,
+    currentProject: useProjectStore.getState().currentProject,
   };
 }
 
@@ -52,8 +64,33 @@ function applySyncState(state: SyncState): void {
     sideLayout: state.sideLayout,
     fullLayout: state.fullLayout,
     hosts: state.hosts,
+    focusedHostId: state.focusedHostId,
   });
+
+  // Sync project context for workspace stores
+  const currentProject = useProjectStore.getState().currentProject;
+  if (state.currentProject && currentProject?.id !== state.currentProject.id) {
+    bootstrapWorkspaceStores(state.currentProject);
+  } else if (!state.currentProject && currentProject) {
+    // Project closed in main window
+    useProjectStore.setState({ currentProject: null });
+  }
+
   _isSyncing = false;
+}
+
+/** Hydrate workspace stores from DB so editors in detached windows have full context. */
+function bootstrapWorkspaceStores(project: Project): void {
+  // Set project directly (skip openProject's filesystem checks / state cache logic)
+  useProjectStore.setState({ currentProject: project });
+
+  const pid = project.id;
+  useConceptStore.getState().loadByProject(pid);
+  useArchetypeStore.getState().loadByProject(pid);
+  useRelationTypeStore.getState().loadByProject(pid);
+  useCanvasTypeStore.getState().loadByProject(pid);
+  useCanvasStore.getState().loadCanvases(pid);
+  useModuleStore.getState().loadModules(pid);
 }
 
 function schedulePush(): void {
@@ -75,8 +112,17 @@ function startSubscription(): void {
       state.activeTabId !== prev.activeTabId ||
       state.sideLayout !== prev.sideLayout ||
       state.fullLayout !== prev.fullLayout ||
-      state.hosts !== prev.hosts
+      state.hosts !== prev.hosts ||
+      state.focusedHostId !== prev.focusedHostId
     ) {
+      schedulePush();
+    }
+  });
+
+  // Also track project changes (main window may switch/close project)
+  _projectUnsubscribe = useProjectStore.subscribe((state, prev) => {
+    if (_isSyncing) return;
+    if (state.currentProject !== prev.currentProject) {
       schedulePush();
     }
   });
@@ -89,6 +135,15 @@ function startListener(): void {
   });
 }
 
+function cleanup(): void {
+  _unsubscribe?.();
+  _projectUnsubscribe?.();
+  _cleanupListener?.();
+  _unsubscribe = null;
+  _projectUnsubscribe = null;
+  _cleanupListener = null;
+}
+
 /** Initialize bridge for the main window. Pushes initial state and starts sync. */
 export function initMainBridge(): () => void {
   // Push initial state so main process has a cache for detached windows that boot later
@@ -97,12 +152,7 @@ export function initMainBridge(): () => void {
   startListener();
   startSubscription();
 
-  return () => {
-    _unsubscribe?.();
-    _cleanupListener?.();
-    _unsubscribe = null;
-    _cleanupListener = null;
-  };
+  return cleanup;
 }
 
 /** Initialize bridge for a detached window. Fetches state, then starts sync. */
@@ -116,10 +166,5 @@ export async function initDetachedBridge(): Promise<() => void> {
   startListener();
   startSubscription();
 
-  return () => {
-    _unsubscribe?.();
-    _cleanupListener?.();
-    _unsubscribe = null;
-    _cleanupListener = null;
-  };
+  return cleanup;
 }

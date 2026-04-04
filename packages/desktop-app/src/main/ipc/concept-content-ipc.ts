@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@netior/shared/types';
 import { getDatabase, updateConcept, upsertProperty, serializeToAgent, parseFromAgent } from '@netior/core';
 import type { Archetype, ArchetypeField, Concept, ConceptProperty } from '@netior/shared/types';
+import { broadcastChange } from './broadcast-change';
 
 type ArchetypeFieldRow = Omit<ArchetypeField, 'required'> & { required: number };
 
@@ -42,6 +43,7 @@ export function registerConceptContentIpc(): void {
 
       const agentContent = serializeToAgent(data);
       const updated = updateConcept(conceptId, { agent_content: agentContent });
+      broadcastChange({ type: 'concepts', action: 'updated', id: conceptId });
       return { success: true, data: updated };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -78,6 +80,7 @@ export function registerConceptContentIpc(): void {
 
       const db = getDatabase();
       const result = db.prepare('SELECT * FROM concepts WHERE id = ?').get(conceptId);
+      broadcastChange({ type: 'concepts', action: 'updated', id: conceptId });
       return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };

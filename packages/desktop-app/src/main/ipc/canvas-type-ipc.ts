@@ -5,11 +5,14 @@ import {
   updateCanvasType, deleteCanvasType,
   addAllowedRelation, removeAllowedRelation, removeAllowedRelationByPair, listAllowedRelations,
 } from '@netior/core';
+import { broadcastChange } from './broadcast-change';
 
 export function registerCanvasTypeIpc(): void {
   ipcMain.handle('canvasType:create', async (_e, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: createCanvasType(data) };
+      const result = createCanvasType(data);
+      broadcastChange({ type: 'canvasTypes', action: 'created', id: result.id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -33,7 +36,9 @@ export function registerCanvasTypeIpc(): void {
 
   ipcMain.handle('canvasType:update', async (_e, id: string, data): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: updateCanvasType(id, data) };
+      const result = updateCanvasType(id, data);
+      broadcastChange({ type: 'canvasTypes', action: 'updated', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -41,7 +46,9 @@ export function registerCanvasTypeIpc(): void {
 
   ipcMain.handle('canvasType:delete', async (_e, id: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: deleteCanvasType(id) };
+      const result = deleteCanvasType(id);
+      broadcastChange({ type: 'canvasTypes', action: 'deleted', id });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -49,7 +56,9 @@ export function registerCanvasTypeIpc(): void {
 
   ipcMain.handle('canvasType:addRelation', async (_e, canvasTypeId: string, relationTypeId: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: addAllowedRelation(canvasTypeId, relationTypeId) };
+      const result = addAllowedRelation(canvasTypeId, relationTypeId);
+      broadcastChange({ type: 'canvasTypes', action: 'updated', id: canvasTypeId });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
@@ -57,7 +66,9 @@ export function registerCanvasTypeIpc(): void {
 
   ipcMain.handle('canvasType:removeRelation', async (_e, canvasTypeId: string, relationTypeId: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: removeAllowedRelationByPair(canvasTypeId, relationTypeId) };
+      const result = removeAllowedRelationByPair(canvasTypeId, relationTypeId);
+      broadcastChange({ type: 'canvasTypes', action: 'updated', id: canvasTypeId });
+      return { success: true, data: result };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

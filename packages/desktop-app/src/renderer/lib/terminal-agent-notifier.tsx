@@ -58,9 +58,12 @@ export function getUnacknowledgedEntries(): readonly UnacknowledgedEntry[] {
 export function jumpToNextUnacknowledgedAgent(): void {
   if (unacknowledgedQueue.length === 0) return;
   const entry = unacknowledgedQueue[0];
-  const { tabs, setActiveTab } = useEditorStore.getState();
-  if (tabs.find((t) => t.id === entry.tabId)) {
-    setActiveTab(entry.tabId);
+  const store = useEditorStore.getState();
+  const tab = store.tabs.find((t) => t.id === entry.tabId);
+  if (tab) {
+    // Activate in the correct host and set focus
+    store.setHostActiveTab(tab.hostId, tab.id);
+    store.setFocusedHost(tab.hostId);
     // acknowledgeAgent will be called by the activeTabId listener
   } else {
     // Tab no longer exists — discard
@@ -77,10 +80,26 @@ function initActiveTabListener(): void {
   activeTabListenerInitialized = true;
 
   let prevActiveTabId: string | null = null;
+  let prevHostActiveTabIds: Record<string, string | null> = {};
+
   useEditorStore.subscribe((state) => {
+    // Main host active tab
     if (state.activeTabId !== prevActiveTabId) {
       prevActiveTabId = state.activeTabId;
       if (state.activeTabId) acknowledgeAgent(state.activeTabId);
+    }
+
+    // Detached host active tabs
+    for (const [hostId, host] of Object.entries(state.hosts)) {
+      if (host.activeTabId !== prevHostActiveTabIds[hostId]) {
+        prevHostActiveTabIds[hostId] = host.activeTabId;
+        if (host.activeTabId) acknowledgeAgent(host.activeTabId);
+      }
+    }
+
+    // Clean up removed hosts
+    for (const hostId of Object.keys(prevHostActiveTabIds)) {
+      if (!state.hosts[hostId]) delete prevHostActiveTabIds[hostId];
     }
   });
 }
@@ -125,14 +144,26 @@ function getProviderLabel(provider: AgentProvider): string {
   }
 }
 
+function isTabActiveInHost(tabId: string): boolean {
+  const store = useEditorStore.getState();
+  const tab = store.tabs.find((t) => t.id === tabId);
+  if (!tab) return false;
+
+  if (tab.hostId === 'main') {
+    return store.activeTabId === tabId;
+  }
+  const host = store.hosts[tab.hostId];
+  return host?.activeTabId === tabId;
+}
+
 function maybeNotify(snapshot: AgentTerminalSnapshot): void {
   const tabId = getTerminalTabId(snapshot.terminalSessionId);
-  const { activeTabId, tabs, setActiveTab } = useEditorStore.getState();
+  const store = useEditorStore.getState();
 
-  // If the tab is already active, no notification needed
-  if (activeTabId === tabId) return;
+  // If the tab is already active in its host, no notification needed
+  if (isTabActiveInHost(tabId)) return;
 
-  const tab = tabs.find((entry) => entry.id === tabId);
+  const tab = store.tabs.find((entry) => entry.id === tabId);
   const title = snapshot.terminalName || tab?.title || `${getProviderLabel(snapshot.provider)} Terminal`;
 
   // Add to unacknowledged queue (avoid duplicates)
@@ -154,7 +185,10 @@ function maybeNotify(snapshot: AgentTerminalSnapshot): void {
     icon: snapshot.provider === 'claude' ? <ClaudeIcon /> : undefined,
     actionLabel: '해당 탭으로 이동하기 (Ctrl+.)',
     onAction: () => {
-      if (tab) setActiveTab(tab.id);
+      if (tab) {
+        store.setHostActiveTab(tab.hostId, tab.id);
+        store.setFocusedHost(tab.hostId);
+      }
     },
   });
 }

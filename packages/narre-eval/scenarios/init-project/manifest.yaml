@@ -1,0 +1,24 @@
+id: init-project
+title: "빈 프로젝트에 역사 도메인 타입 세팅"
+description: "빈 프로젝트에 역사 도메인 타입 세팅 요청"
+scenario_version: "1.0.0"
+schema_version: 1
+type: single-turn
+lifecycle: active
+labels: [archetype, init]
+
+execution:
+  supported_agents: [narre-server]
+  required_capabilities: [tool_call_trace]
+
+turn_plan:
+  file: turns.yaml
+
+entrypoints:
+  seed: seed.ts
+
+assets:
+  verify:
+    - verify/checks.yaml
+  rubrics:
+    - rubrics/quality.yaml

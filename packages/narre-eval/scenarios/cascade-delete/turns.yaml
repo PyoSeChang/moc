@@ -1,0 +1,5 @@
+turns:
+  - role: user
+    content: "인물 아크타입을 삭제해줘"
+  - role: user
+    content: "응, 삭제해"

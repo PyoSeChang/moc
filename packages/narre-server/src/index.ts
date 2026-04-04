@@ -133,9 +133,10 @@ app.post('/chat', async (req, res) => {
     return;
   }
 
+  let activeSessionId = sessionId;
+
   try {
     // 1. Resolve or create session
-    let activeSessionId = sessionId;
     if (!activeSessionId) {
       const newSession = await sessionStore.createSession(projectId, message.slice(0, 60));
       activeSessionId = newSession.id;
@@ -277,13 +278,13 @@ app.post('/chat', async (req, res) => {
       });
     }
 
-    sendSSEEvent(res, { type: 'done' });
+    sendSSEEvent(res, { type: 'done', sessionId: activeSessionId });
     endSSE(res);
   } catch (error) {
     console.error('Chat endpoint error:', error);
     if (res.headersSent) {
       sendSSEEvent(res, { type: 'error', error: (error as Error).message });
-      sendSSEEvent(res, { type: 'done' });
+      sendSSEEvent(res, { type: 'done', sessionId: activeSessionId });
       endSSE(res);
     } else {
       res.status(500).json({ error: (error as Error).message });

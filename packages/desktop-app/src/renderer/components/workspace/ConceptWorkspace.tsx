@@ -50,12 +50,13 @@ function toRenderNodes(nodes: CanvasNodeWithConcept[], archetypes: Archetype[]):
     // file or dir node
     const isFile = n.file?.type === 'file';
     const filePath = n.file?.path;
+    const fileName = filePath?.replace(/\\/g, '/').split('/').pop() || '?';
     return {
       id: n.id,
       x: n.position_x,
       y: n.position_y,
-      label: filePath?.replace(/\\/g, '/').split('/').pop() || '?',
-      icon: isFile ? '📄' : '📁',
+      label: fileName,
+      icon: isFile ? `file:${fileName}` : `folder:${fileName}`,
       semanticType: isFile ? 'file' : 'directory',
       semanticTypeLabel: isFile ? 'File' : 'Directory',
       width: n.width ?? 140,

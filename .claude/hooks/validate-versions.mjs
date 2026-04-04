@@ -30,6 +30,8 @@ try {
     // Find latest changelog
     let summary = '초기 버전';
     let type = 'patch';
+    let impact = 'local';
+    let contracts = [];
     const changelogDir = join(root, 'changelog', short);
     if (existsSync(changelogDir)) {
       const files = readdirSync(changelogDir)
@@ -48,10 +50,12 @@ try {
         const fm = parseFrontmatter(content);
         if (fm.summary) summary = fm.summary;
         if (fm.type) type = fm.type;
+        if (fm.impact) impact = fm.impact;
+        if (fm.contracts) contracts = fm.contracts;
       }
     }
 
-    actual[short] = { version, type, summary };
+    actual[short] = { version, type, summary, impact, contracts };
   }
 
   // 2. Read current versions.md
@@ -66,7 +70,13 @@ try {
   for (const short of SHORT_ORDER) {
     if (!actual[short]) continue;
     const cur = currentYaml[short] || {};
-    if (cur.version !== actual[short].version || cur.type !== actual[short].type || cur.summary !== actual[short].summary) {
+    if (
+      cur.version !== actual[short].version ||
+      cur.type !== actual[short].type ||
+      cur.summary !== actual[short].summary ||
+      cur.impact !== actual[short].impact ||
+      formatContracts(cur.contracts) !== formatContracts(actual[short].contracts)
+    ) {
       needsUpdate = true;
       break;
     }
@@ -90,13 +100,24 @@ function parseFrontmatter(content) {
   if (!match) return {};
   const result = {};
   for (const line of match[1].split('\n')) {
+    // Quoted value: key: "value"
     const m = line.match(/^(\w[\w-]*):\s*"(.+?)"\s*$/);
     if (m) {
       result[m[1]] = m[2];
-    } else {
-      const m2 = line.match(/^(\w[\w-]*):\s*(.+?)\s*$/);
-      if (m2) result[m2[1]] = m2[2];
+      continue;
     }
+    // Inline array: key: [a, b, c] or key: []
+    const mArr = line.match(/^(\w[\w-]*):\s*\[([^\]]*)\]\s*$/);
+    if (mArr) {
+      const items = mArr[2].trim()
+        ? mArr[2].split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+      result[mArr[1]] = items;
+      continue;
+    }
+    // Plain value: key: value
+    const m2 = line.match(/^(\w[\w-]*):\s*(.+?)\s*$/);
+    if (m2) result[m2[1]] = m2[2];
   }
   return result;
 }
@@ -114,27 +135,44 @@ function parseVersionsYaml(content) {
       continue;
     }
     if (currentPkg) {
+      // Quoted value
       const valMatch = line.match(/^\s{4}(\w+):\s*"(.+?)"/);
       if (valMatch) {
         result[currentPkg][valMatch[1]] = valMatch[2];
-      } else {
-        const bareMatch = line.match(/^\s{4}(\w+):\s*(\S+)\s*$/);
-        if (bareMatch) result[currentPkg][bareMatch[1]] = bareMatch[2];
+        continue;
       }
+      // Inline array: key: [a, b, c]
+      const arrMatch = line.match(/^\s{4}(\w+):\s*\[([^\]]*)\]/);
+      if (arrMatch) {
+        result[currentPkg][arrMatch[1]] = arrMatch[2].trim()
+          ? arrMatch[2].split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+        continue;
+      }
+      // Plain value
+      const bareMatch = line.match(/^\s{4}(\w+):\s*(\S+)\s*$/);
+      if (bareMatch) result[currentPkg][bareMatch[1]] = bareMatch[2];
     }
   }
   return result;
+}
+
+function formatContracts(contracts) {
+  if (!contracts || !Array.isArray(contracts)) return '';
+  return contracts.slice().sort().join(',');
 }
 
 function buildVersionsYaml(packages) {
   let yaml = 'packages:\n';
   for (const short of SHORT_ORDER) {
     if (!packages[short]) continue;
-    const { version, type, summary } = packages[short];
+    const { version, type, summary, impact, contracts } = packages[short];
     yaml += `  ${short}:\n`;
     yaml += `    version: "${version}"\n`;
     yaml += `    type: ${type}\n`;
     yaml += `    summary: "${summary}"\n`;
+    yaml += `    impact: ${impact || 'local'}\n`;
+    yaml += `    contracts: [${(contracts || []).join(', ')}]\n`;
   }
   return yaml;
 }

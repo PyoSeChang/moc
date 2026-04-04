@@ -1,8 +1,10 @@
 import { appendFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import type { ScenarioResult } from './types.js';
+import type { ScenarioResult, RunMetadata } from './types.js';
 
-const TSV_HEADER = 'timestamp\tscenario_id\tverify_pass\tverify_total\ttool_calls\tjudge_avg\tjudge_scores\tduration_ms\tnotes';
+const TSV_HEADER = 'timestamp\tscenario_id\tstatus\tverify_pass\tverify_total\ttool_calls\tjudge_avg\tjudge_scores\tduration_ms\tnotes';
+
+// ── Legacy: per-scenario results/ ──
 
 export function recordResult(scenarioDir: string, result: ScenarioResult): void {
   const resultsDir = join(scenarioDir, 'results');
@@ -31,6 +33,7 @@ export function recordResult(scenarioDir: string, result: ScenarioResult): void 
   const line = [
     result.timestamp,
     result.scenarioId,
+    result.status,
     result.verifyResults.passed,
     result.verifyResults.total,
     result.transcript.totalToolCalls,
@@ -48,6 +51,49 @@ export function recordResult(scenarioDir: string, result: ScenarioResult): void 
   writeFileSync(transcriptPath, JSON.stringify(result, null, 2), 'utf-8');
 }
 
+// ── Run-based output: runs/{timestamp}_{runId}/ ──
+
+export function recordRunResult(
+  packageRoot: string,
+  runMeta: RunMetadata,
+  results: ScenarioResult[],
+): void {
+  const ts = runMeta.startedAt.replace(/[:.]/g, '-').slice(0, 19);
+  const runDirName = `${ts}_${runMeta.runId}`;
+  const runDir = join(packageRoot, 'runs', runDirName);
+  mkdirSync(runDir, { recursive: true });
+
+  // run.json
+  writeFileSync(
+    join(runDir, 'run.json'),
+    JSON.stringify(runMeta, null, 2),
+    'utf-8',
+  );
+
+  // Per-scenario result.json + transcript.json
+  for (const result of results) {
+    const scenarioDir = join(runDir, 'scenarios', result.scenarioId);
+    mkdirSync(scenarioDir, { recursive: true });
+
+    // result.json — everything except transcript (kept separate for size)
+    const { transcript, ...resultWithoutTranscript } = result;
+    writeFileSync(
+      join(scenarioDir, 'result.json'),
+      JSON.stringify(resultWithoutTranscript, null, 2),
+      'utf-8',
+    );
+
+    // transcript.json
+    writeFileSync(
+      join(scenarioDir, 'transcript.json'),
+      JSON.stringify(transcript, null, 2),
+      'utf-8',
+    );
+  }
+}
+
+// ── Console summary ──
+
 export function printSummary(results: ScenarioResult[]): void {
   console.log('\n' + '='.repeat(60));
   console.log('  EVAL RESULTS');
@@ -63,14 +109,18 @@ export function printSummary(results: ScenarioResult[]): void {
     const toolStr = `${r.transcript.totalToolCalls} tools`;
     const timeStr = `${(r.durationMs / 1000).toFixed(1)}s`;
 
-    const allPass = r.verifyResults.passed === r.verifyResults.total;
-    const status = r.error ? 'ERROR' : allPass ? 'PASS' : 'FAIL';
-    const icon = status === 'PASS' ? '[OK]' : status === 'FAIL' ? '[FAIL]' : '[ERR]';
+    const iconMap = { pass: '[OK]', fail: '[FAIL]', error: '[ERR]', skipped: '[SKIP]' };
+    const icon = iconMap[r.status];
 
     console.log(`\n  ${icon} ${r.scenarioId}`);
-    console.log(`      Verify: ${verifyStatus}  Judge: ${judgeStr}  ${toolStr}  ${timeStr}`);
 
-    if (!allPass) {
+    if (r.status === 'skipped') {
+      console.log(`      Reason: ${r.skipReason}`);
+    } else {
+      console.log(`      Verify: ${verifyStatus}  Judge: ${judgeStr}  ${toolStr}  ${timeStr}`);
+    }
+
+    if (r.status === 'fail') {
       const failed = r.verifyResults.results.filter((a) => !a.passed);
       for (const f of failed) {
         console.log(`      - ${f.name}: ${f.detail}`);
@@ -85,6 +135,12 @@ export function printSummary(results: ScenarioResult[]): void {
 
     if (r.error) {
       console.log(`      Error: ${r.error}`);
+    }
+
+    if (r.comparison) {
+      const c = r.comparison;
+      const arrow = c.statusChanged ? `${c.previousStatus} -> ${c.currentStatus}` : `${c.currentStatus} (unchanged)`;
+      console.log(`      Baseline: ${arrow}  verify delta: ${c.verifyPassedDelta >= 0 ? '+' : ''}${c.verifyPassedDelta}`);
     }
 
     totalPass += r.verifyResults.passed;

@@ -1,4 +1,4 @@
-# Package Versions
+﻿# Package Versions
 
 ```yaml
 packages:
@@ -27,9 +27,9 @@ packages:
     impact: local
     contracts: []
   desktop-app:
-    version: "0.5.0"
+    version: "0.5.1"
     type: patch
-    summary: "초기 버전"
+    summary: "detached 에디터 워크스페이스를 멀티 윈도우 호스트로 정리하고 탭 이동 및 터미널 재부착 동작을 안정화"
     impact: local
     contracts: []
   narre-eval:

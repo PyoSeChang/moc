@@ -8,7 +8,7 @@ import { IPC_CHANNELS } from '@netior/shared/constants';
 import {
   getSetting, setSetting,
   searchConcepts, listArchetypes, listRelationTypes, listCanvasTypes, listCanvases,
-  getProjectById,
+  getProjectById, getFileEntitiesByProject,
 } from '@netior/core';
 import { startNarreServer, isNarreServerRunning } from '../process/narre-server-manager';
 
@@ -227,6 +227,19 @@ export function registerNarreIpc(): void {
           results.push({
             type: 'canvas', id: cv.id, display: cv.name,
             meta: { conceptId: cv.concept_id, canvasTypeId: cv.canvas_type_id },
+          });
+        }
+      }
+
+      // Search file entities
+      const files = getFileEntitiesByProject(projectId);
+      for (const fe of files) {
+        if (results.length >= maxResults) break;
+        const fileName = fe.path.split('/').pop() ?? fe.path;
+        if (fileName.toLowerCase().includes(lowerQuery) || fe.path.toLowerCase().includes(lowerQuery)) {
+          results.push({
+            type: 'file', id: fe.id, display: fileName,
+            meta: { path: fe.path, fileType: fe.type },
           });
         }
       }

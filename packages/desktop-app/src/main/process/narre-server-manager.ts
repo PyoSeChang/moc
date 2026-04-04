@@ -54,9 +54,11 @@ export function startNarreServer(config: {
   console.log(`[narre-server] Port: ${port}`);
   console.log(`[narre-server] API key: ${config.apiKey ? '***set***' : '(empty, will use OAuth)'}`);
 
-  narreProcess = spawn('node', [modulePath], {
+  narreProcess = spawn(process.execPath, [modulePath], {
     env: {
       ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      NETIOR_ELECTRON_PATH: process.execPath,
       ANTHROPIC_API_KEY: config.apiKey,
       MOC_DB_PATH: config.dbPath,
       MOC_DATA_DIR: config.dataDir,

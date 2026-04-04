@@ -1,30 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { listModules, listModuleDirectories } from '@netior/core';
 import { readdirSync, readFileSync } from 'fs';
-import { resolve } from 'path';
 import fg from 'fast-glob';
-
-function getAllowedPaths(projectId: string): string[] {
-  const modules = listModules(projectId);
-  return modules.flatMap(m =>
-    listModuleDirectories(m.id).map(d => resolve(d.dir_path))
-  );
-}
-
-function isPathAllowed(targetPath: string, allowedPaths: string[]): boolean {
-  const resolved = resolve(targetPath);
-  return allowedPaths.some(allowed =>
-    resolved === allowed || resolved.startsWith(allowed + '/') || resolved.startsWith(allowed + '\\')
-  );
-}
-
-function validatePath(projectId: string, targetPath: string): string[] | string {
-  const allowed = getAllowedPaths(projectId);
-  if (allowed.length === 0) return 'No module directories registered for this project';
-  if (!isPathAllowed(targetPath, allowed)) return 'Path is outside registered module directories';
-  return allowed;
-}
+import { getAllowedPaths, validatePath } from './path-validation.js';
 
 export function registerFilesystemTools(server: McpServer): void {
   server.tool(

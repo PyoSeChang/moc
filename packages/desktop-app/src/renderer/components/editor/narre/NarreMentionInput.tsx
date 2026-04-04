@@ -73,6 +73,10 @@ function createMentionChip(mention: MentionResult): HTMLSpanElement {
   chip.dataset.mentionType = mention.type;
   chip.dataset.mentionId = mention.id;
   chip.dataset.mentionDisplay = mention.display;
+  // Store path from meta for file mentions (and module mentions)
+  if (typeof mention.meta?.path === 'string') {
+    chip.dataset.mentionPath = mention.meta.path;
+  }
   chip.className =
     'inline-flex items-center gap-0.5 rounded px-1 py-0 mx-0.5 text-xs font-medium cursor-default select-none bg-[var(--accent)]/15 text-[var(--accent)]';
   chip.textContent = mention.display;

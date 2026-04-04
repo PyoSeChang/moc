@@ -221,6 +221,7 @@
     "search": "Search settings",
     "categoryAppearance": "Appearance",
     "categoryLanguage": "Language & Region",
+    "categoryNotifications": "Notifications",
     "mode": "Mode",
     "modeDesc": "Choose the brightness mode for the app.",
     "dark": "Dark",
@@ -228,7 +229,11 @@
     "theme": "Theme",
     "themeDesc": "Choose the color theme for the app.",
     "language": "Language",
-    "languageDesc": "Choose the display language for the app."
+    "languageDesc": "Choose the display language for the app.",
+    "detachedAgentToasts": "Detached Agent Toasts",
+    "detachedAgentToastsDesc": "Choose when detached windows should also show agent-complete toast notifications. Main window toasts always remain enabled.",
+    "detachedAgentToastsAlways": "Always Show",
+    "detachedAgentToastsInactiveOnly": "Only When Tab Inactive"
   },
   "shortcuts": {
     "overlay": {
@@ -516,9 +521,11 @@
     "mentionArchetype": "Archetype",
     "mentionRelationType": "Relation Type",
     "mentionCanvasType": "Canvas Type",
+    "mentionFile": "File",
     "mentionSearch": "Search...",
     "command": {
       "onboarding": "Build project type system",
+      "index": "PDF table of contents indexing",
       "unknownCommand": "Unknown command: {name}"
     },
     "card": {
@@ -539,7 +546,14 @@
     "sidebar": "Table of Contents",
     "tocToggle": "Toggle TOC panel",
     "emptyTitle": "No table of contents",
-    "emptyHint": "Use /index in Narre to generate a TOC, or write it manually in the metadata editor."
+    "emptyHint": "Use /index in Narre to generate a TOC, or write it manually in the metadata editor.",
+    "inputTitle": "Specify TOC page range",
+    "startPage": "Start page",
+    "endPage": "End page",
+    "overviewPages": "Overview pages (optional)",
+    "overviewPagesHint": "Comma-separated (e.g. 1, 2, 3)",
+    "startAnalysis": "Start analysis",
+    "noFile": "Please mention a PDF file"
   },
   "pdfViewer": {
     "fitWidth": "Fit to width",

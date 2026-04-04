@@ -46,6 +46,23 @@ export function updateFileEntity(id: string, data: FileEntityUpdate): FileEntity
   return db.prepare('SELECT * FROM files WHERE id = ?').get(id) as FileEntity;
 }
 
+/**
+ * Merge a single key into a file entity's metadata JSON.
+ * Reads the existing metadata, sets the key, and writes back.
+ * Returns the updated entity, or undefined if the entity doesn't exist.
+ */
+export function updateFileMetadataField(id: string, key: string, value: unknown): FileEntity | undefined {
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM files WHERE id = ?').get(id) as FileEntity | undefined;
+  if (!existing) return undefined;
+
+  const meta = existing.metadata ? JSON.parse(existing.metadata) : {};
+  meta[key] = value;
+  const now = new Date().toISOString();
+  db.prepare('UPDATE files SET metadata = ?, updated_at = ? WHERE id = ?').run(JSON.stringify(meta), now, id);
+  return db.prepare('SELECT * FROM files WHERE id = ?').get(id) as FileEntity;
+}
+
 export function deleteFileEntity(id: string): boolean {
   const db = getDatabase();
   const result = db.prepare('DELETE FROM files WHERE id = ?').run(id);

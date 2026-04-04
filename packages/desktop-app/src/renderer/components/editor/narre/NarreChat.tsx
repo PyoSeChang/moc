@@ -8,7 +8,11 @@ import { ScrollArea } from '../../ui/ScrollArea';
 import { Spinner } from '../../ui/Spinner';
 import { NarreMessageBubble } from './NarreMessageBubble';
 import { NarreMentionInput } from './NarreMentionInput';
+import { PdfTocInputForm, type PdfTocFormData } from './PdfTocInputForm';
 import { useArchetypeStore } from '../../../stores/archetype-store';
+import { useProjectStore } from '../../../stores/project-store';
+import { toAbsolutePath } from '../../../utils/path-utils';
+import { buildIndexMessage } from '../../../utils/pdf-toc-utils';
 import { useConceptStore } from '../../../stores/concept-store';
 import { useRelationTypeStore } from '../../../stores/relation-type-store';
 import { useCanvasTypeStore } from '../../../stores/canvas-type-store';
@@ -36,6 +40,7 @@ export function NarreChat({
   onSessionCreated,
 }: NarreChatProps): JSX.Element {
   const { t } = useI18n();
+  const currentProject = useProjectStore((s) => s.currentProject);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId);
   const [messages, setMessages] = useState<NarreMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -44,6 +49,10 @@ export function NarreChat({
   const [streamingCards, setStreamingCards] = useState<NarreCard[]>([]);
   const [sessionTitle, setSessionTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [indexWorkflow, setIndexWorkflow] = useState<{
+    fileMention: NarreMention;
+    pendingMentions: NarreMention[];
+  } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -176,9 +185,7 @@ export function NarreChat({
     }
   }, [sessionId]);
 
-  const handleSend = useCallback(async (text: string, mentions: NarreMention[]) => {
-    if (!text.trim() || isStreaming) return;
-
+  const sendToAgent = useCallback(async (text: string, mentions: NarreMention[]) => {
     let activeSessionId = sessionId;
 
     // Create session if none exists
@@ -222,7 +229,53 @@ export function NarreChat({
     } catch {
       setIsStreaming(false);
     }
-  }, [sessionId, projectId, isStreaming]);
+  }, [sessionId, projectId, onSessionCreated]);
+
+  const handleSend = useCallback(async (text: string, mentions: NarreMention[]) => {
+    if (!text.trim() || isStreaming) return;
+
+    // Intercept /index command: show page range input form
+    if (text.trim().startsWith('/index')) {
+      const fileMention = mentions.find((m) => m.type === 'file');
+      if (!fileMention || !fileMention.id) {
+        // Show error as system-style message
+        const errorMsg: NarreMessage = {
+          role: 'assistant',
+          content: t('pdfToc.noFile'),
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+        return;
+      }
+      setIndexWorkflow({ fileMention, pendingMentions: mentions });
+      return;
+    }
+
+    await sendToAgent(text, mentions);
+  }, [isStreaming, sendToAgent, t]);
+
+  const handleIndexSubmit = useCallback(async (data: PdfTocFormData) => {
+    if (!indexWorkflow) return;
+    const mentions = indexWorkflow.pendingMentions;
+
+    const absoluteFilePath = toAbsolutePath(currentProject?.root_dir ?? '', data.filePath);
+
+    const message = buildIndexMessage(indexWorkflow.fileMention.display, {
+      startPage: data.startPage,
+      endPage: data.endPage,
+      overviewPages: data.overviewPages,
+      fileId: data.fileId,
+      filePath: absoluteFilePath,
+      projectId,
+    });
+
+    setIndexWorkflow(null);
+    await sendToAgent(message, mentions);
+  }, [indexWorkflow, sendToAgent, currentProject, projectId]);
+
+  const handleIndexCancel = useCallback(() => {
+    setIndexWorkflow(null);
+  }, []);
 
   const title = sessionTitle || t('narre.newChat');
 
@@ -271,6 +324,15 @@ export function NarreChat({
                 toolCalls={msg.tool_calls}
               />
             ))}
+
+            {/* /index workflow form */}
+            {indexWorkflow && (
+              <PdfTocInputForm
+                fileMention={indexWorkflow.fileMention}
+                onSubmit={handleIndexSubmit}
+                onCancel={handleIndexCancel}
+              />
+            )}
 
             {/* Streaming partial message */}
             {isStreaming && (streamingContent || streamingToolCalls.length > 0 || streamingCards.length > 0) && (

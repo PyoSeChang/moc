@@ -10,6 +10,11 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description: 'narre.command.onboarding',
     type: 'conversation',
   },
+  {
+    name: 'index',
+    description: 'narre.command.index',
+    type: 'conversation',
+  },
 ] as const;
 
 // ============================================

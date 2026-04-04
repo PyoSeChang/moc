@@ -7,6 +7,7 @@ import { existsSync } from 'fs';
 import type { NarreMessage, NarreMention, NarreToolCall, NarreStreamEvent } from '@netior/shared/types';
 import { buildSystemPrompt, type SystemPromptParams } from './system-prompt.js';
 import { buildOnboardingPrompt } from './prompts/onboarding.js';
+import { buildIndexTocPrompt } from './prompts/index-toc.js';
 import { SessionStore } from './session-store.js';
 import { initSSE, sendSSEEvent, endSSE } from './streaming.js';
 import { parseCommand, isConversationCommand } from './command-router.js';
@@ -15,6 +16,7 @@ import { createNarreUiServer, resolveUiCall } from './ui-tools.js';
 // Command-specific system prompt builders
 const commandPromptBuilders: Record<string, (params: SystemPromptParams) => string> = {
   onboarding: buildOnboardingPrompt,
+  index: buildIndexTocPrompt,
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -197,11 +199,19 @@ app.post('/chat', async (req, res) => {
       : `${systemPrompt}\n\n${processedMessage}`;
 
     // 7. Configure query options
+    // Use Electron binary if available (passed via NETIOR_ELECTRON_PATH) to ensure
+    // native module compatibility. Falls back to 'node' for standalone usage.
+    const mcpCommand = process.env.NETIOR_ELECTRON_PATH || 'node';
+    const mcpEnv: Record<string, string> = { MOC_DB_PATH };
+    if (process.env.NETIOR_ELECTRON_PATH) {
+      mcpEnv.ELECTRON_RUN_AS_NODE = '1';
+    }
+
     const mcpServers: Record<string, unknown> = {
       'netior': {
-        command: 'node',
+        command: mcpCommand,
         args: [mcpServerPath],
-        env: { MOC_DB_PATH },
+        env: mcpEnv,
       },
     };
 

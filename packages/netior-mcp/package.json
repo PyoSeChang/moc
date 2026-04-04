@@ -18,6 +18,7 @@
     "@netior/core": "workspace:*",
     "@netior/shared": "workspace:*",
     "fast-glob": "^3.3.3",
+    "pdfjs-dist": "^4.10.38",
     "zod": "^4.0.0"
   },
   "devDependencies": {

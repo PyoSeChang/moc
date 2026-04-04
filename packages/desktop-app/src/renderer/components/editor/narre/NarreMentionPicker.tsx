@@ -22,6 +22,7 @@ const MENTION_CATEGORIES = [
   { key: 'archetype', i18nKey: 'narre.mentionArchetype' },
   { key: 'relationType', i18nKey: 'narre.mentionRelationType' },
   { key: 'canvasType', i18nKey: 'narre.mentionCanvasType' },
+  { key: 'file', i18nKey: 'narre.mentionFile' },
 ] as const;
 
 function PreviewPanel({ item, t }: { item: MentionResult; t: (key: TranslationKey) => string }): JSX.Element {
@@ -30,6 +31,7 @@ function PreviewPanel({ item, t }: { item: MentionResult; t: (key: TranslationKe
   const archetypeNodeShape = item.type === 'archetype' && typeof item.meta?.nodeShape === 'string' ? item.meta.nodeShape : null;
   const relationDirected = item.type === 'relationType' && typeof item.meta?.directed === 'boolean' ? item.meta.directed : null;
   const relationLineStyle = item.type === 'relationType' && typeof item.meta?.lineStyle === 'string' ? item.meta.lineStyle : null;
+  const filePath = item.type === 'file' && typeof item.meta?.path === 'string' ? item.meta.path : null;
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -82,6 +84,12 @@ function PreviewPanel({ item, t }: { item: MentionResult; t: (key: TranslationKe
                 </div>
               )}
             </>
+          )}
+          {filePath && (
+            <div className="flex items-center gap-1">
+              <span className="text-secondary">Path:</span>
+              <span className="text-default truncate">{filePath}</span>
+            </div>
           )}
         </div>
       )}

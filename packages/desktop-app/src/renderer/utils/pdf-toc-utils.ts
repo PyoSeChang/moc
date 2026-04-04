@@ -1,5 +1,25 @@
 import type { PdfTocEntry } from '@netior/shared/types';
 
+// ============================================
+// Index workflow
+// ============================================
+
+export interface TocParams {
+  startPage: number;
+  endPage: number;
+  overviewPages?: number[];
+  fileId: string;
+  filePath: string;
+  projectId: string;
+}
+
+/**
+ * Build the /index message with JSON-encoded toc_params.
+ */
+export function buildIndexMessage(display: string, params: TocParams): string {
+  return `/index @${display}\n[toc_params]${JSON.stringify(params)}[/toc_params]`;
+}
+
 /** Sort TOC entries by destPage (ascending), with level as tiebreaker. */
 export function sortTocEntries(entries: PdfTocEntry[]): PdfTocEntry[] {
   return [...entries].sort((a, b) => a.destPage - b.destPage || a.level - b.level);

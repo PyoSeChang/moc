@@ -72,6 +72,7 @@ function buildTerminalUserConfiguration(): string {
     'terminal.integrated.cursorBlinking': true,
     'terminal.integrated.smoothScrolling': true,
     'terminal.integrated.minimumContrastRatio': 4.5,
+    'terminal.integrated.showDimensions': false,
     'workbench.colorCustomizations': {
       'terminal.background': background,
       'terminal.foreground': foreground,

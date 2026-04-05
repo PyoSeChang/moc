@@ -295,6 +295,15 @@ const electronAPI = {
     getDragTabSync: () => ipcRenderer.sendSync('editor:getDragDataSync') as string | null,
     clearDragTab: () => ipcRenderer.send('editor:dragEnd'),
   },
+  settings: {
+    pushState: (state: unknown) => ipcRenderer.send('settings:pushState', state),
+    getState: () => ipcRenderer.invoke('settings:getState') as Promise<unknown>,
+    onStateSync: (callback: (state: unknown) => void) => {
+      const handler = (_event: IpcRendererEvent, state: unknown) => callback(state);
+      ipcRenderer.on('settings:syncState', handler);
+      return () => { ipcRenderer.removeListener('settings:syncState', handler); };
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

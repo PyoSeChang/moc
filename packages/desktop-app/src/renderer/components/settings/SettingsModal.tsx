@@ -78,12 +78,40 @@ function ThemeSetupPanel({
   onSetPrimaryCustomColor,
 }: ThemeSetupPanelProps): JSX.Element {
   const targetModes: ResolvedThemeMode[] = target === 'both' ? ['light', 'dark'] : [target];
+  const effectiveFamilyId = selectedFamilyId ?? AVAILABLE_THEME_FAMILIES[0].id;
+  const familyApplied = targetModes.every((mode) => (mode === 'light' ? lightTheme.family : darkTheme.family) === effectiveFamilyId);
+  const referenceSlot = familyApplied ? (target === 'dark' ? darkTheme : lightTheme) : buildFallbackSlot(effectiveFamilyId);
+  const variants = getThemeVariants(effectiveFamilyId);
+  const activeVariant = variants.find((item) => item.id === referenceSlot.variant) ?? variants[0];
+  const recommendedPresets = getPrimaryPresets(activeVariant.recommendedPrimaryPresetIds);
+  const [customColorDraft, setCustomColorDraft] = useState(referenceSlot.primaryCustomColor);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
   const applyFamilyIfNeeded = useCallback((mode: ResolvedThemeMode, familyId: ThemeSlotConfig['family']) => {
     const currentFamily = mode === 'light' ? lightTheme.family : darkTheme.family;
     if (currentFamily !== familyId) {
       onSetFamily(mode, familyId);
     }
   }, [darkTheme.family, lightTheme.family, onSetFamily]);
+
+  useEffect(() => {
+    setCustomColorDraft(referenceSlot.primaryCustomColor);
+  }, [referenceSlot.primaryCustomColor, selectedFamilyId, target]);
+
+  const applyToTargetModes = useCallback((callback: (mode: ResolvedThemeMode) => void) => {
+    targetModes.forEach(callback);
+  }, [targetModes]);
+
+  const commitCustomColor = useCallback((value: string) => {
+    const normalized = value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(normalized) || /^#[0-9a-fA-F]{3}$/.test(normalized)) {
+      applyToTargetModes((mode) => {
+        applyFamilyIfNeeded(mode, effectiveFamilyId);
+        onSetPrimaryCustomColor(mode, normalized);
+      });
+      setCustomColorDraft(normalized);
+    }
+  }, [applyFamilyIfNeeded, applyToTargetModes, effectiveFamilyId, onSetPrimaryCustomColor]);
 
   if (!selectedFamilyId) {
     return (
@@ -119,34 +147,6 @@ function ThemeSetupPanel({
       </section>
     );
   }
-  const familyApplied = targetModes.every((mode) => (mode === 'light' ? lightTheme.family : darkTheme.family) === selectedFamilyId);
-  const referenceSlot = familyApplied ? (target === 'dark' ? darkTheme : lightTheme) : buildFallbackSlot(selectedFamilyId);
-  const variants = getThemeVariants(selectedFamilyId);
-  const activeVariant = variants.find((item) => item.id === referenceSlot.variant) ?? variants[0];
-  const recommendedPresets = getPrimaryPresets(activeVariant.recommendedPrimaryPresetIds);
-  const [customColorDraft, setCustomColorDraft] = useState(referenceSlot.primaryCustomColor);
-  const colorInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setCustomColorDraft(referenceSlot.primaryCustomColor);
-  }, [referenceSlot.primaryCustomColor, selectedFamilyId, target]);
-
-  const applyToTargetModes = useCallback((callback: (mode: ResolvedThemeMode) => void) => {
-    targetModes.forEach(callback);
-  }, [targetModes]);
-
-  const commitCustomColor = useCallback((value: string) => {
-    const normalized = value.trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(normalized) || /^#[0-9a-fA-F]{3}$/.test(normalized)) {
-      applyToTargetModes((mode) => {
-        if ((mode === 'light' ? lightTheme.family : darkTheme.family) !== selectedFamilyId) {
-          applyFamilyIfNeeded(mode, selectedFamilyId);
-        }
-        onSetPrimaryCustomColor(mode, normalized);
-      });
-      setCustomColorDraft(normalized);
-    }
-  }, [applyFamilyIfNeeded, applyToTargetModes, darkTheme.family, lightTheme.family, onSetPrimaryCustomColor, selectedFamilyId]);
 
   const bothDiffer = target === 'both' && (
     lightTheme.family !== darkTheme.family ||

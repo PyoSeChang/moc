@@ -44,6 +44,14 @@ export interface ThemeSlotConfig {
   primaryCustomColor: string;
 }
 
+interface SettingsSyncState {
+  appearanceMode: AppearanceMode;
+  lightTheme: ThemeSlotConfig;
+  darkTheme: ThemeSlotConfig;
+  locale: Locale;
+  detachedAgentToastMode: DetachedAgentToastMode;
+}
+
 const PRIMARY_PRESETS: readonly PrimaryPresetDefinition[] = [
   { id: 'gray', labelKey: 'settings.primaryPresets.gray.label', descriptionKey: 'settings.primaryPresets.gray.description', color: '#7a7a7a' },
   { id: 'warm-gray', labelKey: 'settings.primaryPresets.warmGray.label', descriptionKey: 'settings.primaryPresets.warmGray.description', color: '#8f7f73' },
@@ -509,6 +517,10 @@ function applyThemeToDocument(state: {
 }
 
 let systemThemeListenerAttached = false;
+let settingsSyncInitialized = false;
+let settingsSyncUnsubscribe: (() => void) | null = null;
+let settingsSyncCleanup: (() => void) | null = null;
+let isApplyingRemoteSettings = false;
 
 export interface SettingsStore {
   appearanceMode: AppearanceMode;
@@ -537,6 +549,34 @@ function applyCurrentThemeSnapshot(
     lightTheme: normalizeThemeSlot(partial.lightTheme),
     darkTheme: normalizeThemeSlot(partial.darkTheme),
   });
+}
+
+function getSettingsSyncState(state: Pick<
+  SettingsStore,
+  'appearanceMode' | 'lightTheme' | 'darkTheme' | 'locale' | 'detachedAgentToastMode'
+>): SettingsSyncState {
+  return {
+    appearanceMode: state.appearanceMode,
+    lightTheme: normalizeThemeSlot(state.lightTheme),
+    darkTheme: normalizeThemeSlot(state.darkTheme),
+    locale: state.locale,
+    detachedAgentToastMode: state.detachedAgentToastMode,
+  };
+}
+
+function applySettingsSyncState(snapshot: SettingsSyncState): void {
+  isApplyingRemoteSettings = true;
+  const nextState = getSettingsSyncState(snapshot);
+  const resolvedThemeMode = applyCurrentThemeSnapshot(nextState);
+
+  useSettingsStore.setState((current) => ({
+    ...current,
+    ...nextState,
+    resolvedThemeMode,
+    themeRevision: current.themeRevision + 1,
+  }));
+
+  isApplyingRemoteSettings = false;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -680,22 +720,69 @@ export function initializeSettingsStore(): void {
     useSettingsStore.setState((current) => ({ ...current, resolvedThemeMode, themeRevision: current.themeRevision + 1 }));
   }
 
-  if (systemThemeListenerAttached || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+  if (!systemThemeListenerAttached && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      const current = useSettingsStore.getState();
+      if (current.appearanceMode !== 'system') return;
+      const nextResolved = applyCurrentThemeSnapshot(current);
+      useSettingsStore.setState((stateSnapshot) => ({
+        ...stateSnapshot,
+        resolvedThemeMode: nextResolved,
+        themeRevision: stateSnapshot.themeRevision + 1,
+      }));
+    };
+
+    media.addEventListener('change', handleChange);
+    systemThemeListenerAttached = true;
+  }
+
+  if (settingsSyncInitialized || typeof window === 'undefined' || !window.electron?.settings) {
     return;
   }
 
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  const handleChange = () => {
-    const current = useSettingsStore.getState();
-    if (current.appearanceMode !== 'system') return;
-    const nextResolved = applyCurrentThemeSnapshot(current);
-    useSettingsStore.setState((stateSnapshot) => ({
-      ...stateSnapshot,
-      resolvedThemeMode: nextResolved,
-      themeRevision: stateSnapshot.themeRevision + 1,
-    }));
+  settingsSyncInitialized = true;
+
+  const setupSync = () => {
+    if (settingsSyncCleanup || settingsSyncUnsubscribe) return;
+
+    settingsSyncCleanup = window.electron.settings.onStateSync((rawState) => {
+      if (isApplyingRemoteSettings || !rawState) return;
+      applySettingsSyncState(rawState as SettingsSyncState);
+    });
+
+    settingsSyncUnsubscribe = useSettingsStore.subscribe((nextState, prevState) => {
+      if (isApplyingRemoteSettings) return;
+      if (
+        nextState.appearanceMode === prevState.appearanceMode &&
+        nextState.lightTheme === prevState.lightTheme &&
+        nextState.darkTheme === prevState.darkTheme &&
+        nextState.locale === prevState.locale &&
+        nextState.detachedAgentToastMode === prevState.detachedAgentToastMode
+      ) {
+        return;
+      }
+
+      window.electron.settings.pushState(getSettingsSyncState(nextState));
+    });
+
+    void window.electron.settings.getState().then((cachedState) => {
+      if (cachedState) {
+        applySettingsSyncState(cachedState as SettingsSyncState);
+        return;
+      }
+
+      window.electron.settings.pushState(getSettingsSyncState(useSettingsStore.getState()));
+    });
   };
 
-  media.addEventListener('change', handleChange);
-  systemThemeListenerAttached = true;
+  if (useSettingsStore.persist.hasHydrated()) {
+    setupSync();
+    return;
+  }
+
+  const stopHydrationListener = useSettingsStore.persist.onFinishHydration(() => {
+    stopHydrationListener();
+    setupSync();
+  });
 }

@@ -270,6 +270,7 @@ app.whenReady().then(async () => {
 
   // Editor state sync relay — main process caches state and broadcasts to all other windows
   let cachedEditorState: unknown = null;
+  let cachedSettingsState: unknown = null;
 
   ipcMain.handle('editor:getState', () => {
     return cachedEditorState;
@@ -285,6 +286,23 @@ app.whenReady().then(async () => {
     for (const [, win] of detachedWindows) {
       if (win !== sender && !win.isDestroyed()) {
         win.webContents.send('editor:syncState', state);
+      }
+    }
+  });
+
+  ipcMain.handle('settings:getState', () => {
+    return cachedSettingsState;
+  });
+
+  ipcMain.on('settings:pushState', (event, state: unknown) => {
+    cachedSettingsState = state;
+    const sender = BrowserWindow.fromWebContents(event.sender);
+    if (mainWindow && mainWindow !== sender && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('settings:syncState', state);
+    }
+    for (const [, win] of detachedWindows) {
+      if (win !== sender && !win.isDestroyed()) {
+        win.webContents.send('settings:syncState', state);
       }
     }
   });

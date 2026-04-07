@@ -1,9 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FileText, Layers, Link, Plus, Trash2 } from 'lucide-react';
-import type { Network } from '@netior/shared/types';
+import React, { useCallback, useEffect } from 'react';
+import { FileText, Link, Plus, Trash2 } from 'lucide-react';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
-import { networkService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import type { CanvasMode } from '../../stores/ui-store';
 
@@ -14,7 +12,6 @@ interface NodeContextMenuProps {
   conceptId?: string;
   fileId?: string;
   filePath?: string;
-  canvasCount: number;
   mode: CanvasMode;
   onAddConnection?: (nodeId: string) => void;
   onCreateNetwork?: (conceptId: string) => void;
@@ -28,15 +25,13 @@ export function NodeContextMenu({
   conceptId,
   fileId,
   filePath,
-  canvasCount,
   mode,
   onAddConnection,
   onCreateNetwork,
   onClose,
 }: NodeContextMenuProps): JSX.Element {
   const { t } = useI18n();
-  const { drillInto, removeNode, currentNetwork } = useNetworkStore();
-  const [networks, setNetworks] = useState<Network[]>([]);
+  const { removeNode, currentNetwork } = useNetworkStore();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -45,23 +40,6 @@ export function NodeContextMenu({
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
-
-  // Load networks for this concept
-  useEffect(() => {
-    if (conceptId) {
-      networkService.getNetworksByConcept(conceptId).then(setNetworks);
-    }
-  }, [conceptId]);
-
-  const handleNavigateToNetwork = useCallback(async (networkId: string) => {
-    if (currentNetwork) {
-      useNetworkStore.setState((s) => ({
-        networkHistory: [...s.networkHistory, currentNetwork.id],
-      }));
-    }
-    await useNetworkStore.getState().openNetwork(networkId);
-    onClose();
-  }, [currentNetwork, onClose]);
 
   const handleCreateNetwork = useCallback(() => {
     if (conceptId) onCreateNetwork?.(conceptId);
@@ -84,26 +62,6 @@ export function NodeContextMenu({
       style={{ left: x, top: y }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Network list section */}
-      {conceptId && networks.length > 0 && (
-        <>
-          <div className="px-3 py-1 text-[10px] text-muted uppercase tracking-wider flex items-center gap-1">
-            <Layers size={10} />
-            {t('network.networksForConcept') ?? 'Networks'}
-          </div>
-          {networks.map((c) => (
-            <button
-              key={c.id}
-              className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
-              onClick={() => handleNavigateToNetwork(c.id)}
-            >
-              {c.name}
-            </button>
-          ))}
-          <div className="my-1 border-t border-subtle" />
-        </>
-      )}
-
       {/* Network creation */}
       {conceptId && (
         <button

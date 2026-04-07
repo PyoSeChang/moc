@@ -57,33 +57,25 @@ export interface ConceptUpdate {
 
 export interface Network {
   id: string;
-  project_id: string;
-  concept_id: string | null;
+  project_id: string | null;
+  scope: string;
+  parent_network_id: string | null;
   name: string;
-  layout: string;
-  layout_config: Record<string, unknown> | null;
-  viewport_x: number;
-  viewport_y: number;
-  viewport_zoom: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface NetworkCreate {
-  project_id: string;
+  project_id: string | null;
   name: string;
-  concept_id?: string;
-  layout?: string;
-  layout_config?: Record<string, unknown>;
+  scope?: string;
+  parent_network_id?: string;
 }
 
 export interface NetworkUpdate {
   name?: string;
-  layout?: string;
-  layout_config?: Record<string, unknown> | null;
-  viewport_x?: number;
-  viewport_y?: number;
-  viewport_zoom?: number;
+  scope?: string;
+  parent_network_id?: string | null;
 }
 
 // ============================================
@@ -140,10 +132,6 @@ export interface NetworkNode {
   concept_id: string | null;
   file_id: string | null;
   metadata: string | null;
-  position_x: number;
-  position_y: number;
-  width: number | null;
-  height: number | null;
 }
 
 export interface NetworkNodeCreate {
@@ -151,17 +139,9 @@ export interface NetworkNodeCreate {
   concept_id?: string;
   file_id?: string;
   metadata?: string;
-  position_x: number;
-  position_y: number;
-  width?: number;
-  height?: number;
 }
 
 export interface NetworkNodeUpdate {
-  position_x?: number;
-  position_y?: number;
-  width?: number | null;
-  height?: number | null;
   metadata?: string | null;
 }
 
@@ -176,9 +156,6 @@ export interface Edge {
   target_node_id: string;
   relation_type_id: string | null;
   description: string | null;
-  color: string | null;
-  line_style: string | null;
-  directed: number | null;
   created_at: string;
 }
 
@@ -188,17 +165,46 @@ export interface EdgeCreate {
   target_node_id: string;
   relation_type_id?: string;
   description?: string;
-  color?: string;
-  line_style?: string;
-  directed?: boolean;
 }
 
 export interface EdgeUpdate {
   relation_type_id?: string | null;
   description?: string | null;
-  color?: string | null;
-  line_style?: string | null;
-  directed?: boolean | null;
+}
+
+// ============================================
+// Layout
+// ============================================
+
+export interface Layout {
+  id: string;
+  layout_type: string;
+  layout_config_json: string | null;
+  viewport_json: string | null;
+  network_id: string | null;
+  context_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LayoutUpdate {
+  layout_type?: string;
+  layout_config_json?: string | null;
+  viewport_json?: string | null;
+}
+
+export interface LayoutNodePosition {
+  id: string;
+  layout_id: string;
+  node_id: string;
+  position_json: string;
+}
+
+export interface LayoutEdgeVisual {
+  id: string;
+  layout_id: string;
+  edge_id: string;
+  visual_json: string;
 }
 
 // ============================================
@@ -406,7 +412,6 @@ export interface RelationTypeUpdate {
 
 export interface NetworkTreeNode {
   network: Network;
-  conceptTitle: string | null;
   children: NetworkTreeNode[];
 }
 
@@ -417,7 +422,6 @@ export interface NetworkTreeNode {
 export interface NetworkBreadcrumbItem {
   networkId: string;
   networkName: string;
-  conceptTitle: string | null;
 }
 
 // ============================================
@@ -635,7 +639,7 @@ export interface NarreSummaryCard {
 export type NarreCard = NarreProposalCard | NarrePermissionCard | NarreInterviewCard | NarreSummaryCard;
 
 export interface NetiorChangeEvent {
-  type: 'archetypes' | 'concepts' | 'relationTypes' | 'networks' | 'edges';
+  type: 'archetypes' | 'concepts' | 'relationTypes' | 'networks' | 'edges' | 'layouts';
   action: 'created' | 'updated' | 'deleted';
   id: string;
 }

@@ -1,6 +1,7 @@
 import { registerProjectIpc } from './project-ipc';
 import { registerConceptIpc } from './concept-ipc';
 import { registerNetworkIpc } from './network-ipc';
+import { registerLayoutIpc } from './layout-ipc';
 import { registerFileIpc } from './file-ipc';
 import { registerFsIpc } from './fs-ipc';
 import { registerModuleIpc } from './module-ipc';
@@ -17,6 +18,7 @@ export function registerAllIpc(): void {
   registerProjectIpc();
   registerConceptIpc();
   registerNetworkIpc();
+  registerLayoutIpc();
   registerFileIpc();
   registerFsIpc();
   registerModuleIpc();

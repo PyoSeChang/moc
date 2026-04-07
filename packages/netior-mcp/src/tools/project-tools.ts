@@ -48,7 +48,7 @@ export function registerProjectTools(server: McpServer): void {
           },
           networks: {
             count: networks.length,
-            items: networks.map((n) => ({ id: n.id, name: n.name, concept_id: n.concept_id })),
+            items: networks.map((n) => ({ id: n.id, name: n.name, parent_network_id: n.parent_network_id })),
           },
         };
 

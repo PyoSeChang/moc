@@ -105,8 +105,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             await addNode({
               network_id: draft.networkId,
               concept_id: newConcept.id,
-              position_x: draft.positionX ?? 0,
-              position_y: draft.positionY ?? 0,
             });
             await openNetwork(draft.networkId);
             const networkStore = useNetworkStore.getState();

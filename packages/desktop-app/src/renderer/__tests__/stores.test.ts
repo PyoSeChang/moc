@@ -23,6 +23,8 @@ const mockElectron = {
     update: vi.fn(),
     delete: vi.fn(),
     getFull: vi.fn(),
+    getTree: vi.fn(),
+    getAncestors: vi.fn(),
   },
   networkNode: {
     add: vi.fn(),
@@ -32,6 +34,20 @@ const mockElectron = {
   edge: {
     create: vi.fn(),
     delete: vi.fn(),
+  },
+  layout: {
+    getByNetwork: vi.fn(),
+    update: vi.fn(),
+  },
+  layoutNode: {
+    setPosition: vi.fn(),
+    getPositions: vi.fn(),
+    remove: vi.fn(),
+  },
+  layoutEdge: {
+    setVisual: vi.fn(),
+    getVisuals: vi.fn(),
+    remove: vi.fn(),
   },
   fs: {
     readDir: vi.fn(),

@@ -3,13 +3,26 @@ import type {
   NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
   Edge, EdgeCreate, EdgeUpdate,
   Concept, FileEntity, RelationType, NetworkBreadcrumbItem,
-  NetworkTreeNode,
+  NetworkTreeNode, Layout,
 } from '@netior/shared/types';
+
+export interface NodePosition {
+  nodeId: string;
+  positionJson: string;
+}
+
+export interface EdgeVisual {
+  edgeId: string;
+  visualJson: string;
+}
 
 export interface NetworkFullData {
   network: Network;
-  nodes: (NetworkNode & { concept?: Concept; file?: FileEntity; network_count: number })[];
+  layout: Layout | undefined;
+  nodes: (NetworkNode & { concept?: Concept; file?: FileEntity })[];
   edges: (Edge & { relation_type?: RelationType })[];
+  nodePositions: NodePosition[];
+  edgeVisuals: EdgeVisual[];
 }
 import { unwrapIpc } from './ipc';
 
@@ -32,10 +45,6 @@ export async function deleteNetwork(id: string): Promise<boolean> {
 
 export async function getNetworkFull(networkId: string): Promise<NetworkFullData | undefined> {
   return unwrapIpc(await window.electron.network.getFull(networkId));
-}
-
-export async function getNetworksByConcept(conceptId: string): Promise<Network[]> {
-  return unwrapIpc(await window.electron.network.getByConcept(conceptId));
 }
 
 export async function getNetworkAncestors(networkId: string): Promise<NetworkBreadcrumbItem[]> {
@@ -79,7 +88,7 @@ export async function deleteEdge(id: string): Promise<boolean> {
 export const networkService = {
   create: createNetwork, list: listNetworks, update: updateNetwork,
   delete: deleteNetwork, getFull: getNetworkFull,
-  getNetworksByConcept, getAncestors: getNetworkAncestors, getTree: getNetworkTree,
+  getAncestors: getNetworkAncestors, getTree: getNetworkTree,
   node: { add: addNetworkNode, update: updateNetworkNode, remove: removeNetworkNode },
   edge: { create: createEdge, get: getEdge, update: updateEdge, delete: deleteEdge },
 };

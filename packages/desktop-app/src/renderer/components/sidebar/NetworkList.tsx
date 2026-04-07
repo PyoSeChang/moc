@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Trash2, Layout, ChevronRight, ChevronDown, Circle } from 'lucide-react';
+import { Plus, Trash2, Layout, ChevronRight, ChevronDown } from 'lucide-react';
 import type { NetworkTreeNode } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -82,21 +82,6 @@ function TreeNode({
 }): JSX.Element {
   const [expanded, setExpanded] = useState(depth < 2);
   const isActive = currentNetworkId === treeNode.network.id;
-
-  // Group children by concept_id to create concept headers
-  const conceptGroups = new Map<string, { title: string; nodes: NetworkTreeNode[] }>();
-  const directChildren: NetworkTreeNode[] = [];
-
-  for (const child of treeNode.children) {
-    if (child.conceptTitle && child.network.concept_id) {
-      const group = conceptGroups.get(child.network.concept_id) ?? { title: child.conceptTitle, nodes: [] };
-      group.nodes.push(child);
-      conceptGroups.set(child.network.concept_id, group);
-    } else {
-      directChildren.push(child);
-    }
-  }
-
   const hasChildren = treeNode.children.length > 0;
 
   return (
@@ -130,72 +115,11 @@ function TreeNode({
         <span className="flex-1 truncate">{treeNode.network.name}</span>
       </div>
 
-      {/* Children grouped by concept */}
-      {expanded && (
-        <>
-          {/* Concept groups */}
-          {Array.from(conceptGroups.entries()).map(([conceptId, group]) => (
-            <ConceptGroup
-              key={conceptId}
-              conceptTitle={group.title}
-              nodes={group.nodes}
-              depth={depth + 1}
-              currentNetworkId={currentNetworkId}
-              onOpen={onOpen}
-              onContextMenu={onContextMenu}
-            />
-          ))}
-          {/* Direct children (no concept grouping) */}
-          {directChildren.map((child) => (
-            <TreeNode
-              key={child.network.id}
-              treeNode={child}
-              depth={depth + 1}
-              currentNetworkId={currentNetworkId}
-              onOpen={onOpen}
-              onContextMenu={onContextMenu}
-            />
-          ))}
-        </>
-      )}
-    </>
-  );
-}
-
-// ─── Concept Group Header ────────────────────────────────────────
-
-function ConceptGroup({
-  conceptTitle,
-  nodes,
-  depth,
-  currentNetworkId,
-  onOpen,
-  onContextMenu,
-}: {
-  conceptTitle: string;
-  nodes: NetworkTreeNode[];
-  depth: number;
-  currentNetworkId?: string;
-  onOpen: (id: string) => void;
-  onContextMenu: (e: React.MouseEvent, id: string, name: string) => void;
-}): JSX.Element {
-  const [expanded, setExpanded] = useState(true);
-
-  return (
-    <>
-      <div
-        className="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-[11px] text-secondary hover:bg-surface-hover"
-        style={{ paddingLeft: depth * 14 + 4 }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-        <Circle size={8} className="shrink-0 fill-current opacity-40" />
-        <span className="truncate">{conceptTitle}</span>
-      </div>
-      {expanded && nodes.map((node) => (
+      {/* Children */}
+      {expanded && treeNode.children.map((child) => (
         <TreeNode
-          key={node.network.id}
-          treeNode={node}
+          key={child.network.id}
+          treeNode={child}
           depth={depth + 1}
           currentNetworkId={currentNetworkId}
           onOpen={onOpen}

@@ -24,7 +24,7 @@ export function NetworkBreadcrumb(): JSX.Element | null {
 
       {breadcrumbs.map((crumb, idx) => {
         const isLast = idx === breadcrumbs.length - 1;
-        const label = crumb.conceptTitle ?? crumb.networkName;
+        const label = crumb.networkName;
 
         return (
           <React.Fragment key={crumb.networkId}>

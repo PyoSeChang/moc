@@ -11,6 +11,7 @@ import { migrate007 } from './migrations/007-edge-visual-overrides';
 import { migrate008 } from './migrations/008-canvas-layout';
 import { migrate009 } from './migrations/009-file-entity';
 import { migrate010 } from './migrations/010-canvas-to-network';
+import { migrate011 } from './migrations/011-network-structure-and-layouts';
 
 let db: Database.Database | null = null;
 
@@ -30,6 +31,7 @@ const migrations: Migration[] = [
   { version: 8, migrate: migrate008 },
   { version: 9, migrate: migrate009 },
   { version: 10, migrate: migrate010 },
+  { version: 11, migrate: migrate011 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {

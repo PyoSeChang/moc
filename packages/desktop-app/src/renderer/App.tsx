@@ -69,7 +69,7 @@ function TitleBarBreadcrumb(): JSX.Element | null {
       </button>
       {breadcrumbs.map((crumb, idx) => {
         const isLast = idx === breadcrumbs.length - 1;
-        const label = crumb.conceptTitle ?? crumb.networkName;
+        const label = crumb.networkName;
         return (
           <React.Fragment key={crumb.networkId}>
             {idx > 0 && <ChevronRight size={10} className="text-muted shrink-0" />}

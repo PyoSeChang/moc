@@ -10,6 +10,7 @@ import { FileNodeAddModal } from './FileNodeAddModal';
 import { useNetworkStore, type NetworkNodeWithConcept, type EdgeWithRelationType } from '../../stores/network-store';
 import { networkService, fileService } from '../../services';
 import { conceptPropertyService } from '../../services';
+import type { NodePosition, EdgeVisual } from '../../services/network-service';
 import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
@@ -26,24 +27,51 @@ interface NetworkWorkspaceProps {
   projectId: string;
 }
 
-function toRenderNodes(nodes: NetworkNodeWithConcept[], archetypes: Archetype[]): RenderNode[] {
+function buildPositionMap(positions: NodePosition[]): Map<string, { x: number; y: number; width?: number; height?: number }> {
+  const map = new Map<string, { x: number; y: number; width?: number; height?: number }>();
+  for (const p of positions) {
+    try {
+      const parsed = JSON.parse(p.positionJson);
+      map.set(p.nodeId, { x: parsed.x ?? 0, y: parsed.y ?? 0, width: parsed.width, height: parsed.height });
+    } catch {
+      // skip invalid JSON
+    }
+  }
+  return map;
+}
+
+function buildVisualMap(visuals: EdgeVisual[]): Map<string, { color?: string; lineStyle?: string; directed?: boolean }> {
+  const map = new Map<string, { color?: string; lineStyle?: string; directed?: boolean }>();
+  for (const v of visuals) {
+    try {
+      const parsed = JSON.parse(v.visualJson);
+      map.set(v.edgeId, { color: parsed.color, lineStyle: parsed.line_style, directed: parsed.directed });
+    } catch {
+      // skip invalid JSON
+    }
+  }
+  return map;
+}
+
+function toRenderNodes(nodes: NetworkNodeWithConcept[], archetypes: Archetype[], posMap: Map<string, { x: number; y: number; width?: number; height?: number }>): RenderNode[] {
   const archMap = new Map(archetypes.map((a) => [a.id, a]));
   return nodes.map((n) => {
+    const pos = posMap.get(n.id);
     if (n.concept) {
       const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
       return {
         id: n.id,
-        x: n.position_x,
-        y: n.position_y,
+        x: pos?.x ?? 0,
+        y: pos?.y ?? 0,
         label: n.concept.title,
         icon: n.concept.icon || arch?.icon || '📌',
         shape: arch?.node_shape ?? undefined,
         semanticType: arch?.name || 'concept',
         semanticTypeLabel: arch?.name || 'Concept',
-        width: n.width ?? 160,
-        height: n.height ?? 60,
+        width: pos?.width ?? 160,
+        height: pos?.height ?? 60,
         conceptId: n.concept_id ?? undefined,
-        canvasCount: n.network_count,
+        canvasCount: 0,
         nodeType: 'concept' as const,
       };
     }
@@ -53,14 +81,14 @@ function toRenderNodes(nodes: NetworkNodeWithConcept[], archetypes: Archetype[])
     const fileName = filePath?.replace(/\\/g, '/').split('/').pop() || '?';
     return {
       id: n.id,
-      x: n.position_x,
-      y: n.position_y,
+      x: pos?.x ?? 0,
+      y: pos?.y ?? 0,
       label: fileName,
       icon: isFile ? `file:${fileName}` : `folder:${fileName}`,
       semanticType: isFile ? 'file' : 'directory',
       semanticTypeLabel: isFile ? 'File' : 'Directory',
-      width: n.width ?? 140,
-      height: n.height ?? 50,
+      width: pos?.width ?? 140,
+      height: pos?.height ?? 50,
       canvasCount: 0,
       nodeType: isFile ? 'file' as const : 'dir' as const,
       fileId: n.file_id ?? undefined,
@@ -76,28 +104,30 @@ interface ContextMenuState {
   conceptId?: string;
   fileId?: string;
   filePath?: string;
-  canvasCount: number;
 }
 
-function toRenderEdges(edges: EdgeWithRelationType[]): RenderEdge[] {
-  return edges.map((e) => ({
-    id: e.id,
-    sourceId: e.source_node_id,
-    targetId: e.target_node_id,
-    directed: e.directed != null ? !!e.directed : (e.relation_type?.directed ?? false),
-    label: e.relation_type?.name ?? '',
-    color: e.color ?? e.relation_type?.color ?? undefined,
-    lineStyle: (e.line_style ?? e.relation_type?.line_style ?? undefined) as 'solid' | 'dashed' | 'dotted' | undefined,
-  }));
+function toRenderEdges(edges: EdgeWithRelationType[], visualMap: Map<string, { color?: string; lineStyle?: string; directed?: boolean }>): RenderEdge[] {
+  return edges.map((e) => {
+    const vis = visualMap.get(e.id);
+    return {
+      id: e.id,
+      sourceId: e.source_node_id,
+      targetId: e.target_node_id,
+      directed: vis?.directed != null ? vis.directed : (e.relation_type?.directed ?? false),
+      label: e.relation_type?.name ?? '',
+      color: vis?.color ?? e.relation_type?.color ?? undefined,
+      lineStyle: (vis?.lineStyle ?? e.relation_type?.line_style ?? undefined) as 'solid' | 'dashed' | 'dotted' | undefined,
+    };
+  });
 }
 
 export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Element {
   const {
-    currentNetwork, nodes, edges,
+    currentNetwork, currentLayout, nodes, edges, nodePositions, edgeVisuals,
     loadNetworks, openNetwork,
-    addNode, updateNode, removeNode,
+    addNode, removeNode, setNodePosition,
     addEdge, removeEdge, saveViewport,
-    drillInto, navigateBack,
+    navigateToChild, navigateBack,
   } = useNetworkStore();
   const { createConcept } = useConceptStore();
   const { canvasMode } = useUIStore();
@@ -130,13 +160,20 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     setEdgeLinkingState(null);
   }, [canvasMode]);
 
-  // Restore viewport from network (freeform only — timeline always resets to today)
+  // Restore viewport from layout (freeform only — timeline always resets to today)
   useEffect(() => {
-    if (!currentNetwork) return;
-    if (currentNetwork.layout === 'horizontal-timeline') return; // handled by layout reset effect
-    setZoom(currentNetwork.viewport_zoom);
-    setPanX(currentNetwork.viewport_x);
-    setPanY(currentNetwork.viewport_y);
+    if (!currentLayout) return;
+    if (currentLayout.layout_type === 'horizontal-timeline') return; // handled by layout reset effect
+    if (currentLayout.viewport_json) {
+      try {
+        const vp = JSON.parse(currentLayout.viewport_json);
+        setZoom(vp.zoom ?? 1);
+        setPanX(vp.x ?? 0);
+        setPanY(vp.y ?? 0);
+      } catch {
+        // ignore invalid JSON
+      }
+    }
   }, [currentNetwork?.id]);
 
   // Reset viewport when layout changes (e.g., freeform → timeline)
@@ -145,7 +182,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const prevLayoutRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!currentNetwork || !containerSize.width) return;
-    const newLayout = currentNetwork.layout;
+    const newLayout = currentLayout?.layout_type ?? 'freeform';
     const networkChanged = prevNetworkIdRef.current !== currentNetwork.id;
     const layoutChanged = prevLayoutRef.current !== undefined && prevLayoutRef.current !== newLayout;
 
@@ -161,7 +198,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
 
     prevNetworkIdRef.current = currentNetwork.id;
     prevLayoutRef.current = newLayout;
-  }, [currentNetwork?.layout, currentNetwork?.id, containerSize]);
+  }, [currentLayout?.layout_type, currentNetwork?.id, containerSize]);
 
   // Container resize observer — shift viewport center when canvas resizes
   const prevSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -187,12 +224,18 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   }, []);
 
   const archetypes = useArchetypeStore((s) => s.archetypes);
-  const renderNodes = useMemo(() => toRenderNodes(nodes, archetypes), [nodes, archetypes]);
-  const renderEdges = useMemo(() => toRenderEdges(edges), [edges]);
+  const posMap = useMemo(() => buildPositionMap(nodePositions), [nodePositions]);
+  const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
+  const renderNodes = useMemo(() => toRenderNodes(nodes, archetypes, posMap), [nodes, archetypes, posMap]);
+  const renderEdges = useMemo(() => toRenderEdges(edges, visualMap), [edges, visualMap]);
 
   // --- Layout plugin ---
-  const layoutPlugin = useMemo(() => getLayout(currentNetwork?.layout), [currentNetwork?.layout]);
-  const layoutConfig = currentNetwork?.layout_config ?? {};
+  const layoutType = currentLayout?.layout_type ?? 'freeform';
+  const layoutPlugin = useMemo(() => getLayout(layoutType), [layoutType]);
+  const layoutConfig = useMemo(() => {
+    if (!currentLayout?.layout_config_json) return {};
+    try { return JSON.parse(currentLayout.layout_config_json); } catch { return {}; }
+  }, [currentLayout?.layout_config_json]);
 
   // Load concept_properties for all concept nodes
   // Re-fetch when concept store properties change (user edits in concept editor)
@@ -206,7 +249,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   }, [conceptStoreProperties]);
 
   useEffect(() => {
-    if (currentNetwork?.layout === 'freeform' || !currentNetwork) return;
+    if (layoutType === 'freeform' || !currentNetwork) return;
     const conceptIds = nodes.filter((n) => n.concept_id).map((n) => n.concept_id!);
     if (conceptIds.length === 0) return;
 
@@ -219,7 +262,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       for (const [cid, props] of results) map[cid] = props;
       setNodeProperties(map);
     });
-  }, [nodes, currentNetwork?.layout, currentNetwork?.id, propsVersion]);
+  }, [nodes, layoutType, currentNetwork?.id, propsVersion]);
 
   // Build LayoutRenderNodes with metadata from field_mappings + concept_properties
   const fieldMappingsConfig = (layoutConfig.field_mappings ?? {}) as Record<string, Record<string, string>>;
@@ -320,27 +363,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       return;
     }
 
-    // Freeform: Ctrl+wheel = network hierarchy, wheel = zoom-toward-cursor
+    // Freeform: Ctrl+wheel = navigate back only (drill-in removed, use portal instead)
     if (e.ctrlKey) {
-      if (e.deltaY < 0) {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const worldX = (e.clientX - rect.left - panX) / zoom;
-        const worldY = (e.clientY - rect.top - panY) / zoom;
-        const hitNode = nodes.find((n) => {
-          const w = n.width ?? 160;
-          const h = n.height ?? 60;
-          return (
-            n.concept_id &&
-            n.network_count > 0 &&
-            worldX >= n.position_x - w / 2 &&
-            worldX <= n.position_x + w / 2 &&
-            worldY >= n.position_y - h / 2 &&
-            worldY <= n.position_y + h / 2
-          );
-        });
-        if (hitNode?.concept_id) drillInto(hitNode.concept_id);
-      } else {
+      if (e.deltaY > 0) {
         navigateBack();
       }
       return;
@@ -357,7 +382,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     setZoom(newZoom);
     setPanX(newPanX);
     setPanY(newPanY);
-  }, [zoom, panX, panY, nodes, drillInto, navigateBack, isTimeline]);
+  }, [zoom, panX, panY, navigateBack, isTimeline]);
 
   const handleNodeDragEnd = useCallback(async (nodeId: string, x: number, y: number) => {
     if (layoutPlugin.onNodeDrop) {
@@ -368,16 +393,16 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           newX: x,
           newY: y,
           zoom,
-          config: currentNetwork?.layout_config ?? {},
+          config: layoutConfig,
           node,
         });
-        await updateNode(nodeId, { position_x: result.position.x, position_y: result.position.y });
+        await setNodePosition(nodeId, JSON.stringify({ x: result.position.x, y: result.position.y }));
         // TODO: Phase 8 — save propertyUpdates to concept_properties via service
         return;
       }
     }
-    await updateNode(nodeId, { position_x: x, position_y: y });
-  }, [updateNode, layoutPlugin, positionedNodes, currentNetwork]);
+    await setNodePosition(nodeId, JSON.stringify({ x, y }));
+  }, [setNodePosition, layoutPlugin, positionedNodes, layoutConfig, zoom]);
 
   const handlePanChange = useCallback((newPanX: number, newPanY: number) => {
     setPanX(newPanX);
@@ -427,12 +452,12 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
 
   // Save viewport on change (debounced)
   useEffect(() => {
-    if (!currentNetwork) return;
+    if (!currentLayout) return;
     const timer = setTimeout(() => {
-      saveViewport({ viewport_x: panX, viewport_y: panY, viewport_zoom: zoom });
+      saveViewport(JSON.stringify({ x: panX, y: panY, zoom }));
     }, 500);
     return () => clearTimeout(timer);
-  }, [panX, panY, zoom, currentNetwork, saveViewport]);
+  }, [panX, panY, zoom, currentLayout, saveViewport]);
 
   const fitToScreen = useCallback(() => {
     if (renderNodes.length === 0 || !containerSize.width) return;
@@ -523,12 +548,11 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             type: data.type === 'file' ? 'file' : 'directory',
           });
         }
-        await addNode({
+        const node = await addNode({
           network_id: currentNetwork.id,
           file_id: fileEntity.id,
-          position_x: worldX,
-          position_y: worldY,
         });
+        await setNodePosition(node.id, JSON.stringify({ x: worldX, y: worldY }));
       }}
     >
       <NetworkControls
@@ -557,7 +581,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         panY={panY}
         nodes={positionedNodes}
         edges={renderEdges}
-        config={currentNetwork.layout_config ?? {}}
+        config={layoutConfig}
         nodeDragOffset={nodeDragOffset}
       />
 
@@ -597,7 +621,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           panY={panY}
           nodes={positionedNodes}
           edges={renderEdges}
-          config={currentNetwork.layout_config ?? {}}
+          config={layoutConfig}
           nodeDragOffset={nodeDragOffset}
           onNodeClick={(id, event) => {
             setSelectedIds(new Set([id]));
@@ -622,7 +646,6 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
                   conceptId: node.concept_id ?? undefined,
                   fileId: node.file_id ?? undefined,
                   filePath: node.file?.path ?? undefined,
-                  canvasCount: node.network_count,
                 });
               }
             }
@@ -706,7 +729,6 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
                 conceptId: node.concept_id ?? undefined,
                 fileId: node.file_id ?? undefined,
                 filePath: node.file?.path ?? undefined,
-                canvasCount: node.network_count,
               });
             }
           }
@@ -723,7 +745,6 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           conceptId={contextMenu.conceptId}
           fileId={contextMenu.fileId}
           filePath={contextMenu.filePath}
-          canvasCount={contextMenu.canvasCount}
           mode={canvasMode}
           onAddConnection={(nodeId) => {
             setEdgeLinkingState({ sourceNodeId: nodeId });
@@ -736,11 +757,13 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             const network = await networkService.create({
               project_id: currentNetwork.project_id,
               name,
-              concept_id: conceptId,
+              parent_network_id: currentNetwork.id,
             });
-            // Reload to update network_count + networks list
+            // Reload networks list
             await openNetwork(currentNetwork.id);
-            await useNetworkStore.getState().loadNetworks(currentNetwork.project_id);
+            if (currentNetwork.project_id) {
+              await useNetworkStore.getState().loadNetworks(currentNetwork.project_id);
+            }
             // Open NetworkEditor for the new network
             useEditorStore.getState().openTab({
               type: 'network',
@@ -804,12 +827,11 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
               type: type === 'file' ? 'file' : 'directory',
             });
           }
-          await addNode({
+          const node = await addNode({
             network_id: currentNetwork.id,
             file_id: fileEntity.id,
-            position_x: networkContextMenu?.worldX ?? 0,
-            position_y: networkContextMenu?.worldY ?? 0,
           });
+          await setNodePosition(node.id, JSON.stringify({ x: networkContextMenu?.worldX ?? 0, y: networkContextMenu?.worldY ?? 0 }));
           setFileNodeModalOpen(false);
         }}
       />

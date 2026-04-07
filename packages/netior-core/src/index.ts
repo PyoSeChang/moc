@@ -6,6 +6,7 @@ export type { InitDatabaseOptions } from './connection';
 export * from './repositories/project';
 export * from './repositories/concept';
 export * from './repositories/network';
+export * from './repositories/layout';
 export * from './repositories/archetype';
 export * from './repositories/relation-type';
 export * from './repositories/file';

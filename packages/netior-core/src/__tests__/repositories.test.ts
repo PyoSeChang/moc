@@ -13,7 +13,17 @@ vi.mock('../connection', async (importOriginal) => {
 // Import after mock
 import { createProject, listProjects, deleteProject } from '../repositories/project';
 import { createConcept, getConceptsByProject, updateConcept, deleteConcept, searchConcepts } from '../repositories/concept';
-import { createNetwork, listNetworks, updateNetwork, deleteNetwork, getNetworkFull, getNetworksByConceptId, getNetworkAncestors, addNetworkNode, updateNetworkNode, removeNetworkNode, createEdge, getEdge, updateEdge, deleteEdge } from '../repositories/network';
+import {
+  createNetwork, listNetworks, updateNetwork, deleteNetwork, getNetworkFull,
+  getNetworkAncestors, getNetworkTree, addNetworkNode, removeNetworkNode,
+  createEdge, getEdge, updateEdge, deleteEdge,
+  ensureAppRootNetwork, getAppRootNetwork, getProjectRootNetwork,
+} from '../repositories/network';
+import {
+  createLayout, getLayoutByNetwork, updateLayout, deleteLayout,
+  setNodePosition, getNodePositions, removeNodePosition,
+  setEdgeVisual, getEdgeVisuals, removeEdgeVisual,
+} from '../repositories/layout';
 import { createFileEntity, getFileEntity, getFileEntityByPath, getFileEntitiesByProject, updateFileEntity, deleteFileEntity } from '../repositories/file';
 import { createModule, listModules, updateModule, deleteModule, addModuleDirectory, listModuleDirectories, removeModuleDirectory } from '../repositories/module';
 import { getEditorPrefs, upsertEditorPrefs } from '../repositories/editor-prefs';
@@ -117,36 +127,53 @@ describe('Repositories', () => {
       expect(listNetworks(projectId)).toHaveLength(2);
     });
 
-    it('should update network viewport', () => {
-      const n = createNetwork({ project_id: projectId, name: 'N' });
-      const updated = updateNetwork(n.id, { viewport_zoom: 2.5, viewport_x: 100 });
-      expect(updated?.viewport_zoom).toBe(2.5);
-      expect(updated?.viewport_x).toBe(100);
+    it('should create network with scope and parent', () => {
+      const parent = createNetwork({ project_id: projectId, name: 'Parent' });
+      const child = createNetwork({ project_id: projectId, name: 'Child', parent_network_id: parent.id });
+      expect(child.parent_network_id).toBe(parent.id);
+      expect(child.scope).toBe('project');
+    });
+
+    it('should auto-create layout when creating network', () => {
+      const network = createNetwork({ project_id: projectId, name: 'N' });
+      const layout = getLayoutByNetwork(network.id);
+      expect(layout).toBeDefined();
+      expect(layout!.layout_type).toBe('freeform');
+      expect(layout!.network_id).toBe(network.id);
+    });
+
+    it('should update network name', () => {
+      const n = createNetwork({ project_id: projectId, name: 'Old' });
+      const updated = updateNetwork(n.id, { name: 'New' });
+      expect(updated?.name).toBe('New');
     });
 
     it('should add nodes and get full network', () => {
       const network = createNetwork({ project_id: projectId, name: 'N' });
       const concept = createConcept({ project_id: projectId, title: 'Node1' });
-      addNetworkNode({
+      const node = addNetworkNode({
         network_id: network.id,
         concept_id: concept.id,
-        position_x: 50,
-        position_y: 100,
       });
+
+      // Set position via layout
+      const layout = getLayoutByNetwork(network.id)!;
+      setNodePosition(layout.id, node.id, JSON.stringify({ x: 50, y: 100 }));
 
       const full = getNetworkFull(network.id);
       expect(full).toBeDefined();
       expect(full!.nodes).toHaveLength(1);
       expect(full!.nodes[0]!.concept!.title).toBe('Node1');
-      expect(full!.nodes[0]!.position_x).toBe(50);
+      expect(full!.nodePositions).toHaveLength(1);
+      expect(JSON.parse(full!.nodePositions[0].positionJson).x).toBe(50);
     });
 
     it('should enforce unique concept per network', () => {
       const network = createNetwork({ project_id: projectId, name: 'N' });
       const concept = createConcept({ project_id: projectId, title: 'N' });
-      addNetworkNode({ network_id: network.id, concept_id: concept.id, position_x: 0, position_y: 0 });
+      addNetworkNode({ network_id: network.id, concept_id: concept.id });
       expect(() =>
-        addNetworkNode({ network_id: network.id, concept_id: concept.id, position_x: 10, position_y: 10 }),
+        addNetworkNode({ network_id: network.id, concept_id: concept.id }),
       ).toThrow();
     });
 
@@ -154,8 +181,8 @@ describe('Repositories', () => {
       const network = createNetwork({ project_id: projectId, name: 'N' });
       const c1 = createConcept({ project_id: projectId, title: 'A' });
       const c2 = createConcept({ project_id: projectId, title: 'B' });
-      const n1 = addNetworkNode({ network_id: network.id, concept_id: c1.id, position_x: 0, position_y: 0 });
-      const n2 = addNetworkNode({ network_id: network.id, concept_id: c2.id, position_x: 100, position_y: 0 });
+      const n1 = addNetworkNode({ network_id: network.id, concept_id: c1.id });
+      const n2 = addNetworkNode({ network_id: network.id, concept_id: c2.id });
 
       const edge = createEdge({ network_id: network.id, source_node_id: n1.id, target_node_id: n2.id });
       expect(edge.id).toBeDefined();
@@ -170,10 +197,152 @@ describe('Repositories', () => {
     it('should cascade delete nodes when network is deleted', () => {
       const network = createNetwork({ project_id: projectId, name: 'N' });
       const concept = createConcept({ project_id: projectId, title: 'N' });
-      addNetworkNode({ network_id: network.id, concept_id: concept.id, position_x: 0, position_y: 0 });
+      addNetworkNode({ network_id: network.id, concept_id: concept.id });
 
       deleteNetwork(network.id);
       expect(getNetworkFull(network.id)).toBeUndefined();
+    });
+  });
+
+  // --- Layout ---
+
+  describe('Layout', () => {
+    let projectId: string;
+    let networkId: string;
+    let layoutId: string;
+
+    beforeEach(() => {
+      projectId = createProject({ name: 'P', root_dir: '/tmp/layout' }).id;
+      const network = createNetwork({ project_id: projectId, name: 'N' });
+      networkId = network.id;
+      layoutId = getLayoutByNetwork(networkId)!.id;
+    });
+
+    it('should get layout by network', () => {
+      const layout = getLayoutByNetwork(networkId);
+      expect(layout).toBeDefined();
+      expect(layout!.network_id).toBe(networkId);
+      expect(layout!.layout_type).toBe('freeform');
+    });
+
+    it('should update layout', () => {
+      const viewport = JSON.stringify({ x: 100, y: 200, zoom: 1.5 });
+      const updated = updateLayout(layoutId, { viewport_json: viewport, layout_type: 'force' });
+      expect(updated?.viewport_json).toBe(viewport);
+      expect(updated?.layout_type).toBe('force');
+    });
+
+    it('should delete layout', () => {
+      expect(deleteLayout(layoutId)).toBe(true);
+      expect(getLayoutByNetwork(networkId)).toBeUndefined();
+    });
+
+    it('should set and get node positions', () => {
+      const concept = createConcept({ project_id: projectId, title: 'C' });
+      const node = addNetworkNode({ network_id: networkId, concept_id: concept.id });
+
+      setNodePosition(layoutId, node.id, JSON.stringify({ x: 10, y: 20 }));
+      const positions = getNodePositions(layoutId);
+      expect(positions).toHaveLength(1);
+      expect(positions[0].nodeId).toBe(node.id);
+      expect(JSON.parse(positions[0].positionJson)).toEqual({ x: 10, y: 20 });
+    });
+
+    it('should upsert node position on conflict', () => {
+      const concept = createConcept({ project_id: projectId, title: 'C' });
+      const node = addNetworkNode({ network_id: networkId, concept_id: concept.id });
+
+      setNodePosition(layoutId, node.id, JSON.stringify({ x: 10, y: 20 }));
+      setNodePosition(layoutId, node.id, JSON.stringify({ x: 30, y: 40 }));
+      const positions = getNodePositions(layoutId);
+      expect(positions).toHaveLength(1);
+      expect(JSON.parse(positions[0].positionJson)).toEqual({ x: 30, y: 40 });
+    });
+
+    it('should remove node position', () => {
+      const concept = createConcept({ project_id: projectId, title: 'C' });
+      const node = addNetworkNode({ network_id: networkId, concept_id: concept.id });
+
+      setNodePosition(layoutId, node.id, JSON.stringify({ x: 10, y: 20 }));
+      expect(removeNodePosition(layoutId, node.id)).toBe(true);
+      expect(getNodePositions(layoutId)).toHaveLength(0);
+    });
+
+    it('should set and get edge visuals', () => {
+      const c1 = createConcept({ project_id: projectId, title: 'A' });
+      const c2 = createConcept({ project_id: projectId, title: 'B' });
+      const n1 = addNetworkNode({ network_id: networkId, concept_id: c1.id });
+      const n2 = addNetworkNode({ network_id: networkId, concept_id: c2.id });
+      const edge = createEdge({ network_id: networkId, source_node_id: n1.id, target_node_id: n2.id });
+
+      const visual = JSON.stringify({ color: '#ff0000', lineStyle: 'dashed', directed: true });
+      setEdgeVisual(layoutId, edge.id, visual);
+      const visuals = getEdgeVisuals(layoutId);
+      expect(visuals).toHaveLength(1);
+      expect(visuals[0].edgeId).toBe(edge.id);
+      expect(JSON.parse(visuals[0].visualJson)).toEqual({ color: '#ff0000', lineStyle: 'dashed', directed: true });
+    });
+
+    it('should remove edge visual', () => {
+      const c1 = createConcept({ project_id: projectId, title: 'A' });
+      const c2 = createConcept({ project_id: projectId, title: 'B' });
+      const n1 = addNetworkNode({ network_id: networkId, concept_id: c1.id });
+      const n2 = addNetworkNode({ network_id: networkId, concept_id: c2.id });
+      const edge = createEdge({ network_id: networkId, source_node_id: n1.id, target_node_id: n2.id });
+
+      setEdgeVisual(layoutId, edge.id, JSON.stringify({ color: '#00ff00' }));
+      expect(removeEdgeVisual(layoutId, edge.id)).toBe(true);
+      expect(getEdgeVisuals(layoutId)).toHaveLength(0);
+    });
+
+    it('should cascade delete layout_nodes when layout is deleted', () => {
+      const concept = createConcept({ project_id: projectId, title: 'C' });
+      const node = addNetworkNode({ network_id: networkId, concept_id: concept.id });
+      setNodePosition(layoutId, node.id, JSON.stringify({ x: 0, y: 0 }));
+
+      deleteLayout(layoutId);
+      // Re-create layout to query positions (original was deleted)
+      const newLayout = createLayout({ contextId: 'test-ctx' });
+      expect(getNodePositions(newLayout.id)).toHaveLength(0);
+    });
+
+    it('should cascade delete layout when network is deleted', () => {
+      deleteNetwork(networkId);
+      expect(getLayoutByNetwork(networkId)).toBeUndefined();
+    });
+  });
+
+  // --- App Root / Project Root ---
+
+  describe('App Root Network', () => {
+    it('should create app root network', () => {
+      const root = ensureAppRootNetwork();
+      expect(root.scope).toBe('app');
+      expect(root.parent_network_id).toBeNull();
+      expect(root.name).toBe('App Root');
+    });
+
+    it('should return same app root on subsequent calls', () => {
+      const root1 = ensureAppRootNetwork();
+      const root2 = ensureAppRootNetwork();
+      expect(root1.id).toBe(root2.id);
+    });
+
+    it('should get app root network', () => {
+      ensureAppRootNetwork();
+      const root = getAppRootNetwork();
+      expect(root).toBeDefined();
+      expect(root!.scope).toBe('app');
+    });
+
+    it('should get project root network', () => {
+      const appRoot = ensureAppRootNetwork();
+      const project = createProject({ name: 'P', root_dir: '/tmp/pr' });
+      createNetwork({ project_id: project.id, name: 'Project Root', scope: 'project', parent_network_id: appRoot.id });
+
+      const projectRoot = getProjectRootNetwork(project.id);
+      expect(projectRoot).toBeDefined();
+      expect(projectRoot!.parent_network_id).toBe(appRoot.id);
     });
   });
 
@@ -303,7 +472,7 @@ describe('Repositories', () => {
     });
   });
 
-  // --- Hierarchical Network ---
+  // --- Hierarchical Network (parent_network_id) ---
 
   describe('Hierarchical Network', () => {
     let projectId: string;
@@ -312,83 +481,51 @@ describe('Repositories', () => {
       projectId = createProject({ name: 'P', root_dir: '/tmp/hc' }).id;
     });
 
-    it('should create sub-network with concept_id', () => {
-      const concept = createConcept({ project_id: projectId, title: 'ML' });
-      const network = createNetwork({ project_id: projectId, name: 'ML Network', concept_id: concept.id });
-      expect(network.concept_id).toBe(concept.id);
+    it('should create child network with parent_network_id', () => {
+      const parent = createNetwork({ project_id: projectId, name: 'Root' });
+      const child = createNetwork({ project_id: projectId, name: 'Child', parent_network_id: parent.id });
+      expect(child.parent_network_id).toBe(parent.id);
     });
 
-    it('should allow multiple networks per concept (1:N)', () => {
-      const concept = createConcept({ project_id: projectId, title: 'ML' });
-      const n1 = createNetwork({ project_id: projectId, name: 'Network1', concept_id: concept.id });
-      const n2 = createNetwork({ project_id: projectId, name: 'Network2', concept_id: concept.id });
-      expect(n1.id).not.toBe(n2.id);
-      expect(n1.concept_id).toBe(concept.id);
-      expect(n2.concept_id).toBe(concept.id);
-    });
-
-    it('should list root networks only when rootOnly=true', () => {
-      const concept = createConcept({ project_id: projectId, title: 'ML' });
-      createNetwork({ project_id: projectId, name: 'Root' });
-      createNetwork({ project_id: projectId, name: 'Sub', concept_id: concept.id });
-
-      expect(listNetworks(projectId)).toHaveLength(2);
-      expect(listNetworks(projectId, true)).toHaveLength(1);
-      expect(listNetworks(projectId, true)[0].name).toBe('Root');
-    });
-
-    it('should get networks by concept id (array)', () => {
-      const concept = createConcept({ project_id: projectId, title: 'ML' });
-      const network = createNetwork({ project_id: projectId, name: 'Sub', concept_id: concept.id });
-
-      const found = getNetworksByConceptId(concept.id);
-      expect(found).toHaveLength(1);
-      expect(found[0].id).toBe(network.id);
-      expect(getNetworksByConceptId('nonexistent')).toHaveLength(0);
-    });
-
-    it('should return network_count in getNetworkFull', () => {
+    it('should build network tree from parent_network_id', () => {
       const root = createNetwork({ project_id: projectId, name: 'Root' });
-      const c1 = createConcept({ project_id: projectId, title: 'WithSub' });
-      const c2 = createConcept({ project_id: projectId, title: 'NoSub' });
+      const child1 = createNetwork({ project_id: projectId, name: 'Child1', parent_network_id: root.id });
+      const child2 = createNetwork({ project_id: projectId, name: 'Child2', parent_network_id: root.id });
+      createNetwork({ project_id: projectId, name: 'Grandchild', parent_network_id: child1.id });
 
-      createNetwork({ project_id: projectId, name: 'Sub', concept_id: c1.id });
-      addNetworkNode({ network_id: root.id, concept_id: c1.id, position_x: 0, position_y: 0 });
-      addNetworkNode({ network_id: root.id, concept_id: c2.id, position_x: 100, position_y: 0 });
-
-      const full = getNetworkFull(root.id)!;
-      const withSub = full.nodes.find(n => n.concept?.title === 'WithSub');
-      const noSub = full.nodes.find(n => n.concept?.title === 'NoSub');
-      expect(withSub?.network_count).toBe(1);
-      expect(noSub?.network_count).toBe(0);
+      const tree = getNetworkTree(projectId);
+      expect(tree).toHaveLength(1);
+      expect(tree[0].network.name).toBe('Root');
+      expect(tree[0].children).toHaveLength(2);
+      expect(tree[0].children[0].children).toHaveLength(1);
+      expect(tree[0].children[0].children[0].network.name).toBe('Grandchild');
     });
 
-    it('should get network ancestors', () => {
+    it('should get network ancestors via parent_network_id chain', () => {
       const root = createNetwork({ project_id: projectId, name: 'Root' });
-      const c1 = createConcept({ project_id: projectId, title: 'ML' });
-      addNetworkNode({ network_id: root.id, concept_id: c1.id, position_x: 0, position_y: 0 });
+      const child = createNetwork({ project_id: projectId, name: 'Child', parent_network_id: root.id });
+      const grandchild = createNetwork({ project_id: projectId, name: 'Grandchild', parent_network_id: child.id });
 
-      const sub1 = createNetwork({ project_id: projectId, name: 'ML Network', concept_id: c1.id });
-      const c2 = createConcept({ project_id: projectId, title: 'CNN' });
-      addNetworkNode({ network_id: sub1.id, concept_id: c2.id, position_x: 0, position_y: 0 });
-
-      const sub2 = createNetwork({ project_id: projectId, name: 'CNN Network', concept_id: c2.id });
-
-      const ancestors = getNetworkAncestors(sub2.id);
+      const ancestors = getNetworkAncestors(grandchild.id);
       expect(ancestors).toHaveLength(3);
       expect(ancestors[0].networkName).toBe('Root');
-      expect(ancestors[0].conceptTitle).toBeNull();
-      expect(ancestors[1].networkName).toBe('ML Network');
-      expect(ancestors[1].conceptTitle).toBe('ML');
-      expect(ancestors[2].networkName).toBe('CNN Network');
-      expect(ancestors[2].conceptTitle).toBe('CNN');
+      expect(ancestors[1].networkName).toBe('Child');
+      expect(ancestors[2].networkName).toBe('Grandchild');
     });
 
-    it('should cascade delete sub-network when concept is deleted', () => {
-      const concept = createConcept({ project_id: projectId, title: 'ML' });
-      const sub = createNetwork({ project_id: projectId, name: 'Sub', concept_id: concept.id });
-      deleteConcept(concept.id);
-      expect(getNetworksByConceptId(concept.id)).toHaveLength(0);
+    it('should cascade delete child networks when parent is deleted', () => {
+      const parent = createNetwork({ project_id: projectId, name: 'Parent' });
+      const child = createNetwork({ project_id: projectId, name: 'Child', parent_network_id: parent.id });
+      deleteNetwork(parent.id);
+      expect(getNetworkFull(child.id)).toBeUndefined();
+    });
+
+    it('should include layout data in getNetworkFull', () => {
+      const network = createNetwork({ project_id: projectId, name: 'N' });
+      const full = getNetworkFull(network.id);
+      expect(full).toBeDefined();
+      expect(full!.layout).toBeDefined();
+      expect(full!.layout!.layout_type).toBe('freeform');
     });
   });
 
@@ -506,31 +643,31 @@ describe('Repositories', () => {
 
     it('should add node with file_id (file)', () => {
       const file = createFileEntity({ project_id: projectId, path: 'readme.md', type: 'file' });
-      const node = addNetworkNode({ network_id: networkId, file_id: file.id, position_x: 0, position_y: 0 });
+      const node = addNetworkNode({ network_id: networkId, file_id: file.id });
       expect(node.file_id).toBe(file.id);
       expect(node.concept_id).toBeNull();
     });
 
     it('should add node with file_id (directory)', () => {
       const dir = createFileEntity({ project_id: projectId, path: 'docs', type: 'directory' });
-      const node = addNetworkNode({ network_id: networkId, file_id: dir.id, position_x: 0, position_y: 0 });
+      const node = addNetworkNode({ network_id: networkId, file_id: dir.id });
       expect(node.file_id).toBe(dir.id);
       expect(node.concept_id).toBeNull();
     });
 
     it('should reject node with no concept/file', () => {
-      expect(() => addNetworkNode({ network_id: networkId, position_x: 0, position_y: 0 })).toThrow();
+      expect(() => addNetworkNode({ network_id: networkId })).toThrow();
     });
 
     it('should reject node with both concept and file', () => {
       const concept = createConcept({ project_id: projectId, title: 'C' });
       const file = createFileEntity({ project_id: projectId, path: 'x.md', type: 'file' });
-      expect(() => addNetworkNode({ network_id: networkId, concept_id: concept.id, file_id: file.id, position_x: 0, position_y: 0 })).toThrow();
+      expect(() => addNetworkNode({ network_id: networkId, concept_id: concept.id, file_id: file.id })).toThrow();
     });
 
     it('should return file nodes with file data in getNetworkFull', () => {
       const file = createFileEntity({ project_id: projectId, path: 'test.md', type: 'file' });
-      addNetworkNode({ network_id: networkId, file_id: file.id, position_x: 0, position_y: 0 });
+      addNetworkNode({ network_id: networkId, file_id: file.id });
       const full = getNetworkFull(networkId)!;
       expect(full.nodes).toHaveLength(1);
       expect(full.nodes[0].file_id).toBe(file.id);
@@ -541,16 +678,13 @@ describe('Repositories', () => {
     it('should support node metadata', () => {
       const file = createFileEntity({ project_id: projectId, path: 'doc.pdf', type: 'file' });
       const meta = JSON.stringify({ description: 'Reference material' });
-      const node = addNetworkNode({ network_id: networkId, file_id: file.id, metadata: meta, position_x: 0, position_y: 0 });
+      const node = addNetworkNode({ network_id: networkId, file_id: file.id, metadata: meta });
       expect(node.metadata).toBe(meta);
-
-      const updated = updateNetworkNode(node.id, { metadata: JSON.stringify({ description: 'Updated' }) });
-      expect(JSON.parse(updated!.metadata!).description).toBe('Updated');
     });
 
     it('should cascade delete node when file is deleted', () => {
       const file = createFileEntity({ project_id: projectId, path: 'cascade.md', type: 'file' });
-      addNetworkNode({ network_id: networkId, file_id: file.id, position_x: 0, position_y: 0 });
+      addNetworkNode({ network_id: networkId, file_id: file.id });
       deleteFileEntity(file.id);
       const full = getNetworkFull(networkId)!;
       expect(full.nodes).toHaveLength(0);
@@ -569,8 +703,8 @@ describe('Repositories', () => {
       networkId = createNetwork({ project_id: projectId, name: 'Network' }).id;
       const c1 = createConcept({ project_id: projectId, title: 'A' });
       const c2 = createConcept({ project_id: projectId, title: 'B' });
-      n1Id = addNetworkNode({ network_id: networkId, concept_id: c1.id, position_x: 0, position_y: 0 }).id;
-      n2Id = addNetworkNode({ network_id: networkId, concept_id: c2.id, position_x: 100, position_y: 0 }).id;
+      n1Id = addNetworkNode({ network_id: networkId, concept_id: c1.id }).id;
+      n2Id = addNetworkNode({ network_id: networkId, concept_id: c2.id }).id;
     });
 
     it('should create edge with relation_type_id', () => {
@@ -612,6 +746,16 @@ describe('Repositories', () => {
       expect(full.edges).toHaveLength(1);
       expect(full.edges[0].relation_type?.name).toBe('Ally');
       expect(full.edges[0].relation_type?.directed).toBe(true);
+    });
+
+    it('should store edge visuals in layout layer', () => {
+      const edge = createEdge({ network_id: networkId, source_node_id: n1Id, target_node_id: n2Id });
+      const layout = getLayoutByNetwork(networkId)!;
+      setEdgeVisual(layout.id, edge.id, JSON.stringify({ color: '#ff0000', lineStyle: 'dashed' }));
+
+      const full = getNetworkFull(networkId)!;
+      expect(full.edgeVisuals).toHaveLength(1);
+      expect(JSON.parse(full.edgeVisuals[0].visualJson).color).toBe('#ff0000');
     });
   });
 });

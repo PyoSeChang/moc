@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import type { IpcResult } from '@netior/shared/types';
 import {
   createNetwork, listNetworks, updateNetwork, deleteNetwork, getNetworkFull,
-  getNetworksByConceptId, getNetworkAncestors, getNetworkTree,
+  getNetworkAncestors, getNetworkTree,
   addNetworkNode, updateNetworkNode, removeNetworkNode,
   createEdge, getEdge, updateEdge, deleteEdge,
 } from '@netior/core';
@@ -51,14 +51,6 @@ export function registerNetworkIpc(): void {
   ipcMain.handle('network:getFull', async (_e, networkId: string): Promise<IpcResult<unknown>> => {
     try {
       return { success: true, data: getNetworkFull(networkId) };
-    } catch (err) {
-      return { success: false, error: (err as Error).message };
-    }
-  });
-
-  ipcMain.handle('network:getByConcept', async (_e, conceptId: string): Promise<IpcResult<unknown>> => {
-    try {
-      return { success: true, data: getNetworksByConceptId(conceptId) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

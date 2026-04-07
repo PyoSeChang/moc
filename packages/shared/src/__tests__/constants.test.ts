@@ -32,12 +32,6 @@ describe('IPC_CHANNELS', () => {
 });
 
 describe('DEFAULTS', () => {
-  it('should have network defaults', () => {
-    expect(DEFAULTS.NETWORK_ZOOM).toBe(1.0);
-    expect(DEFAULTS.NETWORK_PAN_X).toBe(0);
-    expect(DEFAULTS.NETWORK_PAN_Y).toBe(0);
-  });
-
   it('should have window defaults', () => {
     expect(DEFAULTS.WINDOW_WIDTH).toBe(1200);
     expect(DEFAULTS.WINDOW_HEIGHT).toBe(800);

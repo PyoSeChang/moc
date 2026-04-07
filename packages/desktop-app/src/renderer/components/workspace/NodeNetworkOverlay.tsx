@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Layers } from 'lucide-react';
-import type { Network } from '@netior/shared/types';
-import { networkService } from '../../services';
 import { useNetworkStore } from '../../stores/network-store';
 import { useI18n } from '../../hooks/useI18n';
 
@@ -15,14 +13,14 @@ interface NodeNetworkOverlayProps {
 
 export function NodeNetworkOverlay({ conceptId, x, y, onClose }: NodeNetworkOverlayProps): JSX.Element | null {
   const { t } = useI18n();
-  const [networks, setNetworks] = useState<Network[]>([]);
-  const { openNetwork, currentNetwork } = useNetworkStore();
+  const { openNetwork, currentNetwork, networks } = useNetworkStore();
 
-  useEffect(() => {
-    networkService.getNetworksByConcept(conceptId).then(setNetworks);
-  }, [conceptId]);
+  // Show child networks of the current network
+  const childNetworks = currentNetwork
+    ? networks.filter((n) => n.parent_network_id === currentNetwork.id)
+    : [];
 
-  if (networks.length === 0) return null;
+  if (childNetworks.length === 0) return null;
 
   const handleClick = async (networkId: string) => {
     if (currentNetwork) {
@@ -44,7 +42,7 @@ export function NodeNetworkOverlay({ conceptId, x, y, onClose }: NodeNetworkOver
         <Layers size={10} />
         {t('network.networksForConcept') ?? 'Networks'}
       </div>
-      {networks.map((c) => (
+      {childNetworks.map((c) => (
         <button
           key={c.id}
           type="button"

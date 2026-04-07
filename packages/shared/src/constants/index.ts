@@ -43,7 +43,6 @@ export const IPC_CHANNELS = {
   NETWORK_UPDATE: 'network:update',
   NETWORK_DELETE: 'network:delete',
   NETWORK_GET_FULL: 'network:getFull',
-  NETWORK_GET_BY_CONCEPT: 'network:getByConcept',
   NETWORK_GET_TREE: 'network:getTree',
   NETWORK_GET_ANCESTORS: 'network:getAncestors',
 
@@ -51,6 +50,17 @@ export const IPC_CHANNELS = {
   NETWORK_NODE_ADD: 'networkNode:add',
   NETWORK_NODE_UPDATE: 'networkNode:update',
   NETWORK_NODE_REMOVE: 'networkNode:remove',
+
+  // Layout
+  LAYOUT_GET: 'layout:get',
+  LAYOUT_GET_BY_NETWORK: 'layout:getByNetwork',
+  LAYOUT_UPDATE: 'layout:update',
+  LAYOUT_NODE_SET_POSITION: 'layoutNode:setPosition',
+  LAYOUT_NODE_GET_POSITIONS: 'layoutNode:getPositions',
+  LAYOUT_NODE_REMOVE: 'layoutNode:remove',
+  LAYOUT_EDGE_SET_VISUAL: 'layoutEdge:setVisual',
+  LAYOUT_EDGE_GET_VISUALS: 'layoutEdge:getVisuals',
+  LAYOUT_EDGE_REMOVE: 'layoutEdge:remove',
 
   // Edge
   EDGE_CREATE: 'edge:create',
@@ -156,9 +166,6 @@ export const IPC_CHANNELS = {
 // ============================================
 
 export const DEFAULTS = {
-  NETWORK_ZOOM: 1.0,
-  NETWORK_PAN_X: 0,
-  NETWORK_PAN_Y: 0,
   WINDOW_WIDTH: 1200,
   WINDOW_HEIGHT: 800,
 } as const;

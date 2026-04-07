@@ -214,7 +214,7 @@ export function registerNarreIpc(): void {
         if (nw.name.toLowerCase().includes(lowerQuery)) {
           results.push({
             type: 'network', id: nw.id, display: nw.name,
-            meta: { conceptId: nw.concept_id },
+            meta: {},
           });
         }
       }

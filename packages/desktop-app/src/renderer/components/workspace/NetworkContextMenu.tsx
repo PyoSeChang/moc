@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, ArrowRightLeft, File } from 'lucide-react';
 import type { Network } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
-import { networkService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 
 interface NetworkContextMenuProps {
@@ -26,16 +25,12 @@ export function NetworkContextMenu({ x, y, onCreateConcept, onAddFileNode, onClo
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Load sibling networks
+  // Load sibling networks (same parent_network_id)
   useEffect(() => {
     if (!currentNetwork) return;
-    if (currentNetwork.concept_id) {
-      networkService.getNetworksByConcept(currentNetwork.concept_id).then((list) => {
-        setSiblingNetworks(list.filter((c) => c.id !== currentNetwork.id));
-      });
-    } else {
-      setSiblingNetworks(networks.filter((c) => c.id !== currentNetwork.id));
-    }
+    setSiblingNetworks(
+      networks.filter((c) => c.id !== currentNetwork.id && c.parent_network_id === currentNetwork.parent_network_id)
+    );
   }, [currentNetwork, networks]);
 
   const handleSwitch = async (networkId: string) => {

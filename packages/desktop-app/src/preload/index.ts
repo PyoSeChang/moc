@@ -51,15 +51,32 @@ const electronAPI = {
       ipcRenderer.invoke('network:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('network:delete', id),
     getFull: (networkId: string) => ipcRenderer.invoke('network:getFull', networkId),
-    getByConcept: (conceptId: string) => ipcRenderer.invoke('network:getByConcept', conceptId),
     getAncestors: (networkId: string) => ipcRenderer.invoke('network:getAncestors', networkId),
     getTree: (projectId: string) => ipcRenderer.invoke('network:getTree', projectId),
   },
   networkNode: {
     add: (data: Record<string, unknown>) => ipcRenderer.invoke('networkNode:add', data),
-    update: (id: string, data: Record<string, unknown>) =>
-      ipcRenderer.invoke('networkNode:update', id, data),
+    update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('networkNode:update', id, data),
     remove: (id: string) => ipcRenderer.invoke('networkNode:remove', id),
+  },
+  layout: {
+    getByNetwork: (networkId: string) => ipcRenderer.invoke('layout:getByNetwork', networkId),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('layout:update', id, data),
+  },
+  layoutNode: {
+    setPosition: (layoutId: string, nodeId: string, positionJson: string) =>
+      ipcRenderer.invoke('layoutNode:setPosition', layoutId, nodeId, positionJson),
+    getPositions: (layoutId: string) => ipcRenderer.invoke('layoutNode:getPositions', layoutId),
+    remove: (layoutId: string, nodeId: string) =>
+      ipcRenderer.invoke('layoutNode:remove', layoutId, nodeId),
+  },
+  layoutEdge: {
+    setVisual: (layoutId: string, edgeId: string, visualJson: string) =>
+      ipcRenderer.invoke('layoutEdge:setVisual', layoutId, edgeId, visualJson),
+    getVisuals: (layoutId: string) => ipcRenderer.invoke('layoutEdge:getVisuals', layoutId),
+    remove: (layoutId: string, edgeId: string) =>
+      ipcRenderer.invoke('layoutEdge:remove', layoutId, edgeId),
   },
   edge: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('edge:create', data),

@@ -1,24 +1,18 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
+import { createLayout, getLayoutByNetwork, getNodePositions, getEdgeVisuals } from './layout';
 import type {
   Network, NetworkCreate, NetworkUpdate,
-  NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
+  NetworkNode, NetworkNodeCreate,
   Edge, EdgeCreate, EdgeUpdate,
   Concept,
   FileEntity,
   RelationType,
   NetworkBreadcrumbItem,
 } from '@netior/shared/types';
+import type { Layout, LayoutNodePosition, LayoutEdgeVisual } from './layout';
 
 // ── Network ──
-
-/** Parse layout_config JSON from DB row */
-function parseNetworkRow(row: Record<string, unknown>): Network {
-  return {
-    ...row,
-    layout_config: row.layout_config ? JSON.parse(row.layout_config as string) : null,
-  } as Network;
-}
 
 export function createNetwork(data: NetworkCreate): Network {
   const db = getDatabase();
@@ -26,90 +20,57 @@ export function createNetwork(data: NetworkCreate): Network {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO networks (id, project_id, name, concept_id, layout, layout_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO networks (id, project_id, name, scope, parent_network_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.project_id, data.name,
-    data.concept_id ?? null,
-    data.layout ?? 'freeform',
-    data.layout_config ? JSON.stringify(data.layout_config) : null,
+    data.scope ?? 'project',
+    data.parent_network_id ?? null,
     now, now,
   );
 
-  const row = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Record<string, unknown>;
-  return parseNetworkRow(row);
+  // Auto-create layout for this network
+  createLayout({ networkId: id });
+
+  return db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network;
 }
 
 export function listNetworks(projectId: string, rootOnly = false): Network[] {
   const db = getDatabase();
   const sql = rootOnly
-    ? 'SELECT * FROM networks WHERE project_id = ? AND concept_id IS NULL ORDER BY created_at'
+    ? 'SELECT * FROM networks WHERE project_id = ? AND parent_network_id IS NULL ORDER BY created_at'
     : 'SELECT * FROM networks WHERE project_id = ? ORDER BY created_at';
-  const rows = db.prepare(sql).all(projectId) as Record<string, unknown>[];
-  return rows.map(parseNetworkRow);
+  return db.prepare(sql).all(projectId) as Network[];
 }
 
 export interface NetworkTreeNode {
   network: Network;
-  conceptTitle: string | null;
   children: NetworkTreeNode[];
 }
 
 export function getNetworkTree(projectId: string): NetworkTreeNode[] {
   const db = getDatabase();
 
-  // All networks for this project
-  const allNetworks = (db.prepare('SELECT * FROM networks WHERE project_id = ? ORDER BY created_at')
-    .all(projectId) as Record<string, unknown>[]).map(parseNetworkRow);
+  const allNetworks = db.prepare(
+    'SELECT * FROM networks WHERE project_id = ? ORDER BY created_at',
+  ).all(projectId) as Network[];
 
-  // All network_nodes: which concept is placed in which network
-  const nodeRows = db.prepare(
-    `SELECT nn.network_id, nn.concept_id, c.title as concept_title
-     FROM network_nodes nn
-     JOIN concepts c ON nn.concept_id = c.id
-     WHERE nn.concept_id IS NOT NULL
-       AND nn.network_id IN (SELECT id FROM networks WHERE project_id = ?)`,
-  ).all(projectId) as { network_id: string; concept_id: string; concept_title: string }[];
-
-  // Map: concept_id → which network it's placed in (parent network)
-  const conceptToParentNetwork = new Map<string, string>();
-  const conceptTitles = new Map<string, string>();
-  for (const row of nodeRows) {
-    conceptToParentNetwork.set(row.concept_id, row.network_id);
-    conceptTitles.set(row.concept_id, row.concept_title);
-  }
-
-  // Map: network_id → Network
-  const networkMap = new Map(allNetworks.map((n) => [n.id, n]));
-
-  // Group networks by their parent network
-  // A network's parent = the network that contains its concept_id as a node
-  const childrenOf = new Map<string, NetworkTreeNode[]>(); // parent_network_id → children
+  // Group by parent_network_id
+  const childrenOf = new Map<string, NetworkTreeNode[]>();
   const roots: NetworkTreeNode[] = [];
 
   for (const network of allNetworks) {
-    const node: NetworkTreeNode = {
-      network,
-      conceptTitle: network.concept_id ? (conceptTitles.get(network.concept_id) ?? null) : null,
-      children: [],
-    };
+    const node: NetworkTreeNode = { network, children: [] };
 
-    if (!network.concept_id) {
-      // Root network
+    if (!network.parent_network_id) {
       roots.push(node);
     } else {
-      const parentNetworkId = conceptToParentNetwork.get(network.concept_id);
-      if (parentNetworkId) {
-        const siblings = childrenOf.get(parentNetworkId) ?? [];
-        siblings.push(node);
-        childrenOf.set(parentNetworkId, siblings);
-      } else {
-        // Concept exists but isn't placed on any network — treat as orphan root
-        roots.push(node);
-      }
+      const siblings = childrenOf.get(network.parent_network_id) ?? [];
+      siblings.push(node);
+      childrenOf.set(network.parent_network_id, siblings);
     }
   }
 
-  // Recursively attach children
   function attachChildren(nodes: NetworkTreeNode[]): void {
     for (const node of nodes) {
       node.children = childrenOf.get(node.network.id) ?? [];
@@ -121,79 +82,46 @@ export function getNetworkTree(projectId: string): NetworkTreeNode[] {
   return roots;
 }
 
-export function getNetworksByConceptId(conceptId: string): Network[] {
-  const db = getDatabase();
-  const rows = db
-    .prepare('SELECT * FROM networks WHERE concept_id = ? ORDER BY created_at')
-    .all(conceptId) as Record<string, unknown>[];
-  return rows.map(parseNetworkRow);
-}
-
 export function getNetworkAncestors(networkId: string): NetworkBreadcrumbItem[] {
   const db = getDatabase();
-  const breadcrumbs: NetworkBreadcrumbItem[] = [];
-  const visited = new Set<string>();
-  let currentId: string | null = networkId;
 
-  while (currentId) {
-    if (visited.has(currentId)) break;
-    visited.add(currentId);
+  // Recursive CTE following parent_network_id chain
+  const rows = db.prepare(`
+    WITH RECURSIVE ancestors(id, project_id, name, scope, parent_network_id, created_at, updated_at, depth) AS (
+      SELECT id, project_id, name, scope, parent_network_id, created_at, updated_at, 0
+        FROM networks WHERE id = ?
+      UNION ALL
+      SELECT n.id, n.project_id, n.name, n.scope, n.parent_network_id, n.created_at, n.updated_at, a.depth + 1
+        FROM networks n
+        JOIN ancestors a ON n.id = a.parent_network_id
+    )
+    SELECT * FROM ancestors ORDER BY depth DESC
+  `).all(networkId) as (Network & { depth: number })[];
 
-    const networkRow = db.prepare('SELECT * FROM networks WHERE id = ?').get(currentId) as Record<string, unknown> | undefined;
-    if (!networkRow) break;
-    const network = parseNetworkRow(networkRow);
-
-    let conceptTitle: string | null = null;
-    if (network.concept_id) {
-      const concept = db.prepare('SELECT title FROM concepts WHERE id = ?').get(network.concept_id) as { title: string } | undefined;
-      conceptTitle = concept?.title ?? null;
-    }
-
-    breadcrumbs.unshift({
-      networkId: network.id,
-      networkName: network.name,
-      conceptTitle,
-    });
-
-    if (!network.concept_id) break;
-
-    // Find parent network: which network contains this concept as a node?
-    const parentNode = db.prepare(
-      'SELECT network_id FROM network_nodes WHERE concept_id = ? LIMIT 1',
-    ).get(network.concept_id) as { network_id: string } | undefined;
-
-    currentId = parentNode?.network_id ?? null;
-  }
-
-  return breadcrumbs;
+  return rows.map((r) => ({
+    networkId: r.id,
+    networkName: r.name,
+  }));
 }
 
 export function updateNetwork(id: string, data: NetworkUpdate): Network | undefined {
   const db = getDatabase();
-  const existingRow = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-  if (!existingRow) return undefined;
-  const existing = parseNetworkRow(existingRow);
+  const existing = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network | undefined;
+  if (!existing) return undefined;
 
   const now = new Date().toISOString();
-  const newLayoutConfig = data.layout_config !== undefined
-    ? (data.layout_config ? JSON.stringify(data.layout_config) : null)
-    : (existingRow.layout_config as string | null);
 
   db.prepare(
-    `UPDATE networks SET name = ?, layout = ?, layout_config = ?, viewport_x = ?, viewport_y = ?, viewport_zoom = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE networks SET name = ?, scope = ?, parent_network_id = ?, updated_at = ? WHERE id = ?`,
   ).run(
     data.name !== undefined ? data.name : existing.name,
-    data.layout !== undefined ? data.layout : existing.layout,
-    newLayoutConfig,
-    data.viewport_x !== undefined ? data.viewport_x : existing.viewport_x,
-    data.viewport_y !== undefined ? data.viewport_y : existing.viewport_y,
-    data.viewport_zoom !== undefined ? data.viewport_zoom : existing.viewport_zoom,
+    data.scope !== undefined ? data.scope : existing.scope,
+    data.parent_network_id !== undefined ? data.parent_network_id : existing.parent_network_id,
     now,
     id,
   );
 
-  const row = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Record<string, unknown>;
-  return parseNetworkRow(row);
+  return db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network;
 }
 
 export function deleteNetwork(id: string): boolean {
@@ -202,28 +130,68 @@ export function deleteNetwork(id: string): boolean {
   return result.changes > 0;
 }
 
+// ── App / Project Root ──
+
+export function getAppRootNetwork(): Network | undefined {
+  const db = getDatabase();
+  return db.prepare(
+    `SELECT * FROM networks WHERE scope = 'app' AND parent_network_id IS NULL`,
+  ).get() as Network | undefined;
+}
+
+export function ensureAppRootNetwork(): Network {
+  const existing = getAppRootNetwork();
+  if (existing) return existing;
+
+  const db = getDatabase();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+
+  db.prepare(
+    `INSERT INTO networks (id, project_id, name, scope, parent_network_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, null, 'App Root', 'app', null, now, now);
+
+  createLayout({ networkId: id });
+
+  return db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network;
+}
+
+export function getProjectRootNetwork(projectId: string): Network | undefined {
+  const db = getDatabase();
+  const appRoot = getAppRootNetwork();
+  if (!appRoot) return undefined;
+
+  return db.prepare(
+    `SELECT * FROM networks WHERE scope = 'project' AND project_id = ? AND parent_network_id = ?`,
+  ).get(projectId, appRoot.id) as Network | undefined;
+}
+
 // ── Network Full Data ──
 
 export interface NetworkFullData {
   network: Network;
-  nodes: (NetworkNode & { concept?: Concept; file?: FileEntity; network_count: number })[];
+  layout: Layout | undefined;
+  nodes: (NetworkNode & { concept?: Concept; file?: FileEntity })[];
   edges: (Edge & { relation_type?: RelationType })[];
+  nodePositions: LayoutNodePosition[];
+  edgeVisuals: LayoutEdgeVisual[];
 }
 
 type RelationTypeRow = Omit<RelationType, 'directed'> & { directed: number };
 
 export function getNetworkFull(networkId: string): NetworkFullData | undefined {
   const db = getDatabase();
-  const networkRow = db.prepare('SELECT * FROM networks WHERE id = ?').get(networkId) as Record<string, unknown> | undefined;
-  if (!networkRow) return undefined;
-  const network = parseNetworkRow(networkRow);
+  const network = db.prepare('SELECT * FROM networks WHERE id = ?').get(networkId) as Network | undefined;
+  if (!network) return undefined;
+
+  const layout = getLayoutByNetwork(networkId);
 
   const nodes = db.prepare(
     `SELECT nn.*, c.title, c.color, c.icon, c.archetype_id, c.project_id as concept_project_id,
             c.created_at as concept_created_at, c.updated_at as concept_updated_at,
             f.id as f_id, f.project_id as f_project_id, f.path as f_path, f.type as f_type,
-            f.metadata as f_metadata, f.created_at as f_created_at, f.updated_at as f_updated_at,
-            (SELECT COUNT(*) FROM networks sub WHERE sub.concept_id = nn.concept_id) as network_count
+            f.metadata as f_metadata, f.created_at as f_created_at, f.updated_at as f_updated_at
      FROM network_nodes nn
      LEFT JOIN concepts c ON nn.concept_id = c.id
      LEFT JOIN files f ON nn.file_id = f.id
@@ -239,10 +207,6 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       concept_id: (row.concept_id as string | null) ?? null,
       file_id: (row.file_id as string | null) ?? null,
       metadata: (row.metadata as string | null) ?? null,
-      position_x: row.position_x as number,
-      position_y: row.position_y as number,
-      width: row.width as number | null,
-      height: row.height as number | null,
       ...(hasConcept ? {
         concept: {
           id: row.concept_id as string,
@@ -268,7 +232,6 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
           updated_at: row.f_updated_at as string,
         },
       } : {}),
-      network_count: (row.network_count as number) ?? 0,
     };
   });
 
@@ -291,9 +254,6 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       target_node_id: row.target_node_id as string,
       relation_type_id: (row.relation_type_id as string | null) ?? null,
       description: (row.description as string | null) ?? null,
-      color: (row.color as string | null) ?? null,
-      line_style: (row.line_style as string | null) ?? null,
-      directed: row.directed != null ? (row.directed as number) : null,
       created_at: row.created_at as string,
       ...(hasRelationType ? {
         relation_type: {
@@ -311,7 +271,10 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
     };
   });
 
-  return { network, nodes: parsedNodes, edges } as NetworkFullData;
+  const nodePositions = layout ? getNodePositions(layout.id) : [];
+  const edgeVisuals = layout ? getEdgeVisuals(layout.id) : [];
+
+  return { network, layout, nodes: parsedNodes, edges, nodePositions, edgeVisuals } as NetworkFullData;
 }
 
 // ── Network Node ──
@@ -327,33 +290,29 @@ export function addNetworkNode(data: NetworkNodeCreate): NetworkNode {
   }
 
   db.prepare(
-    `INSERT INTO network_nodes (id, network_id, concept_id, file_id, metadata, position_x, position_y, width, height)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO network_nodes (id, network_id, concept_id, file_id, metadata)
+     VALUES (?, ?, ?, ?, ?)`,
   ).run(
     id, data.network_id,
     data.concept_id ?? null, data.file_id ?? null, data.metadata ?? null,
-    data.position_x, data.position_y, data.width ?? null, data.height ?? null,
   );
 
   return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
 }
 
-export function updateNetworkNode(id: string, data: NetworkNodeUpdate): NetworkNode | undefined {
+export function updateNetworkNode(id: string, data: { metadata?: string | null }): NetworkNode {
   const db = getDatabase();
-  const existing = db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode | undefined;
-  if (!existing) return undefined;
+  const sets: string[] = [];
+  const values: unknown[] = [];
 
-  db.prepare(
-    `UPDATE network_nodes SET position_x = ?, position_y = ?, width = ?, height = ?, metadata = ? WHERE id = ?`,
-  ).run(
-    data.position_x !== undefined ? data.position_x : existing.position_x,
-    data.position_y !== undefined ? data.position_y : existing.position_y,
-    data.width !== undefined ? data.width : existing.width,
-    data.height !== undefined ? data.height : existing.height,
-    data.metadata !== undefined ? data.metadata : existing.metadata,
-    id,
-  );
+  if ('metadata' in data) { sets.push('metadata = ?'); values.push(data.metadata ?? null); }
 
+  if (sets.length === 0) {
+    return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
+  }
+
+  values.push(id);
+  db.prepare(`UPDATE network_nodes SET ${sets.join(', ')} WHERE id = ?`).run(...values);
   return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
 }
 
@@ -371,12 +330,11 @@ export function createEdge(data: EdgeCreate): Edge {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, description, color, line_style, directed, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.network_id, data.source_node_id, data.target_node_id,
     data.relation_type_id ?? null, data.description ?? null,
-    data.color ?? null, data.line_style ?? null, data.directed != null ? (data.directed ? 1 : 0) : null,
     now,
   );
 
@@ -393,12 +351,9 @@ export function updateEdge(id: string, data: EdgeUpdate): Edge | undefined {
   const existing = db.prepare('SELECT * FROM edges WHERE id = ?').get(id) as Edge | undefined;
   if (!existing) return undefined;
 
-  db.prepare('UPDATE edges SET relation_type_id = ?, description = ?, color = ?, line_style = ?, directed = ? WHERE id = ?').run(
+  db.prepare('UPDATE edges SET relation_type_id = ?, description = ? WHERE id = ?').run(
     data.relation_type_id !== undefined ? data.relation_type_id : existing.relation_type_id,
     data.description !== undefined ? data.description : existing.description,
-    data.color !== undefined ? data.color : existing.color,
-    data.line_style !== undefined ? data.line_style : existing.line_style,
-    data.directed !== undefined ? (data.directed != null ? (data.directed ? 1 : 0) : null) : existing.directed,
     id,
   );
 

@@ -17,12 +17,16 @@ interface EdgeEditorProps {
   tab: EditorTab;
 }
 
-interface EdgeState {
-  relation_type_id: string | null;
-  description: string | null;
+interface EdgeVisualState {
   color: string | null;
   line_style: string | null;
   directed: boolean | null;
+}
+
+interface EdgeState {
+  relation_type_id: string | null;
+  description: string | null;
+  visual: EdgeVisualState;
 }
 
 export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
@@ -34,22 +38,28 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
 
   const edge = edges.find((e) => e.id === edgeId);
+  const edgeVisuals = useNetworkStore((s) => s.edgeVisuals);
+  const { setEdgeVisual } = useNetworkStore();
 
   const session = useEditorSession<EdgeState>({
     tabId: tab.id,
     load: () => {
       const e = useNetworkStore.getState().edges.find((ed) => ed.id === edgeId);
-      if (!e) return { relation_type_id: null, description: null, color: null, line_style: null, directed: null };
+      if (!e) return { relation_type_id: null, description: null, visual: { color: null, line_style: null, directed: null } };
+      const ev = useNetworkStore.getState().edgeVisuals.find((v) => v.edgeId === edgeId);
+      const parsed: EdgeVisualState = ev ? JSON.parse(ev.visualJson) : { color: null, line_style: null, directed: null };
       return {
         relation_type_id: e.relation_type_id,
         description: e.description,
-        color: e.color,
-        line_style: e.line_style,
-        directed: e.directed != null ? !!e.directed : null,
+        visual: parsed,
       };
     },
     save: async (state) => {
-      await networkService.edge.update(edgeId, state);
+      await networkService.edge.update(edgeId, {
+        relation_type_id: state.relation_type_id,
+        description: state.description,
+      });
+      await setEdgeVisual(edgeId, JSON.stringify(state.visual));
       const network = useNetworkStore.getState().currentNetwork;
       if (network) await openNetwork(network.id);
     },
@@ -93,9 +103,13 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     session.setState((prev) => ({ ...prev, ...patch }));
   };
 
+  const updateVisual = (patch: Partial<EdgeVisualState>) => {
+    session.setState((prev) => ({ ...prev, visual: { ...prev.visual, ...patch } }));
+  };
+
   // Resolve effective values for display (edge override > relation type default)
   const rt = edge.relation_type;
-  const effectiveDirected = session.state.directed != null ? session.state.directed : (rt?.directed ?? false);
+  const effectiveDirected = session.state.visual.directed != null ? session.state.visual.directed : (rt?.directed ?? false);
 
   return (
     <ScrollArea>
@@ -146,13 +160,13 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <div className="flex flex-col gap-2">
               <span className="text-xs text-secondary">{t('relationType.color')}</span>
               <ColorPicker
-                value={session.state.color ?? undefined}
-                onChange={(color) => update({ color })}
+                value={session.state.visual.color ?? undefined}
+                onChange={(color) => updateVisual({ color })}
               />
-              {session.state.color && (
+              {session.state.visual.color && (
                 <button
                   className="text-[10px] text-muted hover:text-default self-start"
-                  onClick={() => update({ color: null })}
+                  onClick={() => updateVisual({ color: null })}
                 >
                   {t('edge.resetToDefault') ?? 'Reset to type default'}
                 </button>
@@ -163,8 +177,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
               <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
               <Select
                 options={lineStyleOptions}
-                value={session.state.line_style ?? ''}
-                onChange={(e) => update({ line_style: e.target.value || null })}
+                value={session.state.visual.line_style ?? ''}
+                onChange={(e) => updateVisual({ line_style: e.target.value || null })}
                 selectSize="sm"
               />
             </div>
@@ -172,13 +186,13 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
             <div className="flex items-center gap-2">
               <Toggle
                 checked={effectiveDirected}
-                onChange={(checked) => update({ directed: checked })}
+                onChange={(checked) => updateVisual({ directed: checked })}
               />
               <span className="text-xs text-secondary">{t('relationType.directed')}</span>
-              {session.state.directed != null && (
+              {session.state.visual.directed != null && (
                 <button
                   className="text-[10px] text-muted hover:text-default"
-                  onClick={() => update({ directed: null })}
+                  onClick={() => updateVisual({ directed: null })}
                 >
                   {t('edge.resetToDefault') ?? 'Reset'}
                 </button>

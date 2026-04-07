@@ -1,17 +1,16 @@
 import { create } from 'zustand';
 import type {
   Network, NetworkCreate, NetworkUpdate,
-  NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
+  NetworkNode, NetworkNodeCreate,
   Edge, EdgeCreate, Concept, FileEntity, RelationType,
-  NetworkBreadcrumbItem, NetworkTreeNode,
+  NetworkBreadcrumbItem, NetworkTreeNode, Layout,
 } from '@netior/shared/types';
-import { networkService } from '../services';
-import type { NetworkFullData } from '../services/network-service';
+import { networkService, layoutService } from '../services';
+import type { NetworkFullData, NodePosition, EdgeVisual } from '../services/network-service';
 
 export interface NetworkNodeWithConcept extends NetworkNode {
   concept?: Concept;
   file?: FileEntity;
-  network_count: number;
 }
 
 export type EdgeWithRelationType = Edge & { relation_type?: RelationType };
@@ -19,8 +18,11 @@ export type EdgeWithRelationType = Edge & { relation_type?: RelationType };
 interface NetworkStore {
   networks: Network[];
   currentNetwork: Network | null;
+  currentLayout: Layout | null;
   nodes: NetworkNodeWithConcept[];
   edges: EdgeWithRelationType[];
+  nodePositions: NodePosition[];
+  edgeVisuals: EdgeVisual[];
   loading: boolean;
 
   // Navigation
@@ -29,7 +31,7 @@ interface NetworkStore {
   networkTree: NetworkTreeNode[];
 
   // Network CRUD
-  loadNetworks: (projectId: string, rootOnly?: boolean) => Promise<void>;
+  loadNetworks: (projectId: string) => Promise<void>;
   loadNetworkTree: (projectId: string) => Promise<void>;
   createNetwork: (data: NetworkCreate) => Promise<Network>;
   openNetwork: (networkId: string) => Promise<void>;
@@ -37,21 +39,26 @@ interface NetworkStore {
   deleteNetwork: (id: string) => Promise<void>;
 
   // Hierarchical navigation
-  drillInto: (conceptId: string) => Promise<void>;
+  navigateToChild: (childNetworkId: string) => Promise<void>;
   navigateBack: () => Promise<void>;
   navigateToBreadcrumb: (networkId: string) => Promise<void>;
 
   // Node
   addNode: (data: NetworkNodeCreate) => Promise<NetworkNode>;
-  updateNode: (id: string, data: NetworkNodeUpdate) => Promise<void>;
   removeNode: (id: string) => Promise<void>;
+
+  // Node position (layout layer)
+  setNodePosition: (nodeId: string, positionJson: string) => Promise<void>;
 
   // Edge
   addEdge: (data: EdgeCreate) => Promise<Edge>;
   removeEdge: (id: string) => Promise<void>;
 
-  // Viewport
-  saveViewport: (viewport: { viewport_x: number; viewport_y: number; viewport_zoom: number }) => Promise<void>;
+  // Edge visual (layout layer)
+  setEdgeVisual: (edgeId: string, visualJson: string) => Promise<void>;
+
+  // Viewport (layout layer)
+  saveViewport: (viewportJson: string) => Promise<void>;
 
   clear: () => void;
 }
@@ -59,15 +66,18 @@ interface NetworkStore {
 export const useNetworkStore = create<NetworkStore>((set, get) => ({
   networks: [],
   currentNetwork: null,
+  currentLayout: null,
   nodes: [],
   edges: [],
+  nodePositions: [],
+  edgeVisuals: [],
   loading: false,
   breadcrumbs: [],
   networkHistory: [],
   networkTree: [],
 
-  loadNetworks: async (projectId, rootOnly = false) => {
-    const networks = await networkService.list(projectId, rootOnly);
+  loadNetworks: async (projectId) => {
+    const networks = await networkService.list(projectId);
     set({ networks });
   },
 
@@ -78,8 +88,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
   createNetwork: async (data) => {
     const network = await networkService.create(data);
-    // Only add to sidebar list if it's a root network
-    if (!data.concept_id) {
+    if (!data.parent_network_id) {
       set((s) => ({ networks: [...s.networks, network] }));
     }
     return network;
@@ -93,8 +102,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       const breadcrumbs = await networkService.getAncestors(networkId);
       set({
         currentNetwork: full.network,
+        currentLayout: full.layout ?? null,
         nodes: full.nodes,
         edges: full.edges,
+        nodePositions: full.nodePositions,
+        edgeVisuals: full.edgeVisuals,
         breadcrumbs,
       });
     } finally {
@@ -115,20 +127,20 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     set((s) => ({
       networks: s.networks.filter((n) => n.id !== id),
       currentNetwork: s.currentNetwork?.id === id ? null : s.currentNetwork,
+      currentLayout: s.currentNetwork?.id === id ? null : s.currentLayout,
       nodes: s.currentNetwork?.id === id ? [] : s.nodes,
       edges: s.currentNetwork?.id === id ? [] : s.edges,
+      nodePositions: s.currentNetwork?.id === id ? [] : s.nodePositions,
+      edgeVisuals: s.currentNetwork?.id === id ? [] : s.edgeVisuals,
     }));
   },
 
-  drillInto: async (conceptId) => {
-    const networks = await networkService.getNetworksByConcept(conceptId);
-    if (networks.length === 0) return;
-
+  navigateToChild: async (childNetworkId) => {
     const { currentNetwork } = get();
     if (currentNetwork) {
       set((s) => ({ networkHistory: [...s.networkHistory, currentNetwork.id] }));
     }
-    await get().openNetwork(networks[0].id);
+    await get().openNetwork(childNetworkId);
   },
 
   navigateBack: async () => {
@@ -145,8 +157,6 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     const targetIdx = breadcrumbs.findIndex((b) => b.networkId === networkId);
     if (targetIdx < 0) return;
 
-    // Truncate history: keep only entries up to the point that matches
-    // The breadcrumb at targetIdx means we go back (breadcrumbs.length - 1 - targetIdx) levels
     const levelsBack = breadcrumbs.length - 1 - targetIdx;
     const newHistory = networkHistory.slice(0, networkHistory.length - levelsBack);
     set({ networkHistory: newHistory });
@@ -155,29 +165,9 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
   addNode: async (data) => {
     const node = await networkService.node.add(data);
-    // Need to reload full to get concept data
     const { currentNetwork } = get();
     if (currentNetwork) await get().openNetwork(currentNetwork.id);
     return node;
-  },
-
-  updateNode: async (id, data) => {
-    // Optimistic update first — ensures position change is in the same
-    // React batch as nodeDragOffset clear, preventing ghost frames.
-    set((s) => ({
-      nodes: s.nodes.map((n) =>
-        n.id === id
-          ? {
-              ...n,
-              position_x: data.position_x ?? n.position_x,
-              position_y: data.position_y ?? n.position_y,
-              width: data.width !== undefined ? data.width : n.width,
-              height: data.height !== undefined ? data.height : n.height,
-            }
-          : n,
-      ),
-    }));
-    await networkService.node.update(id, data);
   },
 
   removeNode: async (id) => {
@@ -185,7 +175,22 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source_node_id !== id && e.target_node_id !== id),
+      nodePositions: s.nodePositions.filter((p) => p.nodeId !== id),
     }));
+  },
+
+  setNodePosition: async (nodeId, positionJson) => {
+    const { currentLayout } = get();
+    if (!currentLayout) return;
+
+    // Optimistic update
+    set((s) => ({
+      nodePositions: s.nodePositions.some((p) => p.nodeId === nodeId)
+        ? s.nodePositions.map((p) => p.nodeId === nodeId ? { ...p, positionJson } : p)
+        : [...s.nodePositions, { nodeId, positionJson }],
+    }));
+
+    await layoutService.node.setPosition(currentLayout.id, nodeId, positionJson);
   },
 
   addEdge: async (data) => {
@@ -196,17 +201,34 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
   removeEdge: async (id) => {
     await networkService.edge.delete(id);
-    set((s) => ({ edges: s.edges.filter((e) => e.id !== id) }));
+    set((s) => ({
+      edges: s.edges.filter((e) => e.id !== id),
+      edgeVisuals: s.edgeVisuals.filter((v) => v.edgeId !== id),
+    }));
   },
 
-  saveViewport: async (viewport) => {
-    const { currentNetwork } = get();
-    if (!currentNetwork) return;
-    await get().updateNetwork(currentNetwork.id, viewport);
+  setEdgeVisual: async (edgeId, visualJson) => {
+    const { currentLayout } = get();
+    if (!currentLayout) return;
+
+    set((s) => ({
+      edgeVisuals: s.edgeVisuals.some((v) => v.edgeId === edgeId)
+        ? s.edgeVisuals.map((v) => v.edgeId === edgeId ? { ...v, visualJson } : v)
+        : [...s.edgeVisuals, { edgeId, visualJson }],
+    }));
+
+    await layoutService.edge.setVisual(currentLayout.id, edgeId, visualJson);
+  },
+
+  saveViewport: async (viewportJson) => {
+    const { currentLayout } = get();
+    if (!currentLayout) return;
+    await layoutService.update(currentLayout.id, { viewport_json: viewportJson });
   },
 
   clear: () => set({
-    networks: [], currentNetwork: null, nodes: [], edges: [],
+    networks: [], currentNetwork: null, currentLayout: null,
+    nodes: [], edges: [], nodePositions: [], edgeVisuals: [],
     breadcrumbs: [], networkHistory: [], networkTree: [],
   }),
 }));

@@ -1,6 +1,7 @@
 export { projectService } from './project-service';
 export { conceptService } from './concept-service';
 export { networkService } from './network-service';
+export { layoutService } from './layout-service';
 export { fileService } from './file-service';
 export { fsService } from './fs-service';
 export type { StashedDeleteResult } from './fs-service';

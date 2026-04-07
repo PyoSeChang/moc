@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import type { EditorTab } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
-import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useEditorSession } from '../../hooks/useEditorSession';
+import { layoutService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import { Input } from '../ui/Input';
 import { NumberInput } from '../ui/NumberInput';
@@ -19,19 +19,18 @@ interface NetworkEditorProps {
 
 interface NetworkState {
   name: string;
-  layout: string;
+  layout_type: string;
   layout_config: Record<string, unknown>;
 }
 
 export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
   const { t } = useI18n();
   const networkId = tab.targetId;
-  const { networks, updateNetwork, deleteNetwork } = useNetworkStore();
+  const { networks, currentLayout, updateNetwork, deleteNetwork } = useNetworkStore();
 
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const fields = useArchetypeStore((s) => s.fields);
   const loadFields = useArchetypeStore((s) => s.loadFields);
-  const concepts = useConceptStore((s) => s.concepts);
 
   useEffect(() => {
     for (const a of archetypes) {
@@ -45,18 +44,27 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
     tabId: tab.id,
     load: () => {
       const c = useNetworkStore.getState().networks.find((cv) => cv.id === networkId);
-      if (!c) return { name: '', layout: 'freeform', layout_config: {} };
+      const layout = useNetworkStore.getState().currentLayout;
+      const configJson = layout?.layout_config_json;
+      if (!c) return { name: '', layout_type: 'freeform', layout_config: {} };
       return {
         name: c.name,
-        layout: c.layout,
-        layout_config: c.layout_config ?? {},
+        layout_type: layout?.layout_type ?? 'freeform',
+        layout_config: configJson ? JSON.parse(configJson) : {},
       };
     },
     save: async (state) => {
-      await updateNetwork(networkId, state);
+      await updateNetwork(networkId, { name: state.name });
+      const layout = useNetworkStore.getState().currentLayout;
+      if (layout) {
+        await layoutService.update(layout.id, {
+          layout_type: state.layout_type,
+          layout_config_json: JSON.stringify(state.layout_config),
+        });
+      }
       useEditorStore.getState().updateTitle(tab.id, state.name);
     },
-    deps: [networkId],
+    deps: [networkId, currentLayout?.id],
   });
 
   const handleDelete = useCallback(async () => {
@@ -68,7 +76,7 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
     listLayouts().map((p) => ({ value: p.key, label: p.displayName })),
   []);
 
-  const activePlugin = useMemo(() => getLayout(session.state?.layout), [session.state?.layout]);
+  const activePlugin = useMemo(() => getLayout(session.state?.layout_type), [session.state?.layout_type]);
   const layoutConfig = session.state?.layout_config ?? {};
   const fieldMappings = (layoutConfig.field_mappings ?? {}) as Record<string, Record<string, string>>;
 
@@ -118,11 +126,11 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
             <label className="text-xs font-medium text-muted">{t('network.layout') ?? 'Layout'}</label>
             <Select
               options={layoutOptions}
-              value={session.state.layout}
+              value={session.state.layout_type}
               onChange={(e) => {
                 const newLayout = e.target.value;
                 const plugin = getLayout(newLayout);
-                update({ layout: newLayout, layout_config: plugin.getDefaultConfig() });
+                update({ layout_type: newLayout, layout_config: plugin.getDefaultConfig() });
               }}
               selectSize="sm"
             />
@@ -242,18 +250,6 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {/* Info */}
-          {network.concept_id && (
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted">{t('network.parentConcept') ?? 'Parent Concept'}</label>
-              <Input
-                value={concepts.find((c) => c.id === network.concept_id)?.title ?? network.concept_id}
-                readOnly
-                className="text-secondary cursor-default"
-              />
             </div>
           )}
 

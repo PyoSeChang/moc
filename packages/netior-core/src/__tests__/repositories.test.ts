@@ -30,6 +30,8 @@ import { getEditorPrefs, upsertEditorPrefs } from '../repositories/editor-prefs'
 import { createRelationType, listRelationTypes, getRelationType, updateRelationType, deleteRelationType } from '../repositories/relation-type';
 import { createObject, getObject, getObjectByRef, deleteObject, deleteObjectByRef } from '../repositories/objects';
 import { createContext, listContexts, getContext, updateContext, deleteContext, addContextMember, removeContextMember, getContextMembers } from '../repositories/context';
+import { createArchetype, deleteArchetype, createField, listFields, updateField } from '../repositories/archetype';
+import { createTypeGroup, listTypeGroups, getTypeGroup, updateTypeGroup, deleteTypeGroup } from '../repositories/type-group';
 
 describe('Repositories', () => {
   beforeEach(() => {
@@ -983,6 +985,171 @@ describe('Repositories', () => {
       const ctx = createContext({ network_id: networkId, name: 'Unique' });
       addContextMember(ctx.id, 'object', 'dup-id');
       expect(() => addContextMember(ctx.id, 'object', 'dup-id')).toThrow();
+    });
+  });
+
+  // --- Archetype Ref Field ---
+
+  describe('Archetype Ref Field', () => {
+    let projectId: string;
+
+    beforeEach(() => {
+      projectId = createProject({ name: 'Test', root_dir: '/ref-test' }).id;
+    });
+
+    it('should create archetype_ref field with ref_archetype_id', () => {
+      const a = createArchetype({ project_id: projectId, name: 'Person' });
+      const b = createArchetype({ project_id: projectId, name: 'Company' });
+      const field = createField({
+        archetype_id: a.id,
+        name: 'employer',
+        field_type: 'archetype_ref',
+        sort_order: 0,
+        ref_archetype_id: b.id,
+      });
+      expect(field.field_type).toBe('archetype_ref');
+      expect(field.ref_archetype_id).toBe(b.id);
+    });
+
+    it('should reject self-referencing archetype_ref', () => {
+      const a = createArchetype({ project_id: projectId, name: 'Self' });
+      expect(() =>
+        createField({
+          archetype_id: a.id,
+          name: 'self',
+          field_type: 'archetype_ref',
+          sort_order: 0,
+          ref_archetype_id: a.id,
+        }),
+      ).toThrow('Circular archetype reference detected');
+    });
+
+    it('should reject circular archetype_ref chain A→B→A', () => {
+      const a = createArchetype({ project_id: projectId, name: 'A' });
+      const b = createArchetype({ project_id: projectId, name: 'B' });
+      // A references B
+      createField({
+        archetype_id: a.id,
+        name: 'refB',
+        field_type: 'archetype_ref',
+        sort_order: 0,
+        ref_archetype_id: b.id,
+      });
+      // B references A → cycle
+      expect(() =>
+        createField({
+          archetype_id: b.id,
+          name: 'refA',
+          field_type: 'archetype_ref',
+          sort_order: 0,
+          ref_archetype_id: a.id,
+        }),
+      ).toThrow('Circular archetype reference detected');
+    });
+
+    it('should reject circular archetype_ref chain A→B→C→A', () => {
+      const a = createArchetype({ project_id: projectId, name: 'A' });
+      const b = createArchetype({ project_id: projectId, name: 'B' });
+      const c = createArchetype({ project_id: projectId, name: 'C' });
+      createField({ archetype_id: a.id, name: 'refB', field_type: 'archetype_ref', sort_order: 0, ref_archetype_id: b.id });
+      createField({ archetype_id: b.id, name: 'refC', field_type: 'archetype_ref', sort_order: 0, ref_archetype_id: c.id });
+      expect(() =>
+        createField({ archetype_id: c.id, name: 'refA', field_type: 'archetype_ref', sort_order: 0, ref_archetype_id: a.id }),
+      ).toThrow('Circular archetype reference detected');
+    });
+
+    it('should allow non-cyclic archetype_ref chain A→B, A→C', () => {
+      const a = createArchetype({ project_id: projectId, name: 'A' });
+      const b = createArchetype({ project_id: projectId, name: 'B' });
+      const c = createArchetype({ project_id: projectId, name: 'C' });
+      createField({ archetype_id: a.id, name: 'refB', field_type: 'archetype_ref', sort_order: 0, ref_archetype_id: b.id });
+      const field = createField({ archetype_id: a.id, name: 'refC', field_type: 'archetype_ref', sort_order: 1, ref_archetype_id: c.id });
+      expect(field.ref_archetype_id).toBe(c.id);
+    });
+
+    it('should SET NULL ref_archetype_id when referenced archetype is deleted', () => {
+      const a = createArchetype({ project_id: projectId, name: 'A' });
+      const b = createArchetype({ project_id: projectId, name: 'B' });
+      createField({ archetype_id: a.id, name: 'ref', field_type: 'archetype_ref', sort_order: 0, ref_archetype_id: b.id });
+      deleteArchetype(b.id);
+      const fields = listFields(a.id);
+      expect(fields).toHaveLength(1);
+      expect(fields[0].ref_archetype_id).toBeNull();
+    });
+  });
+
+  // --- Type Group ---
+
+  describe('TypeGroup', () => {
+    let projectId: string;
+
+    beforeEach(() => {
+      projectId = createProject({ name: 'Test', root_dir: '/tg-test' }).id;
+    });
+
+    it('should create and list type groups', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'People' });
+      expect(g.id).toBeDefined();
+      expect(g.name).toBe('People');
+      expect(g.kind).toBe('archetype');
+      expect(g.sort_order).toBe(0);
+
+      const list = listTypeGroups(projectId, 'archetype');
+      expect(list).toHaveLength(1);
+      expect(list[0].id).toBe(g.id);
+    });
+
+    it('should filter by kind', () => {
+      createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'A' });
+      createTypeGroup({ project_id: projectId, kind: 'relation_type', name: 'R' });
+      expect(listTypeGroups(projectId, 'archetype')).toHaveLength(1);
+      expect(listTypeGroups(projectId, 'relation_type')).toHaveLength(1);
+    });
+
+    it('should get type group by id', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'G' });
+      expect(getTypeGroup(g.id)?.name).toBe('G');
+      expect(getTypeGroup('nonexistent')).toBeUndefined();
+    });
+
+    it('should update type group', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'Old' });
+      const updated = updateTypeGroup(g.id, { name: 'New', sort_order: 5 });
+      expect(updated?.name).toBe('New');
+      expect(updated?.sort_order).toBe(5);
+    });
+
+    it('should delete type group', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'Del' });
+      expect(deleteTypeGroup(g.id)).toBe(true);
+      expect(listTypeGroups(projectId, 'archetype')).toHaveLength(0);
+    });
+
+    it('should SET NULL archetype group_id when type group is deleted', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'Grp' });
+      const a = createArchetype({ project_id: projectId, name: 'A' });
+      // Assign group_id via direct SQL since updateArchetype doesn't handle group_id yet
+      const db = getTestDb();
+      db.prepare('UPDATE archetypes SET group_id = ? WHERE id = ?').run(g.id, a.id);
+      deleteTypeGroup(g.id);
+      const row = db.prepare('SELECT group_id FROM archetypes WHERE id = ?').get(a.id) as { group_id: string | null };
+      expect(row.group_id).toBeNull();
+    });
+
+    it('should SET NULL relation_type group_id when type group is deleted', () => {
+      const g = createTypeGroup({ project_id: projectId, kind: 'relation_type', name: 'Grp' });
+      const rt = createRelationType({ project_id: projectId, name: 'RT' });
+      const db = getTestDb();
+      db.prepare('UPDATE relation_types SET group_id = ? WHERE id = ?').run(g.id, rt.id);
+      deleteTypeGroup(g.id);
+      const row = db.prepare('SELECT group_id FROM relation_types WHERE id = ?').get(rt.id) as { group_id: string | null };
+      expect(row.group_id).toBeNull();
+    });
+
+    it('should cascade delete when project is deleted', () => {
+      createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'Cascade' });
+      deleteProject(projectId);
+      expect(listTypeGroups(projectId, 'archetype')).toHaveLength(0);
     });
   });
 });

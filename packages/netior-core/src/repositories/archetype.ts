@@ -16,6 +16,37 @@ function toField(row: ArchetypeFieldRow): ArchetypeField {
   return { ...row, required: !!row.required };
 }
 
+/**
+ * BFS cycle detection for archetype_ref chains.
+ * Checks if adding a ref from `fromArchetypeId` → `toArchetypeId` would create a cycle.
+ */
+function detectArchetypeRefCycle(fromArchetypeId: string, toArchetypeId: string): boolean {
+  if (fromArchetypeId === toArchetypeId) return true;
+
+  const db = getDatabase();
+  const visited = new Set<string>();
+  const queue = [toArchetypeId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    // Find all archetypes that `current` references via archetype_ref fields
+    const refs = db.prepare(
+      `SELECT DISTINCT ref_archetype_id FROM archetype_fields
+       WHERE archetype_id = ? AND field_type = 'archetype_ref' AND ref_archetype_id IS NOT NULL`,
+    ).all(current) as { ref_archetype_id: string }[];
+
+    for (const ref of refs) {
+      if (ref.ref_archetype_id === fromArchetypeId) return true;
+      queue.push(ref.ref_archetype_id);
+    }
+  }
+
+  return false;
+}
+
 // ============================================
 // Archetype CRUD
 // ============================================
@@ -93,9 +124,16 @@ export function createField(data: ArchetypeFieldCreate): ArchetypeField {
   const id = randomUUID();
   const now = new Date().toISOString();
 
+  // Cycle detection for archetype_ref fields
+  if (data.field_type === 'archetype_ref' && data.ref_archetype_id) {
+    if (detectArchetypeRefCycle(data.archetype_id, data.ref_archetype_id)) {
+      throw new Error('Circular archetype reference detected');
+    }
+  }
+
   db.prepare(
-    `INSERT INTO archetype_fields (id, archetype_id, name, field_type, options, sort_order, required, default_value, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO archetype_fields (id, archetype_id, name, field_type, options, sort_order, required, default_value, ref_archetype_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     data.archetype_id,
@@ -105,6 +143,7 @@ export function createField(data: ArchetypeFieldCreate): ArchetypeField {
     data.sort_order,
     data.required ? 1 : 0,
     data.default_value ?? null,
+    data.ref_archetype_id ?? null,
     now,
   );
 
@@ -125,15 +164,26 @@ export function updateField(id: string, data: ArchetypeFieldUpdate): ArchetypeFi
   const existing = db.prepare('SELECT * FROM archetype_fields WHERE id = ?').get(id) as ArchetypeFieldRow | undefined;
   if (!existing) return undefined;
 
+  const newFieldType = data.field_type !== undefined ? data.field_type : existing.field_type;
+  const newRefId = data.ref_archetype_id !== undefined ? data.ref_archetype_id : (existing as unknown as { ref_archetype_id: string | null }).ref_archetype_id;
+
+  // Cycle detection for archetype_ref fields
+  if (newFieldType === 'archetype_ref' && newRefId) {
+    if (detectArchetypeRefCycle(existing.archetype_id, newRefId)) {
+      throw new Error('Circular archetype reference detected');
+    }
+  }
+
   db.prepare(
-    `UPDATE archetype_fields SET name = ?, field_type = ?, options = ?, sort_order = ?, required = ?, default_value = ? WHERE id = ?`,
+    `UPDATE archetype_fields SET name = ?, field_type = ?, options = ?, sort_order = ?, required = ?, default_value = ?, ref_archetype_id = ? WHERE id = ?`,
   ).run(
     data.name !== undefined ? data.name : existing.name,
-    data.field_type !== undefined ? data.field_type : existing.field_type,
+    newFieldType,
     data.options !== undefined ? data.options : existing.options,
     data.sort_order !== undefined ? data.sort_order : existing.sort_order,
     data.required !== undefined ? (data.required ? 1 : 0) : existing.required,
     data.default_value !== undefined ? data.default_value : existing.default_value,
+    newRefId ?? null,
     id,
   );
 

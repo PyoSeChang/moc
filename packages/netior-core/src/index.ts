@@ -15,6 +15,7 @@ export * from './repositories/editor-prefs';
 export * from './repositories/module';
 export * from './repositories/objects';
 export * from './repositories/context';
+export * from './repositories/type-group';
 export * from './repositories/settings';
 
 // Services

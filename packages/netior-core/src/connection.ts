@@ -14,6 +14,8 @@ import { migrate010 } from './migrations/010-canvas-to-network';
 import { migrate011 } from './migrations/011-network-structure-and-layouts';
 import { migrate012 } from './migrations/012-objects-and-entity-nodes';
 import { migrate013 } from './migrations/013-contexts';
+import { migrate014 } from './migrations/014-archetype-ref-field';
+import { migrate015 } from './migrations/015-type-groups';
 
 let db: Database.Database | null = null;
 
@@ -36,6 +38,8 @@ const migrations: Migration[] = [
   { version: 11, migrate: migrate011 },
   { version: 12, migrate: migrate012 },
   { version: 13, migrate: migrate013 },
+  { version: 14, migrate: migrate014 },
+  { version: 15, migrate: migrate015 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {

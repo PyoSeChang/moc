@@ -101,6 +101,13 @@ const electronAPI = {
     removeMember: (id: string) => ipcRenderer.invoke('context:removeMember', id),
     getMembers: (contextId: string) => ipcRenderer.invoke('context:getMembers', contextId),
   },
+  typeGroup: {
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('typeGroup:create', data),
+    list: (projectId: string, kind: string) => ipcRenderer.invoke('typeGroup:list', projectId, kind),
+    update: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('typeGroup:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('typeGroup:delete', id),
+  },
   fileEntity: {
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('file:create', data),
     get: (id: string) => ipcRenderer.invoke('file:get', id),

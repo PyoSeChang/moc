@@ -327,6 +327,7 @@ export interface ModuleDirectoryCreate {
 export interface Archetype {
   id: string;
   project_id: string;
+  group_id: string | null;
   name: string;
   description: string | null;
   icon: string | null;
@@ -375,7 +376,8 @@ export type FieldType =
   | 'url'
   | 'color'
   | 'rating'
-  | 'tags';
+  | 'tags'
+  | 'archetype_ref';
 
 export interface ArchetypeField {
   id: string;
@@ -386,6 +388,7 @@ export interface ArchetypeField {
   sort_order: number;
   required: boolean;
   default_value: string | null;
+  ref_archetype_id: string | null;
   created_at: string;
 }
 
@@ -397,6 +400,7 @@ export interface ArchetypeFieldCreate {
   sort_order: number;
   required?: boolean;
   default_value?: string;
+  ref_archetype_id?: string;
 }
 
 export interface ArchetypeFieldUpdate {
@@ -406,6 +410,40 @@ export interface ArchetypeFieldUpdate {
   sort_order?: number;
   required?: boolean;
   default_value?: string | null;
+  ref_archetype_id?: string | null;
+}
+
+// ============================================
+// Type Group
+// ============================================
+
+export type TypeGroupKind = 'archetype' | 'relation_type';
+
+export interface TypeGroup {
+  id: string;
+  scope: string;
+  project_id: string | null;
+  kind: TypeGroupKind;
+  name: string;
+  parent_group_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TypeGroupCreate {
+  project_id: string | null;
+  kind: TypeGroupKind;
+  name: string;
+  scope?: string;
+  parent_group_id?: string;
+  sort_order?: number;
+}
+
+export interface TypeGroupUpdate {
+  name?: string;
+  parent_group_id?: string | null;
+  sort_order?: number;
 }
 
 // ============================================
@@ -434,6 +472,7 @@ export type LineStyle = 'solid' | 'dashed' | 'dotted';
 export interface RelationType {
   id: string;
   project_id: string;
+  group_id: string | null;
   name: string;
   description: string | null;
   color: string | null;

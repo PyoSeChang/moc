@@ -123,6 +123,12 @@ export const IPC_CHANNELS = {
   RELATION_TYPE_UPDATE: 'relationType:update',
   RELATION_TYPE_DELETE: 'relationType:delete',
 
+  // Type Group
+  TYPE_GROUP_CREATE: 'typeGroup:create',
+  TYPE_GROUP_LIST: 'typeGroup:list',
+  TYPE_GROUP_UPDATE: 'typeGroup:update',
+  TYPE_GROUP_DELETE: 'typeGroup:delete',
+
   // Concept Property
   CONCEPT_PROP_UPSERT: 'conceptProp:upsert',
   CONCEPT_PROP_GET_BY_CONCEPT: 'conceptProp:getByConcept',

@@ -25,9 +25,6 @@ export interface RenderNode {
   fileId?: string;
   filePath?: string;
   networkId?: string;
-  isPortal?: boolean;
-  isBox?: boolean;
-  parentNodeId?: string | null;
 }
 
 /** Edge data for rendering */

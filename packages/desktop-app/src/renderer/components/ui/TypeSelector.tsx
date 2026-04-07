@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Search, Type, Hash, ToggleLeft, Calendar, Clock, List, CheckSquare, CircleDot, Link2, FileText, Globe, Palette, Star, Tags, BoxSelect } from 'lucide-react';
+import { ChevronDown, Search, Type, Hash, ToggleLeft, Calendar, Clock, List, CheckSquare, CircleDot, Link2, FileText, Globe, Palette, Star, Tags } from 'lucide-react';
 import type { FieldType } from '@netior/shared/types';
 import { useI18n } from '../../hooks/useI18n';
 import type { TranslationKey } from '@netior/shared/i18n';
@@ -50,7 +50,6 @@ const CATEGORIES: TypeCategory[] = [
     key: 'reference',
     types: [
       { value: 'relation', i18nKey: 'relation', icon: Link2 },
-      { value: 'archetype_ref', i18nKey: 'archetype_ref', icon: BoxSelect },
       { value: 'file', i18nKey: 'file', icon: FileText },
     ],
   },

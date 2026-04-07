@@ -77,14 +77,7 @@
     "addArchetype": "Add Archetype...",
     "scales": "Scales",
     "scaleFactor": "Factor",
-    "scaleSubdivisions": "Sub",
-    "addObject": "Add Object",
-    "selectObject": "Select Object",
-    "nodeType": "Node Type",
-    "nodeTypeBasic": "Basic",
-    "nodeTypePortal": "Portal",
-    "nodeTypeBox": "Box",
-    "changeNodeType": "Change Node Type"
+    "scaleSubdivisions": "Sub"
   },
   "layout": {
     "timeline": {
@@ -141,8 +134,6 @@
     "options": "Options (comma-separated)",
     "required": "Req",
     "deleteField": "Delete field",
-    "refArchetype": "Referenced Archetype",
-    "selectRefArchetype": "Select archetype...",
     "notFound": "Archetype not found",
     "noArchetypes": "No archetypes yet",
     "deleteConfirm": "Delete this archetype? Connected concepts will not be deleted.",
@@ -198,14 +189,7 @@
     "name": "Name",
     "description": "Description",
     "newDefault": "New Context",
-    "notFound": "Context not found",
-    "noContexts": "No contexts",
-    "members": "Members",
-    "noMembers": "No members",
-    "addMember": "Add Member",
-    "objects": "Objects",
-    "edges": "Edges",
-    "searchMembers": "Search objects or edges..."
+    "notFound": "Context not found"
   },
   "editor": {
     "unsaved": "Unsaved changes",
@@ -506,8 +490,7 @@
     "url": "URL",
     "color": "Color",
     "rating": "Rating",
-    "tags": "Tags",
-    "archetype_ref": "Archetype Ref"
+    "tags": "Tags"
   },
   "iconSelector": {
     "selectIcon": "Select icon",
@@ -571,9 +554,7 @@
     "noModules": "No modules",
     "noModule": "No module",
     "moduleName": "Module name",
-    "addModule": "Add module",
-    "archetypes": "Archetypes",
-    "contexts": "Contexts"
+    "addModule": "Add module"
   },
   "fileTree": {
     "open": "Open",
@@ -694,10 +675,5 @@
     "missingFilesMessage": "The following files/folders could not be found on disk.",
     "ignore": "Ignore",
     "ignoreAll": "Ignore All"
-  },
-  "typeGroup": {
-    "newFolder": "New Folder",
-    "folderName": "Folder name",
-    "ungrouped": "Ungrouped"
   }
 }

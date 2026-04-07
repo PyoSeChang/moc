@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, FolderTree, Shapes, Layers, Settings, Terminal, Sparkles } from 'lucide-react';
+import { Layout, FolderTree, Shapes, Settings, Terminal, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
@@ -9,17 +9,16 @@ import { Tooltip } from '../ui/Tooltip';
 
 
 const ITEMS = [
-  { key: 'networks' as const, icon: Layout, label: 'sidebar.networks' },
-  { key: 'files' as const, icon: FolderTree, label: 'sidebar.files' },
-  { key: 'archetypes' as const, icon: Shapes, label: 'sidebar.archetypes' },
-  { key: 'contexts' as const, icon: Layers, label: 'sidebar.contexts' },
+  { key: 'canvases' as const, icon: Layout, label: 'Canvases' },
+  { key: 'files' as const, icon: FolderTree, label: 'Files' },
+  { key: 'archetypes' as const, icon: Shapes, label: 'Archetypes' },
 ] as const;
 
 export function ActivityBar(): JSX.Element {
   const { t } = useI18n();
   const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
 
-  const handleClick = (key: 'networks' | 'files' | 'archetypes' | 'contexts') => {
+  const handleClick = (key: 'canvases' | 'files' | 'archetypes') => {
     if (sidebarOpen && sidebarView === key) {
       // Same tab clicked → close sidebar
       toggleSidebar();
@@ -39,7 +38,7 @@ export function ActivityBar(): JSX.Element {
         {ITEMS.map(({ key, icon: Icon, label }) => {
           const isActive = sidebarOpen && sidebarView === key;
           return (
-            <Tooltip key={key} content={t(label)} position="right">
+            <Tooltip key={key} content={label} position="right">
               <button
                 className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
                   isActive

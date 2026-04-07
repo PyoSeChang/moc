@@ -197,8 +197,6 @@ export interface NetworkNodeCreate {
 
 export interface NetworkNodeUpdate {
   metadata?: string | null;
-  node_type?: NodeType;
-  parent_node_id?: string | null;
 }
 
 // ============================================

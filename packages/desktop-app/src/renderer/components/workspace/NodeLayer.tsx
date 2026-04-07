@@ -7,7 +7,6 @@ interface NodeLayerProps {
   nodes: RenderNode[];
   selectedIds: Set<string>;
   highlightedIds?: Set<string>;
-  dimmedIds?: Set<string>;
   mode: CanvasMode;
   zoom: number;
   panX: number;
@@ -27,7 +26,6 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   nodes,
   selectedIds,
   highlightedIds,
-  dimmedIds,
   mode,
   zoom,
   panX,
@@ -75,33 +73,29 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
       {nodes.map((node) => {
         const t = getNodePosition(node);
 
-        const isDimmed = dimmedIds?.has(node.id);
-
         return (
-          <div key={node.id} style={isDimmed ? { opacity: 0.25, transition: 'opacity 0.2s' } : undefined}>
-            <NodeCardDefault
-              id={node.id}
-              x={t.x}
-              y={t.y}
-              label={node.label}
-              icon={node.icon}
-              semanticType={node.semanticType}
-              semanticTypeLabel={node.semanticTypeLabel}
-              selected={selectedIds.has(node.id)}
-              highlighted={highlightedIds?.has(node.id)}
-              mode={mode}
-              shape={(node.shape as import('../canvas/node-components/types').NodeShape) || (node.isPortal ? 'dashed' : 'rectangle')}
-              systemType={node.isPortal ? 'portal' : undefined}
-              width={node.width}
-              height={node.height}
-              onClick={onNodeClick}
-              onDoubleClick={onNodeDoubleClick}
-              onDragStart={onNodeDragStart}
-              onContextMenu={onContextMenu}
-              onMouseEnter={onNodeMouseEnter ? (e: React.MouseEvent) => onNodeMouseEnter(node.id, e.clientX, e.clientY) : undefined}
-              onMouseLeave={onNodeMouseLeave ? () => onNodeMouseLeave(node.id) : undefined}
-            />
-          </div>
+          <NodeCardDefault
+            key={node.id}
+            id={node.id}
+            x={t.x}
+            y={t.y}
+            label={node.label}
+            icon={node.icon}
+            semanticType={node.semanticType}
+            semanticTypeLabel={node.semanticTypeLabel}
+            selected={selectedIds.has(node.id)}
+            highlighted={highlightedIds?.has(node.id)}
+            mode={mode}
+            shape={(node.shape as import('../canvas/node-components/types').NodeShape) || 'rectangle'}
+            width={node.width}
+            height={node.height}
+            onClick={onNodeClick}
+            onDoubleClick={onNodeDoubleClick}
+            onDragStart={onNodeDragStart}
+            onContextMenu={onContextMenu}
+            onMouseEnter={onNodeMouseEnter ? (e: React.MouseEvent) => onNodeMouseEnter(node.id, e.clientX, e.clientY) : undefined}
+            onMouseLeave={onNodeMouseLeave ? () => onNodeMouseLeave(node.id) : undefined}
+          />
         );
       })}
     </div>

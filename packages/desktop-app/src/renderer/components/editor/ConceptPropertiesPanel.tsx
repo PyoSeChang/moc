@@ -15,7 +15,6 @@ import { DatePicker } from '../ui/DatePicker';
 import { LinkInput } from '../ui/LinkInput';
 import { RelationPicker } from '../ui/RelationPicker';
 import { FilePicker } from '../ui/FilePicker';
-import { ArchetypeRefPicker } from '../ui/ArchetypeRefPicker';
 
 interface ConceptPropertiesPanelProps {
   archetypeId: string;
@@ -214,17 +213,6 @@ export function FieldInput({ field, value, onChange }: FieldInputProps): JSX.Ele
           <Rating
             value={value ? Number(value) : 0}
             onChange={(v) => onChange(String(v))}
-          />
-        </div>
-      );
-    case 'archetype_ref':
-      return (
-        <div className="flex flex-col gap-0.5">
-          {label}
-          <ArchetypeRefPicker
-            archetypeId={field.ref_archetype_id ?? ''}
-            value={value}
-            onChange={(v) => onChange(v)}
           />
         </div>
       );

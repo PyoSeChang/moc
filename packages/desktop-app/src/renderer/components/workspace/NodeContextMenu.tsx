@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect } from 'react';
-import { ExternalLink, FileText, Link, Plus, Trash2, Layers } from 'lucide-react';
+import { ExternalLink, FileText, Link, Plus, Trash2 } from 'lucide-react';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
-import { networkService } from '../../services';
-import type { NodeType } from '@netior/shared/types';
 import type { CanvasMode } from '../../stores/ui-store';
 
 interface NodeContextMenuProps {
@@ -124,33 +122,6 @@ export function NodeContextMenu({
           {t('edge.addConnection')}
         </button>
       )}
-
-      {/* Node type change */}
-      <div className="my-1 border-t border-subtle" />
-      <div className="px-3 py-1 text-[10px] text-muted uppercase tracking-wider flex items-center gap-1">
-        <Layers size={10} />
-        {t('network.changeNodeType')}
-      </div>
-      {([
-        { type: 'basic' as NodeType, label: 'network.nodeTypeBasic' as const },
-        { type: 'portal' as NodeType, label: 'network.nodeTypePortal' as const },
-        { type: 'box' as NodeType, label: 'network.nodeTypeBox' as const },
-      ]).map(({ type: nt, label }) => (
-        <button
-          key={nt}
-          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
-          onClick={async () => {
-            await networkService.node.update(nodeId, { node_type: nt });
-            const { currentNetwork, openNetwork: reload } = useNetworkStore.getState();
-            if (currentNetwork) await reload(currentNetwork.id);
-            onClose();
-          }}
-        >
-          {t(label)}
-        </button>
-      ))}
-
-      <div className="my-1 border-t border-subtle" />
 
       {/* Delete */}
       <button

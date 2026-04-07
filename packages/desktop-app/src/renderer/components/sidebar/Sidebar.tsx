@@ -11,7 +11,6 @@ import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
 import { ArchetypeList } from './ArchetypeList';
 import { RelationTypeList } from './RelationTypeList';
-import { ContextList } from './ContextList';
 import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
@@ -82,7 +81,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     >
       <ScrollArea className="flex-1">
         <div className="flex min-h-full flex-col py-2">
-          {sidebarView === 'networks' && <NetworkList projectId={project.id} />}
+          {sidebarView === 'canvases' && <NetworkList projectId={project.id} />}
           {sidebarView === 'files' && (
             <>
               <div className="flex items-center">
@@ -123,7 +122,6 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
               <RelationTypeList />
             </>
           )}
-          {sidebarView === 'contexts' && <ContextList />}
         </div>
       </ScrollArea>
     </div>

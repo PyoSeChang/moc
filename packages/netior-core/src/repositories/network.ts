@@ -331,14 +331,12 @@ export function addNetworkNode(data: NetworkNodeCreate): NetworkNode {
   return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
 }
 
-export function updateNetworkNode(id: string, data: { metadata?: string | null; node_type?: string; parent_node_id?: string | null }): NetworkNode {
+export function updateNetworkNode(id: string, data: { metadata?: string | null }): NetworkNode {
   const db = getDatabase();
   const sets: string[] = [];
   const values: unknown[] = [];
 
   if ('metadata' in data) { sets.push('metadata = ?'); values.push(data.metadata ?? null); }
-  if ('node_type' in data) { sets.push('node_type = ?'); values.push(data.node_type ?? 'basic'); }
-  if ('parent_node_id' in data) { sets.push('parent_node_id = ?'); values.push(data.parent_node_id ?? null); }
 
   if (sets.length === 0) {
     return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;

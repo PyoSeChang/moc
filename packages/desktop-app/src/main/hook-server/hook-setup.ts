@@ -21,10 +21,20 @@ export function setupHookScript(port: number): void {
 // Usage: node netior-session-hook.mjs [start|stop|prompt|response-stop]
 
 import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import http from 'http';
 
 const TIMEOUT_MS = 2000;
-const PORT = ${port};
+// Read port dynamically from port file (survives app restarts)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let PORT;
+try {
+  PORT = parseInt(readFileSync(join(__dirname, 'port'), 'utf-8').trim(), 10);
+} catch {
+  // Fallback to hardcoded port from last setup
+  PORT = ${port};
+}
 
 async function main() {
   const hookType = process.argv[2] || 'start';

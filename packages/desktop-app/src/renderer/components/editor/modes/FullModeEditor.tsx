@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { SplitLeaf, EditorTab } from '@netior/shared/types';
 import { useEditorStore, collectLeaves, getActiveTabFromLayout } from '../../../stores/editor-store';
 import { EditorViewModeSwitch } from '../EditorViewModeSwitch';
@@ -63,7 +64,7 @@ export function FullModeEditor(): JSX.Element | null {
             {activeTab && <EditorContent tab={activeTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
-                setIsDragging(false);
+                flushSync(() => setIsDragging(false));
                 if (result.zone === 'center') {
                   moveTabToPane(result.tabId, leaf.activeTabId, 'full');
                 } else {

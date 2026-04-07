@@ -13,6 +13,8 @@ interface MarkdownTocProps {
   headings: TocHeading[];
   currentLine: number;
   onNavigate: (lineNumber: number) => void;
+  pinned?: boolean;
+  onPinChange?: (pinned: boolean) => void;
 }
 
 export function extractHeadings(content: string): TocHeading[] {
@@ -103,9 +105,11 @@ function toKey(h: TocHeading): string {
 // Component
 // ============================================
 
-export function MarkdownToc({ headings, currentLine, onNavigate }: MarkdownTocProps): JSX.Element | null {
+export function MarkdownToc({ headings, currentLine, onNavigate, pinned: pinnedProp, onPinChange }: MarkdownTocProps): JSX.Element | null {
   const { t } = useI18n();
-  const [pinned, setPinned] = useState(false);
+  const [pinnedLocal, setPinnedLocal] = useState(false);
+  const pinned = pinnedProp ?? pinnedLocal;
+  const setPinned = onPinChange ?? setPinnedLocal;
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
   const [manualCollapsed, setManualCollapsed] = useState<Set<string>>(new Set());
 

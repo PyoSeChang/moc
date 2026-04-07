@@ -40,6 +40,7 @@ const codeHighlightStyle = HighlightStyle.define([
 interface MdViewState {
   cursorPos: number;
   scrollTop: number;
+  tocPinned: boolean;
 }
 
 interface MarkdownEditorProps {
@@ -55,7 +56,7 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [viewState, setViewState] = useViewState<MdViewState>(tabId, { cursorPos: 0, scrollTop: 0 });
+  const [viewState, setViewState] = useViewState<MdViewState>(tabId, { cursorPos: 0, scrollTop: 0, tocPinned: false });
   const viewStateRef = useRef(viewState);
   const [currentLine, setCurrentLine] = useState(1);
   const headings = useMemo(() => extractHeadings(content), [content]);
@@ -195,7 +196,13 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
   return (
     <div ref={containerRef} className="relative flex h-full">
       {headings.length > 0 && (
-        <MarkdownToc headings={headings} currentLine={currentLine} onNavigate={handleNavigate} />
+        <MarkdownToc
+          headings={headings}
+          currentLine={currentLine}
+          onNavigate={handleNavigate}
+          pinned={viewState.tocPinned}
+          onPinChange={(pinned) => setViewState((prev) => ({ ...prev, tocPinned: pinned }))}
+        />
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-auto">

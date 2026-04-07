@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useEditorStore, getActiveLeaf, collectLeaves } from '../stores/editor-store';
+import { useEditorStore, getActiveLeaf, collectLeaves, MAIN_HOST_ID } from '../stores/editor-store';
 import { getSession } from '../lib/editor-session-registry';
 import { useProjectStore } from '../stores/project-store';
 import { useUIStore } from '../stores/ui-store';
@@ -57,6 +57,24 @@ export function cyclePane(direction: 1 | -1): void {
 
 function openTerminalTab(): void {
   openTerminalTabInHost();
+}
+
+function toggleToc(): void {
+  window.dispatchEvent(new CustomEvent('toc:toggle'));
+}
+
+function toggleEditorMode(): void {
+  const { activeTabId, tabs, setViewMode } = useEditorStore.getState();
+  if (!activeTabId) return;
+  const tab = tabs.find((t) => t.id === activeTabId);
+  if (!tab || tab.hostId !== MAIN_HOST_ID) return;
+
+  if (tab.viewMode === 'side') {
+    setViewMode(activeTabId, 'full');
+  } else if (tab.viewMode === 'full') {
+    setViewMode(activeTabId, 'side');
+  }
+  // float/detached: no-op
 }
 
 function openNarreTab(): void {
@@ -177,6 +195,20 @@ export function useGlobalShortcuts(): void {
         event.preventDefault();
         logShortcut('shortcut.global.openNarre');
         openNarreTab();
+        return;
+      }
+
+      if (event.shiftKey && !event.altKey && key === 'o') {
+        event.preventDefault();
+        logShortcut('shortcut.global.toggleToc');
+        toggleToc();
+        return;
+      }
+
+      if (!event.shiftKey && !event.altKey && key === '\\') {
+        event.preventDefault();
+        logShortcut('shortcut.global.toggleEditorMode');
+        toggleEditorMode();
         return;
       }
 

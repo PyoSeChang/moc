@@ -13,6 +13,7 @@ import { useI18n } from '../../../hooks/useI18n';
 import { useViewState } from '../../../hooks/useViewState';
 import { getCssColorAsHex } from '../editor-utils';
 import { useSettingsStore } from '../../../stores/settings-store';
+import { useEditorStore, MAIN_HOST_ID } from '../../../stores/editor-store';
 
 const codeHighlightStyle = HighlightStyle.define([
   { tag: tags.keyword, color: '#c678dd' },
@@ -63,6 +64,27 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
   const resolvedThemeMode = useSettingsStore((s) => s.resolvedThemeMode);
   const themeRevision = useSettingsStore((s) => s.themeRevision);
   const isDark = resolvedThemeMode !== 'light';
+
+  // Listen for toc:toggle shortcut (only when this editor's tab is active)
+  useEffect(() => {
+    const handleTocToggle = () => {
+      const { activeTabId, tabs } = useEditorStore.getState();
+      // Find the tab that owns this editor by matching tabId
+      const ownerTab = tabs.find((t) => t.id === tabId);
+      if (!ownerTab) return;
+      // Only respond if this tab is active in its host
+      if (ownerTab.hostId === MAIN_HOST_ID) {
+        if (activeTabId !== tabId) return;
+      } else {
+        const host = useEditorStore.getState().hosts[ownerTab.hostId];
+        if (host?.activeTabId !== tabId) return;
+      }
+      if (headings.length === 0) return;
+      setViewState((prev) => ({ ...prev, tocPinned: !prev.tocPinned }));
+    };
+    window.addEventListener('toc:toggle', handleTocToggle);
+    return () => window.removeEventListener('toc:toggle', handleTocToggle);
+  }, [tabId, headings.length, setViewState]);
 
   // Restore scroll position after CM6 mounts
   const restoredRef = useRef(false);

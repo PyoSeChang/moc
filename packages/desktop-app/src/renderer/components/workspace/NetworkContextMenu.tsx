@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, ArrowRightLeft, File } from 'lucide-react';
+import { Plus, ArrowRightLeft, File, Package } from 'lucide-react';
 import type { Network } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useI18n } from '../../hooks/useI18n';
@@ -9,10 +9,11 @@ interface NetworkContextMenuProps {
   y: number;
   onCreateConcept: () => void;
   onAddFileNode?: () => void;
+  onAddObject?: () => void;
   onClose: () => void;
 }
 
-export function NetworkContextMenu({ x, y, onCreateConcept, onAddFileNode, onClose }: NetworkContextMenuProps): JSX.Element {
+export function NetworkContextMenu({ x, y, onCreateConcept, onAddFileNode, onAddObject, onClose }: NetworkContextMenuProps): JSX.Element {
   const { t } = useI18n();
   const { currentNetwork, networks, openNetwork } = useNetworkStore();
   const [siblingNetworks, setSiblingNetworks] = useState<Network[]>([]);
@@ -65,6 +66,19 @@ export function NetworkContextMenu({ x, y, onCreateConcept, onAddFileNode, onClo
         >
           <File size={14} />
           {t('network.addFileNode')}
+        </button>
+      )}
+
+      {onAddObject && (
+        <button
+          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+          onClick={() => {
+            onAddObject();
+            onClose();
+          }}
+        >
+          <Package size={14} />
+          {t('network.addObject')}
         </button>
       )}
 

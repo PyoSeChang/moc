@@ -6,6 +6,8 @@ import { TypeSelector } from '../ui/TypeSelector';
 import { Toggle } from '../ui/Toggle';
 import { Tooltip } from '../ui/Tooltip';
 import { useI18n } from '../../hooks/useI18n';
+import { useArchetypeStore } from '../../stores/archetype-store';
+import { Select } from '../ui/Select';
 
 interface ArchetypeFieldRowProps {
   field: ArchetypeField;
@@ -26,7 +28,9 @@ function parseChoices(options: string | null): string {
 
 export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldRowProps): JSX.Element {
   const { t } = useI18n();
+  const archetypes = useArchetypeStore((s) => s.archetypes);
   const showOptions = CHOICE_TYPES.has(field.field_type);
+  const showRefArchetype = field.field_type === 'archetype_ref';
 
   // Local state buffers to avoid breaking IME composition
   const [nameText, setNameText] = useState(field.name);
@@ -86,6 +90,19 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitOptions();
             }}
+          />
+        </div>
+      )}
+
+      {/* Ref archetype selector (only for archetype_ref type) */}
+      {showRefArchetype && (
+        <div className="pl-0">
+          <Select
+            selectSize="sm"
+            value={field.ref_archetype_id ?? ''}
+            onChange={(e) => onUpdate(field.id, { ref_archetype_id: e.target.value || null })}
+            placeholder={t('archetype.selectRefArchetype')}
+            options={archetypes.map((a) => ({ value: a.id, label: a.name }))}
           />
         </div>
       )}

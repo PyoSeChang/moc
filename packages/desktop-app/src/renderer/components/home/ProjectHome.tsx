@@ -9,6 +9,12 @@ import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Spinner } from '../ui/Spinner';
 
+// TODO: Phase 2 — Replace ProjectHome with App Root Network.
+// The app root will be a system-level NetworkWorkspace (project-independent)
+// where each project is a portal node. This requires:
+// 1. A system-scoped network (no project_id) for the app root
+// 2. Project objects auto-registered as portal nodes
+// 3. Double-click on project portal → openProject + navigate into project's root network
 export function ProjectHome(): JSX.Element {
   const { t } = useI18n();
   const { projects, loading, loadProjects, restoreLastProject, createProject, openProject, deleteProject, missingPathProject, resolveMissingPath, dismissMissingPath } =

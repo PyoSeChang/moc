@@ -7,7 +7,10 @@ import { NetworkControls } from './NetworkControls';
 import { useInteraction } from './InteractionLayer';
 import { EdgeContextMenu } from './EdgeContextMenu';
 import { FileNodeAddModal } from './FileNodeAddModal';
+import { ObjectPickerModal } from './ObjectPickerModal';
+import { BoxNodeLayer } from './BoxNodeLayer';
 import { useNetworkStore, type NetworkNodeWithObject, type EdgeWithRelationType } from '../../stores/network-store';
+import type { NetworkObjectType } from '@netior/shared/types';
 import { networkService, fileService, objectService } from '../../services';
 import { conceptPropertyService } from '../../services';
 import type { NodePosition, EdgeVisual } from '../../services/network-service';
@@ -15,6 +18,7 @@ import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
+import { useContextStore } from '../../stores/context-store';
 import type { Archetype } from '@netior/shared/types';
 import { useI18n } from '../../hooks/useI18n';
 import type { RenderNode, RenderEdge } from './types';
@@ -58,6 +62,9 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
   return nodes.map((n) => {
     const pos = posMap.get(n.id);
     const objectType = n.object?.object_type;
+    const isPortal = n.node_type === 'portal';
+    const isBox = n.node_type === 'box';
+    const parentNodeId = n.parent_node_id ?? null;
     if (objectType === 'concept' && n.concept) {
       const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
       return {
@@ -66,14 +73,17 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         y: pos?.y ?? 0,
         label: n.concept.title,
         icon: n.concept.icon || arch?.icon || '📌',
-        shape: arch?.node_shape ?? undefined,
+        shape: isPortal ? 'dashed' : (arch?.node_shape ?? undefined),
         semanticType: arch?.name || 'concept',
         semanticTypeLabel: arch?.name || 'Concept',
-        width: pos?.width ?? 160,
-        height: pos?.height ?? 60,
+        width: pos?.width ?? (isBox ? 300 : 160),
+        height: pos?.height ?? (isBox ? 200 : 60),
         conceptId: n.object?.ref_id ?? undefined,
         canvasCount: 0,
         nodeType: 'concept' as const,
+        isPortal,
+        isBox,
+        parentNodeId,
       };
     }
     if (objectType === 'file' && n.file) {
@@ -94,6 +104,9 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         nodeType: isFile ? 'file' as const : 'dir' as const,
         fileId: n.object?.ref_id ?? undefined,
         filePath: filePath ?? undefined,
+        isPortal,
+        isBox,
+        parentNodeId,
       };
     }
     if (objectType === 'network') {
@@ -113,6 +126,9 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         canvasCount: 0,
         nodeType: 'network' as const,
         networkId: refId ?? undefined,
+        isPortal,
+        isBox,
+        parentNodeId,
       };
     }
     // Generic object node (archetype, etc.)
@@ -128,6 +144,9 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
       height: pos?.height ?? 50,
       canvasCount: 0,
       nodeType: 'concept' as const,
+      isPortal,
+      isBox,
+      parentNodeId,
     };
   });
 }
@@ -167,6 +186,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   } = useNetworkStore();
   const { createConcept } = useConceptStore();
   const { canvasMode } = useUIStore();
+  const activeContextId = useContextStore((s) => s.activeContextId);
+  const contextMembers = useContextStore((s) => s.members);
   const { t } = useI18n();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -180,6 +201,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
   const [edgeLinkingState, setEdgeLinkingState] = useState<{ sourceNodeId: string } | null>(null);
   const [fileNodeModalOpen, setFileNodeModalOpen] = useState(false);
+  const [objectPickerOpen, setObjectPickerOpen] = useState(false);
 
   // Load networks and open first one
   useEffect(() => {
@@ -266,6 +288,31 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
   const renderNodes = useMemo(() => toRenderNodes(nodes, archetypes, posMap, networkNames), [nodes, archetypes, posMap, networkNames]);
   const renderEdges = useMemo(() => toRenderEdges(edges, visualMap), [edges, visualMap]);
+
+  // --- Context dimming ---
+  const dimmedNodeIds = useMemo(() => {
+    if (!activeContextId) return undefined;
+    const memberObjectIds = new Set(contextMembers.filter((m) => m.member_type === 'object').map((m) => m.member_id));
+    const dimmed = new Set<string>();
+    for (const n of nodes) {
+      if (n.object && !memberObjectIds.has(n.object.id)) {
+        dimmed.add(n.id);
+      }
+    }
+    return dimmed.size > 0 ? dimmed : undefined;
+  }, [activeContextId, contextMembers, nodes]);
+
+  const dimmedEdgeIds = useMemo(() => {
+    if (!activeContextId) return undefined;
+    const memberEdgeIds = new Set(contextMembers.filter((m) => m.member_type === 'edge').map((m) => m.member_id));
+    const dimmed = new Set<string>();
+    for (const e of edges) {
+      if (!memberEdgeIds.has(e.id)) {
+        dimmed.add(e.id);
+      }
+    }
+    return dimmed.size > 0 ? dimmed : undefined;
+  }, [activeContextId, contextMembers, edges]);
 
   // --- Layout plugin ---
   const layoutType = currentLayout?.layout_type ?? 'freeform';
@@ -625,12 +672,21 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         nodeDragOffset={nodeDragOffset}
       />
 
+      <BoxNodeLayer
+        nodes={cardRenderNodes}
+        zoom={zoom}
+        panX={panX}
+        panY={panY}
+        nodeDragOffset={nodeDragOffset}
+      />
+
       <EdgeLayer
         edges={renderEdges}
         nodes={renderNodes}
         zoom={zoom}
         panX={panX}
         panY={panY}
+        dimmedIds={dimmedEdgeIds}
         nodeDragOffset={nodeDragOffset}
         onContextMenu={(type, x, y, targetId) => {
           if (type === 'edge' && targetId && canvasMode === 'edit') {
@@ -716,6 +772,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         nodes={cardRenderNodes}
         selectedIds={selectedIds}
         highlightedIds={edgeLinkingState ? new Set(renderNodes.filter((n) => n.id !== edgeLinkingState.sourceNodeId).map((n) => n.id)) : undefined}
+        dimmedIds={dimmedNodeIds}
         mode={canvasMode}
         zoom={zoom}
         panX={panX}
@@ -867,6 +924,10 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             setFileNodeModalOpen(true);
             setNetworkContextMenu(null);
           }}
+          onAddObject={() => {
+            setObjectPickerOpen(true);
+            setNetworkContextMenu(null);
+          }}
           onClose={() => setNetworkContextMenu(null)}
         />
       )}
@@ -892,6 +953,22 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           });
           await setNodePosition(node.id, JSON.stringify({ x: networkContextMenu?.worldX ?? 0, y: networkContextMenu?.worldY ?? 0 }));
           setFileNodeModalOpen(false);
+        }}
+      />
+
+      <ObjectPickerModal
+        open={objectPickerOpen}
+        onClose={() => setObjectPickerOpen(false)}
+        onSelect={async (objectType: NetworkObjectType, refId: string) => {
+          if (!currentNetwork) return;
+          const obj = await objectService.getByRef(objectType, refId);
+          if (!obj) return;
+          const node = await addNode({
+            network_id: currentNetwork.id,
+            object_id: obj.id,
+          });
+          await setNodePosition(node.id, JSON.stringify({ x: networkContextMenu?.worldX ?? 0, y: networkContextMenu?.worldY ?? 0 }));
+          setObjectPickerOpen(false);
         }}
       />
 

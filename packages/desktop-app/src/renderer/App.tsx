@@ -215,6 +215,7 @@ export default function App(): JSX.Element {
         {currentProject ? (
           <WorkspaceShell project={currentProject} />
         ) : (
+          /* TODO: Phase 2 — Replace with App Root NetworkWorkspace (system-level network, project portals) */
           <ProjectHome />
         )}
       </div>

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type CanvasMode = 'browse' | 'edit';
 export type RenderingMode = 'canvas';
-type SidebarView = 'canvases' | 'files' | 'archetypes';
+type SidebarView = 'networks' | 'files' | 'archetypes' | 'contexts';
 
 interface UIStore {
   canvasMode: CanvasMode;
@@ -26,7 +26,7 @@ const SIDEBAR_DEFAULT = 224; // w-56
 
 export const useUIStore = create<UIStore>((set) => ({
   canvasMode: 'browse',
-  sidebarView: 'canvases',
+  sidebarView: 'networks',
   sidebarOpen: true,
   sidebarWidth: SIDEBAR_DEFAULT,
   showSettings: false,

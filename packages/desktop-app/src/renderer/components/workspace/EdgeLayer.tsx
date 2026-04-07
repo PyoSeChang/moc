@@ -8,6 +8,7 @@ interface EdgeLayerProps {
   zoom: number;
   panX: number;
   panY: number;
+  dimmedIds?: Set<string>;
   nodeDragOffset: { id: string; dx: number; dy: number } | null;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
   onDoubleClick?: (edgeId: string) => void;
@@ -25,6 +26,7 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
   zoom,
   panX,
   panY,
+  dimmedIds,
   nodeDragOffset,
   onContextMenu,
   onDoubleClick,
@@ -62,21 +64,24 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
           const target = nodePositionMap.get(edge.targetId);
           if (!source || !target) return null;
 
+          const isDimmed = dimmedIds?.has(edge.id);
+
           return (
-            <EdgeLine
-              key={edge.id}
-              id={edge.id}
-              sourceX={source.x}
-              sourceY={source.y}
-              targetX={target.x}
-              targetY={target.y}
-              directed={edge.directed}
-              label={edge.label}
-              color={edge.color}
-              lineStyle={edge.lineStyle}
-              onContextMenu={onContextMenu}
-              onDoubleClick={onDoubleClick}
-            />
+            <g key={edge.id} style={isDimmed ? { opacity: 0.25, transition: 'opacity 0.2s' } : undefined}>
+              <EdgeLine
+                id={edge.id}
+                sourceX={source.x}
+                sourceY={source.y}
+                targetX={target.x}
+                targetY={target.y}
+                directed={edge.directed}
+                label={edge.label}
+                color={edge.color}
+                lineStyle={edge.lineStyle}
+                onContextMenu={onContextMenu}
+                onDoubleClick={onDoubleClick}
+              />
+            </g>
           );
         })}
       </g>

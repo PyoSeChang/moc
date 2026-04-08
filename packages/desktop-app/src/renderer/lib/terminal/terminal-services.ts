@@ -69,6 +69,11 @@ function buildTerminalUserConfiguration(): string {
     'terminal.integrated.gpuAcceleration': 'auto',
     'terminal.integrated.enablePersistentSessions': false,
     'terminal.integrated.shellIntegration.enabled': true,
+    'terminal.integrated.sendKeybindingsToShell': true,
+    'terminal.integrated.allowChords': false,
+    'terminal.integrated.commandsToSkipShell': [
+      '-workbench.action.togglePanel',
+    ],
     'terminal.integrated.cursorBlinking': true,
     'terminal.integrated.smoothScrolling': true,
     'terminal.integrated.minimumContrastRatio': 4.5,

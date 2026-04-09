@@ -26,6 +26,7 @@ function getShapeOutline(shape: NodeShape): string {
     case 'dashed':
       return 'rounded-lg border-dashed border-2';
     case 'group':
+    case 'hierarchy':
       return 'rounded-md';
     case 'gear':
       return '';
@@ -101,20 +102,25 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
   );
 
   const isGear = shape === 'gear';
+  const isContainerShape = shape === 'group' || shape === 'hierarchy';
   const outlineClass = getShapeOutline(shape);
 
   const cardClassName = useMemo(() => {
     const parts = [
-      shape === 'group' ? 'bg-transparent shadow-none' : 'bg-surface-card shadow-sm',
+      isContainerShape ? 'bg-transparent shadow-none' : 'bg-surface-card shadow-sm',
       'transition-[border-color,box-shadow] duration-fast',
-      shape === 'group' ? 'select-none overflow-visible' : 'select-none overflow-hidden',
+      isContainerShape ? 'select-none overflow-visible' : 'select-none overflow-hidden',
     ];
 
     if (isGear) {
       // gear uses clip-path, no border
     } else {
-      parts.push(shape === 'group' ? 'border border-default' : 'border border-subtle');
-      if (shape === 'group') {
+      if (shape === 'hierarchy') {
+        parts.push('border border-dashed border-strong');
+      } else {
+        parts.push(shape === 'group' ? 'border border-default' : 'border border-subtle');
+      }
+      if (isContainerShape) {
         parts.push('hover:border-strong');
       } else {
         parts.push('hover:border-default hover:shadow-md');
@@ -123,14 +129,14 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
     }
 
     if (selected) {
-      parts.push(shape === 'group' ? 'border-accent shadow-[0_0_0_1px_var(--accent)]' : 'border-accent shadow-[0_0_0_2px_var(--accent-muted)]');
+      parts.push(isContainerShape ? 'border-accent shadow-[0_0_0_1px_var(--accent)]' : 'border-accent shadow-[0_0_0_2px_var(--accent-muted)]');
     }
     if (highlighted) {
       parts.push('border-status-warning shadow-[0_0_0_2px_color-mix(in_srgb,var(--status-warning)_30%,transparent)]');
     }
 
     return parts.filter(Boolean).join(' ');
-  }, [shape, isGear, outlineClass, selected, highlighted]);
+  }, [shape, isContainerShape, isGear, outlineClass, selected, highlighted]);
 
   const cardStyle: React.CSSProperties = {
     width,

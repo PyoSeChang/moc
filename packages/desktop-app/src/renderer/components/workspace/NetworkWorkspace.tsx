@@ -242,6 +242,8 @@ function toRenderNodes(
     const rawNodeType = n.node_type as string;
     const isPortal = n.node_type === 'portal';
     const isGroup = rawNodeType === 'group' || rawNodeType === 'box';
+    const isHierarchy = rawNodeType === 'hierarchy';
+    const isContainer = isGroup || isHierarchy;
     if (objectType === 'concept' && n.concept) {
       const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
       return {
@@ -250,11 +252,11 @@ function toRenderNodes(
         y: pos?.y ?? 0,
         label: n.concept.title,
         icon: n.concept.icon || arch?.icon || '📌',
-        shape: isPortal ? 'dashed' : isGroup ? 'group' : arch?.node_shape ?? undefined,
+        shape: isPortal ? 'dashed' : isHierarchy ? 'hierarchy' : isGroup ? 'group' : arch?.node_shape ?? undefined,
         semanticType: arch?.name || 'concept',
-        semanticTypeLabel: isPortal ? 'Concept Portal' : isGroup ? 'Concept Group' : arch?.name || 'Concept',
-        width: pos?.width ?? (isPortal ? 180 : isGroup ? 360 : 160),
-        height: pos?.height ?? (isPortal ? 68 : isGroup ? 220 : 60),
+        semanticTypeLabel: isPortal ? 'Concept Portal' : isHierarchy ? 'Concept Hierarchy' : isGroup ? 'Concept Group' : arch?.name || 'Concept',
+        width: pos?.width ?? (isPortal ? 180 : isHierarchy ? 380 : isGroup ? 360 : 160),
+        height: pos?.height ?? (isPortal ? 68 : isHierarchy ? 240 : isGroup ? 220 : 60),
         conceptId: n.object?.ref_id ?? undefined,
         canvasCount: 0,
         nodeType: 'concept' as const,
@@ -262,6 +264,8 @@ function toRenderNodes(
         objectTargetId: n.object?.ref_id ?? undefined,
         isPortal,
         isGroup,
+        isHierarchy,
+        isContainer,
       };
     }
     if (objectType === 'file' && n.file) {
@@ -275,16 +279,24 @@ function toRenderNodes(
         label: fileName,
         icon: isFile ? `file:${fileName}` : `folder:${fileName}`,
         semanticType: isFile ? 'file' : 'directory',
-        semanticTypeLabel: isPortal ? 'File Portal' : isGroup ? (isFile ? 'File Group' : 'Directory Group') : isFile ? 'File' : 'Directory',
-        shape: isGroup ? 'group' : undefined,
-        width: pos?.width ?? (isGroup ? 280 : 140),
-        height: pos?.height ?? (isGroup ? 180 : 50),
+        semanticTypeLabel: isPortal
+          ? 'File Portal'
+          : isHierarchy
+            ? (isFile ? 'File Hierarchy' : 'Directory Hierarchy')
+            : isGroup
+              ? (isFile ? 'File Group' : 'Directory Group')
+              : isFile ? 'File' : 'Directory',
+        shape: isHierarchy ? 'hierarchy' : isGroup ? 'group' : undefined,
+        width: pos?.width ?? (isHierarchy ? 300 : isGroup ? 280 : 140),
+        height: pos?.height ?? (isHierarchy ? 220 : isGroup ? 180 : 50),
         canvasCount: 0,
         nodeType: isFile ? 'file' as const : 'dir' as const,
         objectType,
         objectTargetId: n.object?.ref_id ?? undefined,
         isPortal,
         isGroup,
+        isHierarchy,
+        isContainer,
         fileId: n.object?.ref_id ?? undefined,
         filePath: filePath ?? undefined,
       };
@@ -298,17 +310,19 @@ function toRenderNodes(
         y: pos?.y ?? 0,
         label: networkName ?? 'Network',
         icon: '🌐',
-        shape: isPortal ? 'dashed' as string | undefined : isGroup ? 'group' as string | undefined : 'rectangle' as string | undefined,
+        shape: isPortal ? 'dashed' as string | undefined : isHierarchy ? 'hierarchy' as string | undefined : isGroup ? 'group' as string | undefined : 'rectangle' as string | undefined,
         semanticType: 'network',
-        semanticTypeLabel: isPortal ? 'Network Portal' : isGroup ? 'Network Group' : 'Network',
-        width: pos?.width ?? (isPortal ? 180 : isGroup ? 320 : 160),
-        height: pos?.height ?? (isPortal ? 68 : isGroup ? 200 : 60),
+        semanticTypeLabel: isPortal ? 'Network Portal' : isHierarchy ? 'Network Hierarchy' : isGroup ? 'Network Group' : 'Network',
+        width: pos?.width ?? (isPortal ? 180 : isHierarchy ? 340 : isGroup ? 320 : 160),
+        height: pos?.height ?? (isPortal ? 68 : isHierarchy ? 220 : isGroup ? 200 : 60),
         canvasCount: 0,
         nodeType: 'network' as const,
         objectType,
         objectTargetId: refId ?? undefined,
         isPortal,
         isGroup,
+        isHierarchy,
+        isContainer,
         networkId: refId ?? undefined,
       };
     }
@@ -329,16 +343,20 @@ function toRenderNodes(
       label: genericObject.label,
       icon: genericObject.icon,
       semanticType: objectType ?? 'unknown',
-      semanticTypeLabel: isGroup ? `${genericObject.semanticTypeLabel} Group` : genericObject.semanticTypeLabel,
-      shape: isPortal ? 'dashed' as string | undefined : isGroup ? 'group' as string | undefined : undefined,
-      width: pos?.width ?? (isGroup ? 320 : objectType === 'project' ? 180 : 140),
-      height: pos?.height ?? (isGroup ? 200 : objectType === 'project' ? 64 : 50),
+      semanticTypeLabel: isHierarchy
+        ? `${genericObject.semanticTypeLabel} Hierarchy`
+        : isGroup ? `${genericObject.semanticTypeLabel} Group` : genericObject.semanticTypeLabel,
+      shape: isPortal ? 'dashed' as string | undefined : isHierarchy ? 'hierarchy' as string | undefined : isGroup ? 'group' as string | undefined : undefined,
+      width: pos?.width ?? (isHierarchy ? 340 : isGroup ? 320 : objectType === 'project' ? 180 : 140),
+      height: pos?.height ?? (isHierarchy ? 220 : isGroup ? 200 : objectType === 'project' ? 64 : 50),
       canvasCount: 0,
       nodeType: 'object' as const,
       objectType,
       objectTargetId: n.object?.ref_id ?? undefined,
       isPortal,
       isGroup,
+      isHierarchy,
+      isContainer,
     };
   });
 }
@@ -901,9 +919,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     });
   }, [rawPosMap]);
 
-  const findDropTargetGroup = useCallback((nodeId: string, x: number, y: number): RenderNode | null => {
+  const findDropTargetContainer = useCallback((nodeId: string, x: number, y: number): RenderNode | null => {
     const candidates = cardRenderNodes
-      .filter((node) => node.isGroup && node.id !== nodeId)
+      .filter((node) => node.isContainer && node.id !== nodeId)
       .filter((node) => !wouldCreateContainmentCycle(nodeId, node.id, containsParentByChild))
       .filter((node) => isPointInsideNodeBounds(node, x, y))
       .sort((left, right) => {
@@ -921,28 +939,28 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       return;
     }
 
-    const targetGroup = findDropTargetGroup(nodeId, position.x, position.y);
-    if (!targetGroup) {
+    const targetContainer = findDropTargetContainer(nodeId, position.x, position.y);
+    if (!targetContainer) {
       await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y));
       return;
     }
 
     await networkService.edge.create({
       network_id: currentNetwork.id,
-      source_node_id: targetGroup.id,
+      source_node_id: targetContainer.id,
       target_node_id: nodeId,
       system_contract: 'core:contains',
     });
     await layoutService.node.setPosition(
       currentLayout.id,
       nodeId,
-      serializePositionJson(nodeId, position.x - targetGroup.x, position.y - targetGroup.y),
+      serializePositionJson(nodeId, position.x - targetContainer.x, position.y - targetContainer.y),
     );
     await openNetwork(currentNetwork.id);
   }, [
     currentLayout,
     currentNetwork,
-    findDropTargetGroup,
+    findDropTargetContainer,
     layoutPlugin.key,
     openNetwork,
     serializePositionJson,
@@ -1035,7 +1053,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     }
 
     const currentParentGroupId = containsParentByChild.get(nodeId) ?? null;
-    const nextParentGroup = findDropTargetGroup(nodeId, x, y);
+    const nextParentGroup = findDropTargetContainer(nodeId, x, y);
     const nextParentGroupId = nextParentGroup?.id ?? null;
     const nextPositionJson = nextParentGroup
       ? serializePositionJson(nodeId, x - nextParentGroup.x, y - nextParentGroup.y)
@@ -1070,7 +1088,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     currentLayout,
     currentNetwork,
     edges,
-    findDropTargetGroup,
+    findDropTargetContainer,
     layoutConfig,
     layoutPlugin,
     openNetwork,
@@ -1528,6 +1546,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             const draftId = `draft-${Date.now()}`;
             const worldX = networkContextMenu.worldX;
             const worldY = networkContextMenu.worldY;
+            const targetGroup = findDropTargetContainer(draftId, worldX, worldY);
             setNetworkContextMenu(null);
             useEditorStore.getState().openTab({
               type: 'concept',
@@ -1535,8 +1554,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
               title: t('concept.defaultTitle'),
               draftData: {
                 networkId: currentNetwork.id,
-                positionX: worldX,
-                positionY: worldY,
+                parentGroupNodeId: targetGroup?.id,
+                positionX: targetGroup ? worldX - targetGroup.x : worldX,
+                positionY: targetGroup ? worldY - targetGroup.y : worldY,
                 allowedArchetypeIds: isTimeline ? Object.keys(fieldMappingsConfig) : undefined,
               },
             });

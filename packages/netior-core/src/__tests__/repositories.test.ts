@@ -885,6 +885,13 @@ describe('Repositories', () => {
       expect(node.node_type).toBe('portal');
     });
 
+    it('should add node with hierarchy node_type', () => {
+      const concept = createConcept({ project_id: projectId, title: 'Hierarchy' });
+      const obj = getObjectByRef('concept', concept.id)!;
+      const node = addNetworkNode({ network_id: networkId, object_id: obj.id, node_type: 'hierarchy' });
+      expect(node.node_type).toBe('hierarchy');
+    });
+
     it('should add node with parent_node_id', () => {
       const c1 = createConcept({ project_id: projectId, title: 'Parent' });
       const c2 = createConcept({ project_id: projectId, title: 'Child' });

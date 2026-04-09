@@ -46,6 +46,7 @@ const nodeTypeOptions: Array<{ value: NodeType; label: string }> = [
   { value: 'basic', label: 'Basic' },
   { value: 'portal', label: 'Portal' },
   { value: 'group', label: 'Group' },
+  { value: 'hierarchy', label: 'Hierarchy' },
 ];
 
 function resolvePreferredNodeId(
@@ -141,6 +142,14 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
                 network_id: draft.networkId,
                 object_id: conceptObj.id,
               });
+              if (draft.parentGroupNodeId) {
+                await networkService.edge.create({
+                  network_id: draft.networkId,
+                  source_node_id: draft.parentGroupNodeId,
+                  target_node_id: node.id,
+                  system_contract: 'core:contains',
+                });
+              }
               const positionX = typeof draft.positionX === 'number' ? draft.positionX : 0;
               const positionY = typeof draft.positionY === 'number' ? draft.positionY : 0;
               await setNodePosition(node.id, JSON.stringify({ x: positionX, y: positionY }));

@@ -162,7 +162,7 @@ export type NetworkObjectType =
   | 'relation_type' | 'agent' | 'context'
   | 'file' | 'module' | 'folder';
 
-export type NodeType = 'basic' | 'portal' | 'group';
+export type NodeType = 'basic' | 'portal' | 'group' | 'hierarchy';
 
 export interface ObjectRecord {
   id: string;
@@ -593,6 +593,7 @@ export interface EditorTab {
   /** Draft data for unsaved new entities (concept creation flow) */
   draftData?: {
     networkId?: string;
+    parentGroupNodeId?: string;
     positionX?: number;
     positionY?: number;
     allowedArchetypeIds?: string[];

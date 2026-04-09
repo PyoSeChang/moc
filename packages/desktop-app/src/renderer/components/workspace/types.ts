@@ -26,6 +26,8 @@ export interface RenderNode {
   objectTargetId?: string;
   isPortal?: boolean;
   isGroup?: boolean;
+  isHierarchy?: boolean;
+  isContainer?: boolean;
   fileId?: string;
   filePath?: string;
   networkId?: string;

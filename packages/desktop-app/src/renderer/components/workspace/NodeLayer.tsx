@@ -40,7 +40,7 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   onNodeMouseLeave,
 }) => {
   const orderedNodes = useMemo(
-    () => [...nodes].sort((a, b) => (b.isGroup ? 1 : 0) - (a.isGroup ? 1 : 0)),
+    () => [...nodes].sort((a, b) => (b.isContainer ? 1 : 0) - (a.isContainer ? 1 : 0)),
     [nodes],
   );
 

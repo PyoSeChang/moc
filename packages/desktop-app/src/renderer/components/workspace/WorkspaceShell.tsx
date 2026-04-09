@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { Project, EditorViewMode, SplitLeaf, EditorTab } from '@netior/shared/types';
 import { ActivityBar } from '../sidebar/ActivityBar';
 import { Sidebar } from '../sidebar/Sidebar';
@@ -212,7 +213,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             {activeLeafTab && <EditorContent tab={activeLeafTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
-                setIsTabDragging(false);
+                flushSync(() => setIsTabDragging(false));
                 if (result.zone === 'center') {
                   moveTabToPane(result.tabId, leaf.activeTabId, 'side');
                 } else {

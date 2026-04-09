@@ -1,8 +1,8 @@
 import http from 'http';
-import { readFileSync, readdirSync, watch } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '@netior/shared/constants';
 
 interface SessionStartPayload {
@@ -95,6 +95,16 @@ class HookServer {
 
   getPort(): number | null {
     return this.port;
+  }
+
+  /** Write the current port to a file so hook scripts can read it dynamically */
+  writePortFile(): void {
+    if (!this.port) return;
+    const hooksDir = join(app.getPath('userData'), 'data', 'hooks');
+    mkdirSync(hooksDir, { recursive: true });
+    const portFile = join(hooksDir, 'port');
+    writeFileSync(portFile, String(this.port), 'utf-8');
+    console.log(`[HookServer] port file written: ${portFile} → ${this.port}`);
   }
 
   stop(): void {

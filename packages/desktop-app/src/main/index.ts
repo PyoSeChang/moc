@@ -329,6 +329,7 @@ app.whenReady().then(async () => {
   hookServer.start().then(() => {
     const port = hookServer.getPort();
     if (port) {
+      hookServer.writePortFile();
       setupHookScript(port);
       setupClaudeSettings();
     }

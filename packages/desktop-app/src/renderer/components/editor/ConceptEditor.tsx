@@ -45,7 +45,7 @@ const isDraftTab = (tab: EditorTab) => tab.targetId.startsWith('draft-');
 const nodeTypeOptions: Array<{ value: NodeType; label: string }> = [
   { value: 'basic', label: 'Basic' },
   { value: 'portal', label: 'Portal' },
-  { value: 'box', label: 'Box' },
+  { value: 'group', label: 'Group' },
 ];
 
 function resolvePreferredNodeId(

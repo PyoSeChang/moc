@@ -226,7 +226,7 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       id: row.id as string,
       network_id: row.network_id as string,
       object_id: row.object_id as string,
-      node_type: (row.node_type as string) ?? 'basic',
+      node_type: ((row.node_type as string) === 'box' ? 'group' : ((row.node_type as string) ?? 'basic')),
       parent_node_id: (row.parent_node_id as string | null) ?? null,
       metadata: (row.metadata as string | null) ?? null,
       created_at: row.created_at as string,
@@ -285,6 +285,7 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       source_node_id: row.source_node_id as string,
       target_node_id: row.target_node_id as string,
       relation_type_id: (row.relation_type_id as string | null) ?? null,
+      system_contract: (row.system_contract as string | null) ?? null,
       description: (row.description as string | null) ?? null,
       created_at: row.created_at as string,
       ...(hasRelationType ? {
@@ -365,11 +366,11 @@ export function createEdge(data: EdgeCreate): Edge {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, description, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, system_contract, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.network_id, data.source_node_id, data.target_node_id,
-    data.relation_type_id ?? null, data.description ?? null,
+    data.relation_type_id ?? null, data.system_contract ?? null, data.description ?? null,
     now,
   );
 
@@ -386,8 +387,9 @@ export function updateEdge(id: string, data: EdgeUpdate): Edge | undefined {
   const existing = db.prepare('SELECT * FROM edges WHERE id = ?').get(id) as Edge | undefined;
   if (!existing) return undefined;
 
-  db.prepare('UPDATE edges SET relation_type_id = ?, description = ? WHERE id = ?').run(
+  db.prepare('UPDATE edges SET relation_type_id = ?, system_contract = ?, description = ? WHERE id = ?').run(
     data.relation_type_id !== undefined ? data.relation_type_id : existing.relation_type_id,
+    data.system_contract !== undefined ? data.system_contract : existing.system_contract,
     data.description !== undefined ? data.description : existing.description,
     id,
   );

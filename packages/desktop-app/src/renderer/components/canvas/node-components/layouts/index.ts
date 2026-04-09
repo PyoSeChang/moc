@@ -4,6 +4,7 @@ import { IconOnlyLayout } from './IconOnlyLayout';
 import { StadiumLayout } from './StadiumLayout';
 import { PortraitLayout } from './PortraitLayout';
 import { DashedLayout } from './DashedLayout';
+import { GroupLayout } from './GroupLayout';
 import { WideLayout } from './WideLayout';
 import { RectangleLayout } from './RectangleLayout';
 import { SquareLayout } from './SquareLayout';
@@ -14,6 +15,7 @@ const SHAPE_LAYOUT_MAP: Record<NodeShape, ShapeLayout> = {
   stadium: StadiumLayout,
   portrait: PortraitLayout,
   dashed: DashedLayout,
+  group: GroupLayout,
   wide: WideLayout,
   rectangle: RectangleLayout,
   square: SquareLayout,

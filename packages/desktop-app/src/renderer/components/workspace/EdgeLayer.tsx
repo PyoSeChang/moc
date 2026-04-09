@@ -1,5 +1,5 @@
 import React from 'react';
-import { EdgeLine } from '../canvas/EdgeLine';
+import { EdgeRouteLine } from '../canvas/EdgeRouteLine';
 import type { RenderNode, RenderEdge } from './types';
 
 interface EdgeLayerProps {
@@ -58,13 +58,15 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
         style={{ pointerEvents: 'auto' }}
       >
         {edges.map((edge) => {
+          if (edge.hidden || edge.route === 'hidden') return null;
+
           const source = nodePositionMap.get(edge.sourceId);
           const target = nodePositionMap.get(edge.targetId);
           if (!source || !target) return null;
 
           return (
             <g key={edge.id} style={{ opacity: edge.dimmed ? 0.2 : 1, transition: 'opacity 120ms ease' }}>
-              <EdgeLine
+              <EdgeRouteLine
                 id={edge.id}
                 sourceX={source.x}
                 sourceY={source.y}
@@ -74,6 +76,8 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
                 label={edge.label}
                 color={edge.color}
                 lineStyle={edge.lineStyle}
+                route={edge.route === 'orthogonal' ? 'orthogonal' : 'straight'}
+                routePoints={edge.routePoints}
                 onContextMenu={onContextMenu}
                 onDoubleClick={onDoubleClick}
               />

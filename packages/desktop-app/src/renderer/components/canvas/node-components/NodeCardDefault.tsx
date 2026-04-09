@@ -25,6 +25,8 @@ function getShapeOutline(shape: NodeShape): string {
       return 'rounded-full';
     case 'dashed':
       return 'rounded-lg border-dashed border-2';
+    case 'group':
+      return 'rounded-md';
     case 'gear':
       return '';
     case 'portrait':
@@ -103,21 +105,25 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
 
   const cardClassName = useMemo(() => {
     const parts = [
-      'bg-surface-card shadow-sm',
+      shape === 'group' ? 'bg-transparent shadow-none' : 'bg-surface-card shadow-sm',
       'transition-[border-color,box-shadow] duration-fast',
-      'select-none overflow-hidden',
+      shape === 'group' ? 'select-none overflow-visible' : 'select-none overflow-hidden',
     ];
 
     if (isGear) {
       // gear uses clip-path, no border
     } else {
-      parts.push('border border-subtle');
-      parts.push('hover:border-default hover:shadow-md');
+      parts.push(shape === 'group' ? 'border border-default' : 'border border-subtle');
+      if (shape === 'group') {
+        parts.push('hover:border-strong');
+      } else {
+        parts.push('hover:border-default hover:shadow-md');
+      }
       parts.push(outlineClass);
     }
 
     if (selected) {
-      parts.push('border-accent shadow-[0_0_0_2px_var(--accent-muted)]');
+      parts.push(shape === 'group' ? 'border-accent shadow-[0_0_0_1px_var(--accent)]' : 'border-accent shadow-[0_0_0_2px_var(--accent-muted)]');
     }
     if (highlighted) {
       parts.push('border-status-warning shadow-[0_0_0_2px_color-mix(in_srgb,var(--status-warning)_30%,transparent)]');

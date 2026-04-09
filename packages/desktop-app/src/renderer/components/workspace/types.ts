@@ -25,11 +25,16 @@ export interface RenderNode {
   objectType?: string;
   objectTargetId?: string;
   isPortal?: boolean;
-  isBox?: boolean;
+  isGroup?: boolean;
   fileId?: string;
   filePath?: string;
   networkId?: string;
   dimmed?: boolean;
+}
+
+export interface RenderPoint {
+  x: number;
+  y: number;
 }
 
 /** Edge data for rendering */
@@ -41,6 +46,10 @@ export interface RenderEdge {
   label: string;
   color?: string;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  systemContract?: string | null;
+  route?: 'straight' | 'orthogonal' | 'hidden';
+  routePoints?: RenderPoint[];
+  hidden?: boolean;
   dimmed?: boolean;
 }
 

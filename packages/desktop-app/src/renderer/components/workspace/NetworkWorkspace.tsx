@@ -9,7 +9,7 @@ import { EdgeContextMenu } from './EdgeContextMenu';
 import { FileNodeAddModal } from './FileNodeAddModal';
 import { ObjectPickerModal } from './ObjectPickerModal';
 import { useNetworkStore, type NetworkNodeWithObject, type EdgeWithRelationType } from '../../stores/network-store';
-import { networkService, fileService, objectService } from '../../services';
+import { networkService, layoutService, fileService, objectService } from '../../services';
 import { conceptPropertyService } from '../../services';
 import type { NodePosition, EdgeVisual } from '../../services/network-service';
 import { useConceptStore } from '../../stores/concept-store';
@@ -22,7 +22,7 @@ import { useProjectStore } from '../../stores/project-store';
 import { useNetworkObjectSelectionStore } from '../../stores/network-object-selection-store';
 import type { Archetype } from '@netior/shared/types';
 import { useI18n } from '../../hooks/useI18n';
-import type { RenderNode, RenderEdge } from './types';
+import type { RenderNode, RenderEdge, RenderPoint } from './types';
 import { getLayout } from './layout-plugins/registry';
 import type { LayoutRenderNode } from './layout-plugins/types';
 import { isoToEpochDays } from './layout-plugins/horizontal-timeline/scale-utils';
@@ -30,6 +30,14 @@ import { useNetworkShortcuts } from './useNetworkShortcuts';
 
 interface NetworkWorkspaceProps {
   projectId: string;
+}
+
+interface ParsedNodePosition {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  [key: string]: unknown;
 }
 
 function pickInitialNetworkId(
@@ -52,12 +60,18 @@ function pickInitialNetworkId(
   return preferredRoot?.id ?? null;
 }
 
-function buildPositionMap(positions: NodePosition[]): Map<string, { x: number; y: number; width?: number; height?: number }> {
-  const map = new Map<string, { x: number; y: number; width?: number; height?: number }>();
+function buildPositionMap(positions: NodePosition[]): Map<string, ParsedNodePosition> {
+  const map = new Map<string, ParsedNodePosition>();
   for (const p of positions) {
     try {
-      const parsed = JSON.parse(p.positionJson);
-      map.set(p.nodeId, { x: parsed.x ?? 0, y: parsed.y ?? 0, width: parsed.width, height: parsed.height });
+      const parsed = JSON.parse(p.positionJson) as Record<string, unknown>;
+      map.set(p.nodeId, {
+        ...parsed,
+        x: typeof parsed.x === 'number' ? parsed.x : 0,
+        y: typeof parsed.y === 'number' ? parsed.y : 0,
+        width: typeof parsed.width === 'number' ? parsed.width : undefined,
+        height: typeof parsed.height === 'number' ? parsed.height : undefined,
+      });
     } catch {
       // skip invalid JSON
     }
@@ -65,12 +79,94 @@ function buildPositionMap(positions: NodePosition[]): Map<string, { x: number; y
   return map;
 }
 
-function buildVisualMap(visuals: EdgeVisual[]): Map<string, { color?: string; lineStyle?: string; directed?: boolean }> {
-  const map = new Map<string, { color?: string; lineStyle?: string; directed?: boolean }>();
+function buildContainsParentMap(edges: EdgeWithRelationType[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const edge of edges) {
+    if (edge.system_contract !== 'core:contains') continue;
+    if (edge.source_node_id === edge.target_node_id) continue;
+    map.set(edge.target_node_id, edge.source_node_id);
+  }
+  return map;
+}
+
+function resolveWorldPosition(
+  nodeId: string,
+  rawPosMap: Map<string, ParsedNodePosition>,
+  containsParentByChild: Map<string, string>,
+  cache: Map<string, ParsedNodePosition>,
+  visiting: Set<string>,
+): ParsedNodePosition {
+  const cached = cache.get(nodeId);
+  if (cached) return cached;
+
+  const base = rawPosMap.get(nodeId) ?? { x: 0, y: 0 };
+  if (visiting.has(nodeId)) return base;
+
+  const parentId = containsParentByChild.get(nodeId);
+  if (!parentId) {
+    cache.set(nodeId, base);
+    return base;
+  }
+
+  visiting.add(nodeId);
+  const parent = resolveWorldPosition(parentId, rawPosMap, containsParentByChild, cache, visiting);
+  visiting.delete(nodeId);
+
+  const resolved = {
+    ...base,
+    x: parent.x + base.x,
+    y: parent.y + base.y,
+  };
+  cache.set(nodeId, resolved);
+  return resolved;
+}
+
+function buildWorldPositionMap(
+  nodeIds: string[],
+  rawPosMap: Map<string, ParsedNodePosition>,
+  containsParentByChild: Map<string, string>,
+): Map<string, ParsedNodePosition> {
+  const cache = new Map<string, ParsedNodePosition>();
+  const ids = new Set<string>([...nodeIds, ...rawPosMap.keys()]);
+
+  for (const nodeId of ids) {
+    resolveWorldPosition(nodeId, rawPosMap, containsParentByChild, cache, new Set<string>());
+  }
+
+  return cache;
+}
+
+function toRenderPoint(value: unknown): RenderPoint | null {
+  if (!value || typeof value !== 'object') return null;
+
+  const candidate = value as { x?: unknown; y?: unknown };
+  if (typeof candidate.x !== 'number' || typeof candidate.y !== 'number') return null;
+
+  return { x: candidate.x, y: candidate.y };
+}
+
+function buildVisualMap(
+  visuals: EdgeVisual[],
+): Map<string, { color?: string; lineStyle?: string; directed?: boolean; route?: RenderEdge['route']; routePoints?: RenderPoint[] }> {
+  const map = new Map<string, { color?: string; lineStyle?: string; directed?: boolean; route?: RenderEdge['route']; routePoints?: RenderPoint[] }>();
   for (const v of visuals) {
     try {
       const parsed = JSON.parse(v.visualJson);
-      map.set(v.edgeId, { color: parsed.color, lineStyle: parsed.line_style, directed: parsed.directed });
+      const route = parsed.route === 'straight' || parsed.route === 'orthogonal' || parsed.route === 'hidden'
+        ? parsed.route as RenderEdge['route']
+        : undefined;
+      const routePoints = Array.isArray(parsed.waypoints)
+        ? parsed.waypoints
+          .map((waypoint: unknown) => toRenderPoint(waypoint))
+          .filter((point: RenderPoint | null): point is RenderPoint => point !== null)
+        : undefined;
+      map.set(v.edgeId, {
+        color: parsed.color,
+        lineStyle: parsed.line_style,
+        directed: parsed.directed,
+        route,
+        routePoints,
+      });
     } catch {
       // skip invalid JSON
     }
@@ -132,7 +228,7 @@ function getGenericObjectPresentation(
 function toRenderNodes(
   nodes: NetworkNodeWithObject[],
   archetypes: Archetype[],
-  posMap: Map<string, { x: number; y: number; width?: number; height?: number }>,
+  posMap: Map<string, ParsedNodePosition>,
   networkNames: Map<string, string>,
   projectNames: Map<string, string>,
   archetypeNames: Map<string, string>,
@@ -143,8 +239,9 @@ function toRenderNodes(
   return nodes.map((n) => {
     const pos = posMap.get(n.id);
     const objectType = n.object?.object_type;
+    const rawNodeType = n.node_type as string;
     const isPortal = n.node_type === 'portal';
-    const isBox = n.node_type === 'box';
+    const isGroup = rawNodeType === 'group' || rawNodeType === 'box';
     if (objectType === 'concept' && n.concept) {
       const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
       return {
@@ -153,18 +250,18 @@ function toRenderNodes(
         y: pos?.y ?? 0,
         label: n.concept.title,
         icon: n.concept.icon || arch?.icon || '📌',
-        shape: isPortal ? 'dashed' : isBox ? 'wide' : arch?.node_shape ?? undefined,
+        shape: isPortal ? 'dashed' : isGroup ? 'group' : arch?.node_shape ?? undefined,
         semanticType: arch?.name || 'concept',
-        semanticTypeLabel: isPortal ? 'Concept Portal' : isBox ? 'Concept Box' : arch?.name || 'Concept',
-        width: pos?.width ?? (isPortal ? 180 : isBox ? 260 : 160),
-        height: pos?.height ?? (isPortal ? 68 : isBox ? 96 : 60),
+        semanticTypeLabel: isPortal ? 'Concept Portal' : isGroup ? 'Concept Group' : arch?.name || 'Concept',
+        width: pos?.width ?? (isPortal ? 180 : isGroup ? 360 : 160),
+        height: pos?.height ?? (isPortal ? 68 : isGroup ? 220 : 60),
         conceptId: n.object?.ref_id ?? undefined,
         canvasCount: 0,
         nodeType: 'concept' as const,
         objectType,
         objectTargetId: n.object?.ref_id ?? undefined,
         isPortal,
-        isBox,
+        isGroup,
       };
     }
     if (objectType === 'file' && n.file) {
@@ -178,15 +275,16 @@ function toRenderNodes(
         label: fileName,
         icon: isFile ? `file:${fileName}` : `folder:${fileName}`,
         semanticType: isFile ? 'file' : 'directory',
-        semanticTypeLabel: isPortal ? 'File Portal' : isFile ? 'File' : 'Directory',
-        width: pos?.width ?? (isBox ? 220 : 140),
-        height: pos?.height ?? (isBox ? 72 : 50),
+        semanticTypeLabel: isPortal ? 'File Portal' : isGroup ? (isFile ? 'File Group' : 'Directory Group') : isFile ? 'File' : 'Directory',
+        shape: isGroup ? 'group' : undefined,
+        width: pos?.width ?? (isGroup ? 280 : 140),
+        height: pos?.height ?? (isGroup ? 180 : 50),
         canvasCount: 0,
         nodeType: isFile ? 'file' as const : 'dir' as const,
         objectType,
         objectTargetId: n.object?.ref_id ?? undefined,
         isPortal,
-        isBox,
+        isGroup,
         fileId: n.object?.ref_id ?? undefined,
         filePath: filePath ?? undefined,
       };
@@ -200,17 +298,17 @@ function toRenderNodes(
         y: pos?.y ?? 0,
         label: networkName ?? 'Network',
         icon: '🌐',
-        shape: isPortal ? 'dashed' as string | undefined : isBox ? 'wide' as string | undefined : 'rectangle' as string | undefined,
+        shape: isPortal ? 'dashed' as string | undefined : isGroup ? 'group' as string | undefined : 'rectangle' as string | undefined,
         semanticType: 'network',
-        semanticTypeLabel: isPortal ? 'Network Portal' : 'Network',
-        width: pos?.width ?? (isPortal ? 180 : isBox ? 220 : 160),
-        height: pos?.height ?? (isPortal ? 68 : isBox ? 72 : 60),
+        semanticTypeLabel: isPortal ? 'Network Portal' : isGroup ? 'Network Group' : 'Network',
+        width: pos?.width ?? (isPortal ? 180 : isGroup ? 320 : 160),
+        height: pos?.height ?? (isPortal ? 68 : isGroup ? 200 : 60),
         canvasCount: 0,
         nodeType: 'network' as const,
         objectType,
         objectTargetId: refId ?? undefined,
         isPortal,
-        isBox,
+        isGroup,
         networkId: refId ?? undefined,
       };
     }
@@ -231,16 +329,16 @@ function toRenderNodes(
       label: genericObject.label,
       icon: genericObject.icon,
       semanticType: objectType ?? 'unknown',
-      semanticTypeLabel: genericObject.semanticTypeLabel,
-      shape: isPortal ? 'dashed' as string | undefined : isBox ? 'wide' as string | undefined : undefined,
-      width: pos?.width ?? (isBox ? 220 : objectType === 'project' ? 180 : 140),
-      height: pos?.height ?? (isBox ? 72 : objectType === 'project' ? 64 : 50),
+      semanticTypeLabel: isGroup ? `${genericObject.semanticTypeLabel} Group` : genericObject.semanticTypeLabel,
+      shape: isPortal ? 'dashed' as string | undefined : isGroup ? 'group' as string | undefined : undefined,
+      width: pos?.width ?? (isGroup ? 320 : objectType === 'project' ? 180 : 140),
+      height: pos?.height ?? (isGroup ? 200 : objectType === 'project' ? 64 : 50),
       canvasCount: 0,
       nodeType: 'object' as const,
       objectType,
       objectTargetId: n.object?.ref_id ?? undefined,
       isPortal,
-      isBox,
+      isGroup,
     };
   });
 }
@@ -300,9 +398,31 @@ function parseFileDropItems(raw: string): FileDropItem[] {
   return [];
 }
 
-function toRenderEdges(edges: EdgeWithRelationType[], visualMap: Map<string, { color?: string; lineStyle?: string; directed?: boolean }>): RenderEdge[] {
+function resolveEdgePresentation(edge: EdgeWithRelationType): Pick<RenderEdge, 'hidden' | 'route' | 'systemContract'> {
+  const systemContract = edge.system_contract ?? null;
+
+  if (systemContract === 'core:contains' || systemContract === 'core:entry_portal') {
+    return {
+      hidden: true,
+      route: 'hidden',
+      systemContract,
+    };
+  }
+
+  return {
+    hidden: false,
+    route: 'straight',
+    systemContract,
+  };
+}
+
+function toRenderEdges(
+  edges: EdgeWithRelationType[],
+  visualMap: Map<string, { color?: string; lineStyle?: string; directed?: boolean; route?: RenderEdge['route']; routePoints?: RenderPoint[] }>,
+): RenderEdge[] {
   return edges.map((e) => {
     const vis = visualMap.get(e.id);
+    const presentation = resolveEdgePresentation(e);
     return {
       id: e.id,
       sourceId: e.source_node_id,
@@ -311,8 +431,36 @@ function toRenderEdges(edges: EdgeWithRelationType[], visualMap: Map<string, { c
       label: e.relation_type?.name ?? '',
       color: vis?.color ?? e.relation_type?.color ?? undefined,
       lineStyle: (vis?.lineStyle ?? e.relation_type?.line_style ?? undefined) as 'solid' | 'dashed' | 'dotted' | undefined,
+      systemContract: presentation.systemContract,
+      route: presentation.route === 'straight' ? (vis?.route ?? 'straight') : presentation.route,
+      routePoints: vis?.routePoints,
+      hidden: presentation.hidden,
     };
   });
+}
+
+function isPointInsideNodeBounds(node: RenderNode, x: number, y: number): boolean {
+  const width = node.width ?? 160;
+  const height = node.height ?? 60;
+  return (
+    x >= node.x - width / 2 &&
+    x <= node.x + width / 2 &&
+    y >= node.y - height / 2 &&
+    y <= node.y + height / 2
+  );
+}
+
+function wouldCreateContainmentCycle(
+  nodeId: string,
+  candidateGroupId: string,
+  containsParentByChild: Map<string, string>,
+): boolean {
+  let current: string | undefined = candidateGroupId;
+  while (current) {
+    if (current === nodeId) return true;
+    current = containsParentByChild.get(current);
+  }
+  return false;
 }
 
 export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Element {
@@ -460,7 +608,12 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const archetypeNames = useMemo(() => new Map(archetypes.map((archetype) => [archetype.id, archetype.name])), [archetypes]);
   const relationTypeNames = useMemo(() => new Map(relationTypes.map((relationType) => [relationType.id, relationType.name])), [relationTypes]);
   const contextNames = useMemo(() => new Map(contexts.map((context) => [context.id, context.name])), [contexts]);
-  const posMap = useMemo(() => buildPositionMap(nodePositions), [nodePositions]);
+  const rawPosMap = useMemo(() => buildPositionMap(nodePositions), [nodePositions]);
+  const containsParentByChild = useMemo(() => buildContainsParentMap(edges), [edges]);
+  const worldPosMap = useMemo(
+    () => buildWorldPositionMap(nodes.map((node) => node.id), rawPosMap, containsParentByChild),
+    [nodes, rawPosMap, containsParentByChild],
+  );
   const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
 
   useEffect(() => {
@@ -490,7 +643,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     const baseNodes = toRenderNodes(
       nodes,
       archetypes,
-      posMap,
+      worldPosMap,
       networkNames,
       projectNames,
       archetypeNames,
@@ -507,7 +660,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   }, [
     nodes,
     archetypes,
-    posMap,
+    worldPosMap,
     networkNames,
     projectNames,
     archetypeNames,
@@ -739,6 +892,63 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
 
   const isTimeline = layoutPlugin.key !== 'freeform';
 
+  const serializePositionJson = useCallback((nodeId: string, x: number, y: number) => {
+    const existing = rawPosMap.get(nodeId);
+    return JSON.stringify({
+      ...(existing ?? {}),
+      x,
+      y,
+    });
+  }, [rawPosMap]);
+
+  const findDropTargetGroup = useCallback((nodeId: string, x: number, y: number): RenderNode | null => {
+    const candidates = cardRenderNodes
+      .filter((node) => node.isGroup && node.id !== nodeId)
+      .filter((node) => !wouldCreateContainmentCycle(nodeId, node.id, containsParentByChild))
+      .filter((node) => isPointInsideNodeBounds(node, x, y))
+      .sort((left, right) => {
+        const leftArea = (left.width ?? 160) * (left.height ?? 60);
+        const rightArea = (right.width ?? 160) * (right.height ?? 60);
+        return leftArea - rightArea;
+      });
+
+    return candidates[0] ?? null;
+  }, [cardRenderNodes, containsParentByChild]);
+
+  const placeNodeAtPosition = useCallback(async (nodeId: string, position: { x: number; y: number }) => {
+    if (layoutPlugin.key !== 'freeform' || !currentNetwork || !currentLayout) {
+      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y));
+      return;
+    }
+
+    const targetGroup = findDropTargetGroup(nodeId, position.x, position.y);
+    if (!targetGroup) {
+      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y));
+      return;
+    }
+
+    await networkService.edge.create({
+      network_id: currentNetwork.id,
+      source_node_id: targetGroup.id,
+      target_node_id: nodeId,
+      system_contract: 'core:contains',
+    });
+    await layoutService.node.setPosition(
+      currentLayout.id,
+      nodeId,
+      serializePositionJson(nodeId, position.x - targetGroup.x, position.y - targetGroup.y),
+    );
+    await openNetwork(currentNetwork.id);
+  }, [
+    currentLayout,
+    currentNetwork,
+    findDropTargetGroup,
+    layoutPlugin.key,
+    openNetwork,
+    serializePositionJson,
+    setNodePosition,
+  ]);
+
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
 
@@ -802,6 +1012,74 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     await setNodePosition(nodeId, JSON.stringify({ x, y }));
   }, [setNodePosition, layoutPlugin, positionedNodes, layoutConfig, zoom]);
 
+  const handleNodeDragEndWithContainment = useCallback(async (nodeId: string, x: number, y: number) => {
+    if (layoutPlugin.onNodeDrop) {
+      const node = positionedNodes.find((n) => n.id === nodeId);
+      if (node) {
+        const result = layoutPlugin.onNodeDrop({
+          nodeId,
+          newX: x,
+          newY: y,
+          zoom,
+          config: layoutConfig,
+          node,
+        });
+        await setNodePosition(nodeId, serializePositionJson(nodeId, result.position.x, result.position.y));
+        return;
+      }
+    }
+
+    if (layoutPlugin.key !== 'freeform' || !currentNetwork || !currentLayout) {
+      await setNodePosition(nodeId, serializePositionJson(nodeId, x, y));
+      return;
+    }
+
+    const currentParentGroupId = containsParentByChild.get(nodeId) ?? null;
+    const nextParentGroup = findDropTargetGroup(nodeId, x, y);
+    const nextParentGroupId = nextParentGroup?.id ?? null;
+    const nextPositionJson = nextParentGroup
+      ? serializePositionJson(nodeId, x - nextParentGroup.x, y - nextParentGroup.y)
+      : serializePositionJson(nodeId, x, y);
+
+    if (currentParentGroupId === nextParentGroupId) {
+      await setNodePosition(nodeId, nextPositionJson);
+      return;
+    }
+
+    const existingContainsEdges = edges.filter(
+      (edge) => edge.system_contract === 'core:contains' && edge.target_node_id === nodeId,
+    );
+
+    for (const edge of existingContainsEdges) {
+      await networkService.edge.delete(edge.id);
+    }
+
+    if (nextParentGroupId) {
+      await networkService.edge.create({
+        network_id: currentNetwork.id,
+        source_node_id: nextParentGroupId,
+        target_node_id: nodeId,
+        system_contract: 'core:contains',
+      });
+    }
+
+    await layoutService.node.setPosition(currentLayout.id, nodeId, nextPositionJson);
+    await openNetwork(currentNetwork.id);
+  }, [
+    containsParentByChild,
+    currentLayout,
+    currentNetwork,
+    edges,
+    findDropTargetGroup,
+    layoutConfig,
+    layoutPlugin,
+    openNetwork,
+    positionedNodes,
+    serializePositionJson,
+    setNodePosition,
+    zoom,
+  ]);
+
   const handlePanChange = useCallback((newPanX: number, newPanY: number) => {
     setPanX(newPanX);
     setPanY(newPanY);
@@ -842,8 +1120,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       network_id: currentNetwork.id,
       object_id: fileObj.id,
     });
-    await setNodePosition(node.id, JSON.stringify(position));
-  }, [addNode, currentNetwork, projectId, setNodePosition]);
+    await placeNodeAtPosition(node.id, position);
+  }, [addNode, currentNetwork, placeNodeAtPosition, projectId]);
 
   const handleSelectionBox = useCallback((nodeIds: string[]) => {
     setSelectedIds(new Set(nodeIds));
@@ -859,7 +1137,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     mode: canvasMode,
     constraints: layoutPlugin.interactionConstraints,
     onPanChange: handlePanChange,
-    onNodeDragEnd: handleNodeDragEnd,
+    onNodeDragEnd: handleNodeDragEndWithContainment,
     onSelectionBox: handleSelectionBox,
     onCanvasClick: handleNetworkClick,
     onWheel: handleWheel,
@@ -1305,7 +1583,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             object_id: objectRecord.id,
             node_type: objectType === 'network' || objectType === 'project' ? 'portal' : 'basic',
           });
-          await setNodePosition(node.id, JSON.stringify(objectInsertPosition));
+          await placeNodeAtPosition(node.id, objectInsertPosition);
           setObjectPickerOpen(false);
           setObjectInsertPosition(null);
         }}

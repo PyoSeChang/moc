@@ -162,7 +162,7 @@ export type NetworkObjectType =
   | 'relation_type' | 'agent' | 'context'
   | 'file' | 'module' | 'folder';
 
-export type NodeType = 'basic' | 'portal' | 'box';
+export type NodeType = 'basic' | 'portal' | 'group';
 
 export interface ObjectRecord {
   id: string;
@@ -211,6 +211,7 @@ export interface Edge {
   source_node_id: string;
   target_node_id: string;
   relation_type_id: string | null;
+  system_contract: string | null;
   description: string | null;
   created_at: string;
 }
@@ -220,11 +221,13 @@ export interface EdgeCreate {
   source_node_id: string;
   target_node_id: string;
   relation_type_id?: string;
+  system_contract?: string;
   description?: string;
 }
 
 export interface EdgeUpdate {
   relation_type_id?: string | null;
+  system_contract?: string | null;
   description?: string | null;
 }
 

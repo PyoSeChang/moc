@@ -4,7 +4,7 @@
  * Unified interface for all node rendering components (Level 1/2/3)
  */
 
-export type NodeShape = 'circle' | 'gear' | 'stadium' | 'portrait' | 'dashed' | 'wide' | 'rectangle' | 'square';
+export type NodeShape = 'circle' | 'gear' | 'stadium' | 'portrait' | 'dashed' | 'wide' | 'rectangle' | 'square' | 'group';
 import type { CanvasMode } from '../../../stores/ui-store';
 
 /** Props for shape-specific internal layout components */

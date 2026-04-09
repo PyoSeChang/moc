@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { RenderNode } from './types';
 import type { CanvasMode } from '../../stores/ui-store';
 import { NodeCardDefault } from '../canvas/node-components/NodeCardDefault';
@@ -39,6 +39,11 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   onNodeMouseEnter,
   onNodeMouseLeave,
 }) => {
+  const orderedNodes = useMemo(
+    () => [...nodes].sort((a, b) => (b.isGroup ? 1 : 0) - (a.isGroup ? 1 : 0)),
+    [nodes],
+  );
+
   const getNodePosition = (node: RenderNode) => {
     let x = node.x;
     let y = node.y;
@@ -70,7 +75,7 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
 
   return (
     <div style={containerStyle}>
-      {nodes.map((node) => {
+      {orderedNodes.map((node) => {
         const t = getNodePosition(node);
 
         return (

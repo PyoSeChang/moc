@@ -890,7 +890,7 @@ describe('Repositories', () => {
       const c2 = createConcept({ project_id: projectId, title: 'Child' });
       const obj1 = getObjectByRef('concept', c1.id)!;
       const obj2 = getObjectByRef('concept', c2.id)!;
-      const parentNode = addNetworkNode({ network_id: networkId, object_id: obj1.id, node_type: 'box' });
+      const parentNode = addNetworkNode({ network_id: networkId, object_id: obj1.id, node_type: 'group' });
       const childNode = addNetworkNode({ network_id: networkId, object_id: obj2.id, parent_node_id: parentNode.id });
       expect(childNode.parent_node_id).toBe(parentNode.id);
     });
@@ -915,6 +915,16 @@ describe('Repositories', () => {
       expect(full.nodes[0].object!.object_type).toBe('concept');
       expect(full.nodes[0].concept?.title).toBe('My Concept');
       expect(full.nodes[0].file).toBeUndefined();
+    });
+
+    it('should map legacy box node_type to group in getNetworkFull', () => {
+      const concept = createConcept({ project_id: projectId, title: 'Legacy Box' });
+      const obj = getObjectByRef('concept', concept.id)!;
+      const node = addNetworkNode({ network_id: networkId, object_id: obj.id });
+      getTestDb().prepare('UPDATE network_nodes SET node_type = ? WHERE id = ?').run('box', node.id);
+
+      const full = getNetworkFull(networkId)!;
+      expect(full.nodes[0].node_type).toBe('group');
     });
 
     it('should cascade delete node when object is deleted', () => {
@@ -955,6 +965,17 @@ describe('Repositories', () => {
     it('should create edge without relation_type_id', () => {
       const edge = createEdge({ network_id: networkId, source_node_id: n1Id, target_node_id: n2Id });
       expect(edge.relation_type_id).toBeNull();
+      expect(edge.system_contract).toBeNull();
+    });
+
+    it('should create edge with system_contract', () => {
+      const edge = createEdge({
+        network_id: networkId,
+        source_node_id: n1Id,
+        target_node_id: n2Id,
+        system_contract: 'core:contains',
+      });
+      expect(edge.system_contract).toBe('core:contains');
     });
 
     it('should get edge by id', () => {
@@ -968,6 +989,12 @@ describe('Repositories', () => {
       const edge = createEdge({ network_id: networkId, source_node_id: n1Id, target_node_id: n2Id });
       const updated = updateEdge(edge.id, { relation_type_id: rt.id });
       expect(updated?.relation_type_id).toBe(rt.id);
+    });
+
+    it('should update edge system_contract', () => {
+      const edge = createEdge({ network_id: networkId, source_node_id: n1Id, target_node_id: n2Id });
+      const updated = updateEdge(edge.id, { system_contract: 'core:entry_portal' });
+      expect(updated?.system_contract).toBe('core:entry_portal');
     });
 
     it('should SET NULL when relation type deleted', () => {
@@ -985,6 +1012,17 @@ describe('Repositories', () => {
       expect(full.edges).toHaveLength(1);
       expect(full.edges[0].relation_type?.name).toBe('Ally');
       expect(full.edges[0].relation_type?.directed).toBe(true);
+    });
+
+    it('should include system_contract in getNetworkFull', () => {
+      createEdge({
+        network_id: networkId,
+        source_node_id: n1Id,
+        target_node_id: n2Id,
+        system_contract: 'core:contains',
+      });
+      const full = getNetworkFull(networkId)!;
+      expect(full.edges[0].system_contract).toBe('core:contains');
     });
 
     it('should store edge visuals in layout layer', () => {

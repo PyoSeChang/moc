@@ -10,6 +10,7 @@ import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../ui/Toast';
 import { fsService, type StashedDeleteResult } from '../../services';
 import { isPrimaryModifier, logShortcut } from '../../shortcuts/shortcut-utils';
+import { setFileOpenDragData } from '../../hooks/useFileOpenDrag';
 
 interface FileTreeProps {
   nodes: FileTreeNode[];
@@ -902,8 +903,11 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     const dragPaths = selectedPaths.has(node.path) ? getActiveSelection() : [node.path];
     const payload: DragPayload = { paths: dragPaths };
     event.dataTransfer.setData('application/netior-node', JSON.stringify(payload));
+    setFileOpenDragData(event, dragPaths.filter((path) =>
+      visibleItems.some((item) => item.node.type === 'file' && item.node.path === path),
+    ));
     event.dataTransfer.effectAllowed = 'copyMove';
-  }, [getActiveSelection, selectedPaths]);
+  }, [getActiveSelection, selectedPaths, visibleItems]);
 
   const handleDragOver = useCallback((event: React.DragEvent, node: FileTreeNode) => {
     event.preventDefault();

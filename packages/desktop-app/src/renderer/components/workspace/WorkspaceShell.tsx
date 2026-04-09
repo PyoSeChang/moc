@@ -17,9 +17,32 @@ import { ResizeHandle } from '../ui/ResizeHandle';
 import { useEditorStore, getActiveTabFromLayout, collectLeaves, MAIN_HOST_ID } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
+import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
+import { openFileBesideTab, openFileInPane, openFileTab } from '../../lib/open-file-tab';
+import type { DropResult } from '../editor/DropZoneOverlay';
 
 interface WorkspaceShellProps {
   project: Project;
+}
+
+async function openDroppedFilesInSideLeaf(
+  filePaths: string[],
+  leaf: SplitLeaf,
+  drop?: Omit<DropResult, 'tabId'>,
+): Promise<void> {
+  if (filePaths.length === 0) return;
+  if (!drop || drop.zone === 'center') {
+    for (const filePath of filePaths) {
+      await openFileInPane(filePath, leaf.activeTabId, 'side');
+    }
+    return;
+  }
+
+  let targetTabId = await openFileBesideTab(filePaths[0], leaf.activeTabId, 'side', drop.direction, drop.position);
+  for (const filePath of filePaths.slice(1)) {
+    await openFileInPane(filePath, targetTabId, 'side');
+    targetTabId = `file:${filePath}`;
+  }
 }
 
 export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
@@ -201,6 +224,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             onActivate={setActiveTab}
             onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'side')}
+            onFileDrop={(filePaths) => { void openDroppedFilesInSideLeaf(filePaths, leaf); }}
             rightSlot={
               <EditorViewModeSwitch
                 currentMode="side"
@@ -223,6 +247,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                   }
                 }
               }}
+              onFileDrop={(filePaths, result) => {
+                void openDroppedFilesInSideLeaf(filePaths, leaf, result);
+              }}
               active={isTabDragging}
             />
           </div>
@@ -234,13 +261,13 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
   // Global drag tracking for drop zone activation
   const handleShellDragEnter = useCallback((e: React.DragEvent) => {
-    if (isTabDrag(e)) setIsTabDragging(true);
+    if (isTabDrag(e) || isFileOpenDrag(e)) setIsTabDragging(true);
   }, []);
 
   const handleShellDragOver = useCallback((e: React.DragEvent) => {
-    if (!isTabDrag(e)) return;
+    if (!isTabDrag(e) && !isFileOpenDrag(e)) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = isFileOpenDrag(e) ? 'copy' : 'move';
     if (!hasSideEditor) {
       setShowSideDropHint(true);
       setShowFloatDropHint(true);
@@ -290,10 +317,18 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     setShowSideDropHint(false);
     setShowFloatDropHint(false);
     setIsTabDragging(false);
+    if (isFileOpenDrag(e)) {
+      const filePaths = getFileOpenDragData(e);
+      console.log(`[WorkspaceShell] side file drop count=${filePaths.length}`);
+      for (const filePath of filePaths) {
+        await openFileTab({ filePath, placement: 'smart' });
+      }
+      return;
+    }
+
     const tabId = await getTabDragDataAsync(e);
     console.log(`[WorkspaceShell] side drop tabId=${tabId}`);
-    if (!tabId) return;
-    applyDropModeToMain(tabId, 'side');
+    if (tabId) applyDropModeToMain(tabId, 'side');
   }, [applyDropModeToMain]);
 
   return (

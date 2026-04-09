@@ -26,8 +26,12 @@ export function SplitPaneRenderer({
   return (
     <div className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}>
       <div
-        className="overflow-hidden"
-        style={isHorizontal ? { width: `${node.ratio * 100}%` } : { height: `${node.ratio * 100}%` }}
+        className="min-h-0 min-w-0 overflow-hidden"
+        style={{
+          flexBasis: 0,
+          flexGrow: node.ratio,
+          flexShrink: 1,
+        }}
       >
         <SplitPaneRenderer
           node={node.children[0]}
@@ -46,8 +50,12 @@ export function SplitPaneRenderer({
       />
 
       <div
-        className="overflow-hidden"
-        style={isHorizontal ? { width: `${(1 - node.ratio) * 100}%` } : { height: `${(1 - node.ratio) * 100}%` }}
+        className="min-h-0 min-w-0 overflow-hidden"
+        style={{
+          flexBasis: 0,
+          flexGrow: 1 - node.ratio,
+          flexShrink: 1,
+        }}
       >
         <SplitPaneRenderer
           node={node.children[1]}

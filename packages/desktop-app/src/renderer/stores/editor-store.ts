@@ -24,6 +24,7 @@ interface OpenTabParams {
   networkId?: string;
   nodeId?: string;
   terminalCwd?: string;
+  sideSplitRatio?: number;
   /** Host to open the tab in (defaults to MAIN_HOST_ID) */
   hostId?: string;
 }
@@ -314,7 +315,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   focusedHostId: MAIN_HOST_ID,
   pendingCloseTabId: null,
 
-  openTab: async ({ type, targetId, title, viewMode, draftData, networkId, nodeId, terminalCwd, hostId }) => {
+  openTab: async ({ type, targetId, title, viewMode, draftData, networkId, nodeId, terminalCwd, sideSplitRatio, hostId }) => {
     const { tabs } = get();
     const tabId = makeTabId(type, targetId);
     const resolvedHostId = hostId ?? MAIN_HOST_ID;
@@ -411,7 +412,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         height: prefs?.float_height ?? DEFAULT_FLOAT_RECT.height,
       },
       isMinimized: false,
-      sideSplitRatio: prefs?.side_split_ratio ?? 0.5,
+      sideSplitRatio: prefs?.side_split_ratio ?? sideSplitRatio ?? 0.5,
       isDirty: !!draftData,
       activeFilePath: null,
       draftData,
@@ -754,13 +755,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   updateTitle: (tabId, title, isManualRename = false) => {
-    set((s) => ({
-      tabs: s.tabs.map((t) => {
+    set((s) => {
+      let changed = false;
+      const tabs = s.tabs.map((t) => {
         if (t.id !== tabId) return t;
         if (t.isManuallyRenamed && !isManualRename) return t;
+        const nextIsManuallyRenamed = isManualRename ? true : t.isManuallyRenamed;
+        if (t.title === title && t.isManuallyRenamed === nextIsManuallyRenamed) return t;
+        changed = true;
         return { ...t, title, ...(isManualRename ? { isManuallyRenamed: true } : {}) };
-      }),
-    }));
+      });
+      return changed ? { tabs } : { tabs: s.tabs };
+    });
   },
 
   setActiveFile: (tabId, filePath) => {

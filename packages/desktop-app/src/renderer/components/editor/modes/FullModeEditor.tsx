@@ -8,6 +8,29 @@ import { EditorTabStrip } from '../EditorTabStrip';
 import { SplitPaneRenderer } from '../SplitPaneRenderer';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { isTabDrag } from '../../../hooks/useTabDrag';
+import { isFileOpenDrag } from '../../../hooks/useFileOpenDrag';
+import { openFileBesideTab, openFileInPane } from '../../../lib/open-file-tab';
+import type { DropResult } from '../DropZoneOverlay';
+
+async function openDroppedFilesInFullLeaf(
+  filePaths: string[],
+  leaf: SplitLeaf,
+  drop?: Omit<DropResult, 'tabId'>,
+): Promise<void> {
+  if (filePaths.length === 0) return;
+  if (!drop || drop.zone === 'center') {
+    for (const filePath of filePaths) {
+      await openFileInPane(filePath, leaf.activeTabId, 'full');
+    }
+    return;
+  }
+
+  let targetTabId = await openFileBesideTab(filePaths[0], leaf.activeTabId, 'full', drop.direction, drop.position);
+  for (const filePath of filePaths.slice(1)) {
+    await openFileInPane(filePath, targetTabId, 'full');
+    targetTabId = `file:${filePath}`;
+  }
+}
 
 export function FullModeEditor(): JSX.Element | null {
   const {
@@ -52,6 +75,7 @@ export function FullModeEditor(): JSX.Element | null {
             onActivate={setActiveTab}
             onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'full')}
+            onFileDrop={(filePaths) => { void openDroppedFilesInFullLeaf(filePaths, leaf); }}
             rightSlot={
               <EditorViewModeSwitch
                 currentMode="full"
@@ -74,6 +98,9 @@ export function FullModeEditor(): JSX.Element | null {
                   }
                 }
               }}
+              onFileDrop={(filePaths, result) => {
+                void openDroppedFilesInFullLeaf(filePaths, leaf, result);
+              }}
               active={isDragging}
             />
           </div>
@@ -88,7 +115,7 @@ export function FullModeEditor(): JSX.Element | null {
   return (
     <div
       className="flex h-full min-h-0 w-full min-w-0 bg-surface-panel"
-      onDragEnter={(e) => { if (isTabDrag(e)) setIsDragging(true); }}
+        onDragEnter={(e) => { if (isTabDrag(e) || isFileOpenDrag(e)) setIsDragging(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
       onDrop={() => setIsDragging(false)}
     >

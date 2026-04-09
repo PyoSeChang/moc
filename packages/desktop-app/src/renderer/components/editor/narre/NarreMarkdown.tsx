@@ -2,6 +2,7 @@ import React from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import { openExternal } from '../../../lib/open-external';
 
 interface NarreMarkdownProps {
   content: string;
@@ -39,8 +40,11 @@ const components: Components = {
     <a
       href={href}
       className="text-accent hover:underline"
-      target="_blank"
-      rel="noopener noreferrer"
+      onClick={(event) => {
+        if (!href) return;
+        event.preventDefault();
+        void openExternal(href);
+      }}
     >
       {children}
     </a>

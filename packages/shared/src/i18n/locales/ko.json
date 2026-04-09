@@ -689,7 +689,16 @@
     "todoHide": "Todo 숨기기",
     "todoTitle": "Todo",
     "todoAddPlaceholder": "할 일 추가...",
-    "todoEmpty": "할 일이 없습니다"
+    "todoEmpty": "할 일이 없습니다",
+    "openFileAction": "파일 열기",
+    "openSplitRightAction": "오른쪽에 분할해서 열기",
+    "openSplitBelowAction": "아래에 분할해서 열기",
+    "openInPaneAction": "{pane}에서 열기",
+    "openUrlAction": "브라우저에서 URL 열기",
+    "copySelectionAction": "선택 텍스트 복사",
+    "copyResolvedPathAction": "해결된 경로 복사",
+    "resolvingFile": "파일 확인 중...",
+    "fileNotFoundNothingOpened": "파일을 찾지 못했습니다. 아무것도 열지 않았습니다."
   },
   "narre": {
     "title": "Narre",

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useSyncExternalStore }
 import { X, Terminal, Shapes, Link, Layout, Sparkles, Box, FileText } from 'lucide-react';
 import type { EditorTab } from '@netior/shared/types';
 import { setTabDragData, isTabDrag, getTabDragDataAsync, clearTabDragData } from '../../hooks/useTabDrag';
+import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
 import { ContextMenu } from '../ui/ContextMenu';
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import { buildTabContextMenu, buildStripContextMenu } from './tab-context-menu';
@@ -19,6 +20,7 @@ interface EditorTabStripProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onTabDrop?: (tabId: string) => void;
+  onFileDrop?: (filePaths: string[]) => void;
   rightSlot?: React.ReactNode;
 }
 
@@ -170,7 +172,7 @@ function InlineRenameInput({ value, onSubmit, onCancel }: { value: string; onSub
   );
 }
 
-export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId, onActivate, onClose, onTabDrop, rightSlot }: EditorTabStripProps): JSX.Element {
+export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId, onActivate, onClose, onTabDrop, onFileDrop, rightSlot }: EditorTabStripProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
   }, [tabs, hostId]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!isTabDrag(e)) return;
+    if (!isTabDrag(e) && !isFileOpenDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     console.log(`[EditorTabStrip] dragOver host=${hostId ?? 'main'}, types=${JSON.stringify(Array.from(e.dataTransfer.types))}`);
@@ -230,13 +232,19 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
+    if (isFileOpenDrag(e)) {
+      const filePaths = getFileOpenDragData(e);
+      console.log(`[EditorTabStrip] file drop host=${hostId ?? 'main'}, count=${filePaths.length}`);
+      if (filePaths.length > 0) onFileDrop?.(filePaths);
+      return;
+    }
     if (!onTabDrop) return;
     const tabId = await getTabDragDataAsync(e);
     console.log(`[EditorTabStrip] drop host=${hostId ?? 'main'}, tabId=${tabId}`);
     if (tabId) {
       onTabDrop(tabId);
     }
-  }, [hostId, onTabDrop]);
+  }, [hostId, onTabDrop, onFileDrop]);
 
   const handleRenameSubmit = useCallback((tabId: string, newTitle: string) => {
     useEditorStore.getState().updateTitle(tabId, newTitle, true);

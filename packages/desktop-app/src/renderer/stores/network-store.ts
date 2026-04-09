@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   Network, NetworkCreate, NetworkUpdate,
-  NetworkNode, NetworkNodeCreate,
+  NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
   Edge, EdgeCreate, ObjectRecord, Concept, FileEntity, RelationType,
   NetworkBreadcrumbItem, NetworkTreeNode, Layout,
 } from '@netior/shared/types';
@@ -46,6 +46,7 @@ interface NetworkStore {
 
   // Node
   addNode: (data: NetworkNodeCreate) => Promise<NetworkNode>;
+  updateNode: (id: string, data: NetworkNodeUpdate) => Promise<NetworkNode>;
   removeNode: (id: string) => Promise<void>;
 
   // Node position (layout layer)
@@ -169,6 +170,14 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     const { currentNetwork } = get();
     if (currentNetwork) await get().openNetwork(currentNetwork.id);
     return node;
+  },
+
+  updateNode: async (id, data) => {
+    const updated = await networkService.node.update(id, data);
+    set((s) => ({
+      nodes: s.nodes.map((node) => (node.id === id ? { ...node, ...updated } : node)),
+    }));
+    return updated;
   },
 
   removeNode: async (id) => {

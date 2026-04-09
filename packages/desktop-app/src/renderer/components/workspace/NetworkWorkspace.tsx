@@ -7,6 +7,7 @@ import { NetworkControls } from './NetworkControls';
 import { useInteraction } from './InteractionLayer';
 import { EdgeContextMenu } from './EdgeContextMenu';
 import { FileNodeAddModal } from './FileNodeAddModal';
+import { ObjectPickerModal } from './ObjectPickerModal';
 import { useNetworkStore, type NetworkNodeWithObject, type EdgeWithRelationType } from '../../stores/network-store';
 import { networkService, fileService, objectService } from '../../services';
 import { conceptPropertyService } from '../../services';
@@ -15,6 +16,10 @@ import { useConceptStore } from '../../stores/concept-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
+import { useRelationTypeStore } from '../../stores/relation-type-store';
+import { useContextStore } from '../../stores/context-store';
+import { useProjectStore } from '../../stores/project-store';
+import { useNetworkObjectSelectionStore } from '../../stores/network-object-selection-store';
 import type { Archetype } from '@netior/shared/types';
 import { useI18n } from '../../hooks/useI18n';
 import type { RenderNode, RenderEdge } from './types';
@@ -25,6 +30,26 @@ import { useNetworkShortcuts } from './useNetworkShortcuts';
 
 interface NetworkWorkspaceProps {
   projectId: string;
+}
+
+function pickInitialNetworkId(
+  projectId: string,
+  networks: Array<{ id: string; project_id: string | null; scope: string; parent_network_id: string | null }>,
+): string | null {
+  const projectNetworks = networks.filter((network) => network.project_id === projectId);
+  if (projectNetworks.length === 0) return null;
+
+  const projectNetworkIds = new Set(projectNetworks.map((network) => network.id));
+  const topLevelProjectNetworks = projectNetworks.filter(
+    (network) => !network.parent_network_id || !projectNetworkIds.has(network.parent_network_id),
+  );
+
+  const preferredRoot =
+    topLevelProjectNetworks.find((network) => network.scope === 'project') ??
+    topLevelProjectNetworks[0] ??
+    projectNetworks[0];
+
+  return preferredRoot?.id ?? null;
 }
 
 function buildPositionMap(positions: NodePosition[]): Map<string, { x: number; y: number; width?: number; height?: number }> {
@@ -53,11 +78,73 @@ function buildVisualMap(visuals: EdgeVisual[]): Map<string, { color?: string; li
   return map;
 }
 
-function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], posMap: Map<string, { x: number; y: number; width?: number; height?: number }>, networkNames: Map<string, string>): RenderNode[] {
+function getGenericObjectPresentation(
+  objectType?: string,
+  objectRefId?: string,
+  networkNames?: Map<string, string>,
+  projectNames?: Map<string, string>,
+  archetypeNames?: Map<string, string>,
+  relationTypeNames?: Map<string, string>,
+  contextNames?: Map<string, string>,
+): { label: string; icon: string; semanticTypeLabel: string } {
+  switch (objectType) {
+    case 'network':
+      return {
+        label: (objectRefId ? networkNames?.get(objectRefId) : undefined) ?? 'Network',
+        icon: '🌐',
+        semanticTypeLabel: 'Network',
+      };
+    case 'project':
+      return {
+        label: (objectRefId ? projectNames?.get(objectRefId) : undefined) ?? 'Project',
+        icon: '🗂️',
+        semanticTypeLabel: 'Project',
+      };
+    case 'archetype':
+      return {
+        label: (objectRefId ? archetypeNames?.get(objectRefId) : undefined) ?? 'Archetype',
+        icon: '◈',
+        semanticTypeLabel: 'Archetype',
+      };
+    case 'relation_type':
+      return {
+        label: (objectRefId ? relationTypeNames?.get(objectRefId) : undefined) ?? 'Relation Type',
+        icon: '↔',
+        semanticTypeLabel: 'Relation Type',
+      };
+    case 'context':
+      return {
+        label: (objectRefId ? contextNames?.get(objectRefId) : undefined) ?? 'Context',
+        icon: '◫',
+        semanticTypeLabel: 'Context',
+      };
+    case 'agent':
+      return { label: 'Agent', icon: '✦', semanticTypeLabel: 'Agent' };
+    case 'module':
+      return { label: 'Module', icon: '▣', semanticTypeLabel: 'Module' };
+    case 'folder':
+      return { label: 'Folder', icon: '📁', semanticTypeLabel: 'Folder' };
+    default:
+      return { label: objectType ?? 'Object', icon: '📦', semanticTypeLabel: objectType ?? 'Object' };
+  }
+}
+
+function toRenderNodes(
+  nodes: NetworkNodeWithObject[],
+  archetypes: Archetype[],
+  posMap: Map<string, { x: number; y: number; width?: number; height?: number }>,
+  networkNames: Map<string, string>,
+  projectNames: Map<string, string>,
+  archetypeNames: Map<string, string>,
+  relationTypeNames: Map<string, string>,
+  contextNames: Map<string, string>,
+): RenderNode[] {
   const archMap = new Map(archetypes.map((a) => [a.id, a]));
   return nodes.map((n) => {
     const pos = posMap.get(n.id);
     const objectType = n.object?.object_type;
+    const isPortal = n.node_type === 'portal';
+    const isBox = n.node_type === 'box';
     if (objectType === 'concept' && n.concept) {
       const arch = n.concept.archetype_id ? archMap.get(n.concept.archetype_id) : undefined;
       return {
@@ -66,14 +153,18 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         y: pos?.y ?? 0,
         label: n.concept.title,
         icon: n.concept.icon || arch?.icon || '📌',
-        shape: arch?.node_shape ?? undefined,
+        shape: isPortal ? 'dashed' : isBox ? 'wide' : arch?.node_shape ?? undefined,
         semanticType: arch?.name || 'concept',
-        semanticTypeLabel: arch?.name || 'Concept',
+        semanticTypeLabel: isPortal ? 'Concept Portal' : arch?.name || 'Concept',
         width: pos?.width ?? 160,
         height: pos?.height ?? 60,
         conceptId: n.object?.ref_id ?? undefined,
         canvasCount: 0,
         nodeType: 'concept' as const,
+        objectType,
+        objectTargetId: n.object?.ref_id ?? undefined,
+        isPortal,
+        isBox,
       };
     }
     if (objectType === 'file' && n.file) {
@@ -87,11 +178,15 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         label: fileName,
         icon: isFile ? `file:${fileName}` : `folder:${fileName}`,
         semanticType: isFile ? 'file' : 'directory',
-        semanticTypeLabel: isFile ? 'File' : 'Directory',
-        width: pos?.width ?? 140,
-        height: pos?.height ?? 50,
+        semanticTypeLabel: isPortal ? 'File Portal' : isFile ? 'File' : 'Directory',
+        width: pos?.width ?? (isBox ? 220 : 140),
+        height: pos?.height ?? (isBox ? 72 : 50),
         canvasCount: 0,
         nodeType: isFile ? 'file' as const : 'dir' as const,
+        objectType,
+        objectTargetId: n.object?.ref_id ?? undefined,
+        isPortal,
+        isBox,
         fileId: n.object?.ref_id ?? undefined,
         filePath: filePath ?? undefined,
       };
@@ -105,29 +200,47 @@ function toRenderNodes(nodes: NetworkNodeWithObject[], archetypes: Archetype[], 
         y: pos?.y ?? 0,
         label: networkName ?? 'Network',
         icon: '🌐',
-        shape: 'dashed' as string | undefined,
+        shape: isPortal ? 'dashed' as string | undefined : isBox ? 'wide' as string | undefined : 'rectangle' as string | undefined,
         semanticType: 'network',
-        semanticTypeLabel: 'Network',
-        width: pos?.width ?? 160,
-        height: pos?.height ?? 60,
+        semanticTypeLabel: isPortal ? 'Network Portal' : 'Network',
+        width: pos?.width ?? (isPortal ? 180 : isBox ? 220 : 160),
+        height: pos?.height ?? (isPortal ? 68 : isBox ? 72 : 60),
         canvasCount: 0,
         nodeType: 'network' as const,
+        objectType,
+        objectTargetId: refId ?? undefined,
+        isPortal,
+        isBox,
         networkId: refId ?? undefined,
       };
     }
-    // Generic object node (archetype, etc.)
+    const genericObject = getGenericObjectPresentation(
+      objectType,
+      n.object?.ref_id,
+      networkNames,
+      projectNames,
+      archetypeNames,
+      relationTypeNames,
+      contextNames,
+    );
+
     return {
       id: n.id,
       x: pos?.x ?? 0,
       y: pos?.y ?? 0,
-      label: objectType ?? 'Unknown',
-      icon: '📦',
+      label: genericObject.label,
+      icon: genericObject.icon,
       semanticType: objectType ?? 'unknown',
-      semanticTypeLabel: objectType ?? 'Unknown',
-      width: pos?.width ?? 140,
-      height: pos?.height ?? 50,
+      semanticTypeLabel: genericObject.semanticTypeLabel,
+      shape: isPortal ? 'dashed' as string | undefined : isBox ? 'wide' as string | undefined : undefined,
+      width: pos?.width ?? (isBox ? 220 : objectType === 'project' ? 180 : 140),
+      height: pos?.height ?? (isBox ? 72 : objectType === 'project' ? 64 : 50),
       canvasCount: 0,
-      nodeType: 'concept' as const,
+      nodeType: 'object' as const,
+      objectType,
+      objectTargetId: n.object?.ref_id ?? undefined,
+      isPortal,
+      isBox,
     };
   });
 }
@@ -136,6 +249,9 @@ interface ContextMenuState {
   x: number;
   y: number;
   nodeId: string;
+  objectType?: string;
+  objectTargetId?: string;
+  objectTitle?: string;
   conceptId?: string;
   fileId?: string;
   filePath?: string;
@@ -168,6 +284,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const { createConcept } = useConceptStore();
   const { canvasMode } = useUIStore();
   const { t } = useI18n();
+  const networkObjectSelection = useNetworkObjectSelectionStore((s) => s.selection);
+  const selectedNetworkObjects = useNetworkObjectSelectionStore((s) => s.selectedItems);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -180,16 +298,42 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string } | null>(null);
   const [edgeLinkingState, setEdgeLinkingState] = useState<{ sourceNodeId: string } | null>(null);
   const [fileNodeModalOpen, setFileNodeModalOpen] = useState(false);
+  const [objectPickerOpen, setObjectPickerOpen] = useState(false);
+  const [objectInsertPosition, setObjectInsertPosition] = useState<{ x: number; y: number } | null>(null);
 
-  // Load networks and open first one
+  // Load networks and open the project root-like network on first entry
   useEffect(() => {
     loadNetworks(projectId).then(() => {
       const store = useNetworkStore.getState();
-      if (store.networks.length > 0 && !store.currentNetwork) {
-        store.openNetwork(store.networks[0].id);
+      const needsInitialOpen =
+        !store.currentNetwork || store.currentNetwork.project_id !== projectId;
+      if (!needsInitialOpen) return;
+
+      const initialNetworkId = pickInitialNetworkId(projectId, store.networks);
+      if (initialNetworkId) {
+        store.openNetwork(initialNetworkId);
       }
     });
   }, [projectId, loadNetworks]);
+
+  useEffect(() => {
+    if (selectedNetworkObjects.length === 0 && !networkObjectSelection) {
+      setSelectedIds(new Set());
+      return;
+    }
+    const targetObjects = selectedNetworkObjects.length > 0
+      ? selectedNetworkObjects
+      : networkObjectSelection
+        ? [networkObjectSelection]
+        : [];
+    const targetKeys = new Set(targetObjects.map((item) => `${item.objectType}:${item.id}`));
+    const matchedNodeIds = nodes
+      .filter((node) =>
+        node.object?.ref_id
+        && targetKeys.has(`${node.object.object_type}:${node.object.ref_id}`))
+      .map((node) => node.id);
+    setSelectedIds(new Set(matchedNodeIds));
+  }, [networkObjectSelection, nodes, selectedNetworkObjects]);
 
   // Cancel edge linking when mode changes
   useEffect(() => {
@@ -260,12 +404,84 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   }, []);
 
   const archetypes = useArchetypeStore((s) => s.archetypes);
+  const relationTypes = useRelationTypeStore((s) => s.relationTypes);
+  const contexts = useContextStore((s) => s.contexts);
+  const membersByContext = useContextStore((s) => s.membersByContext);
+  const activeContextId = useContextStore((s) => s.activeContextId);
+  const loadContexts = useContextStore((s) => s.loadContexts);
+  const loadContextMembers = useContextStore((s) => s.loadMembers);
+  const projects = useProjectStore((s) => s.projects);
   const networks = useNetworkStore((s) => s.networks);
   const networkNames = useMemo(() => new Map(networks.map((n) => [n.id, n.name])), [networks]);
+  const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const archetypeNames = useMemo(() => new Map(archetypes.map((archetype) => [archetype.id, archetype.name])), [archetypes]);
+  const relationTypeNames = useMemo(() => new Map(relationTypes.map((relationType) => [relationType.id, relationType.name])), [relationTypes]);
+  const contextNames = useMemo(() => new Map(contexts.map((context) => [context.id, context.name])), [contexts]);
   const posMap = useMemo(() => buildPositionMap(nodePositions), [nodePositions]);
   const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
-  const renderNodes = useMemo(() => toRenderNodes(nodes, archetypes, posMap, networkNames), [nodes, archetypes, posMap, networkNames]);
-  const renderEdges = useMemo(() => toRenderEdges(edges, visualMap), [edges, visualMap]);
+
+  useEffect(() => {
+    if (!currentNetwork) return;
+    loadContexts(currentNetwork.id);
+  }, [currentNetwork?.id, loadContexts]);
+
+  useEffect(() => {
+    if (!activeContextId) return;
+    if (membersByContext[activeContextId]) return;
+    loadContextMembers(activeContextId);
+  }, [activeContextId, loadContextMembers, membersByContext]);
+
+  const activeContextMembers = activeContextId ? (membersByContext[activeContextId] ?? []) : [];
+  const activeContext = activeContextId ? contexts.find((context) => context.id === activeContextId) ?? null : null;
+  const activeContextObjectIds = useMemo(
+    () => new Set(activeContextMembers.filter((member) => member.member_type === 'object').map((member) => member.member_id)),
+    [activeContextMembers],
+  );
+  const activeContextEdgeIds = useMemo(
+    () => new Set(activeContextMembers.filter((member) => member.member_type === 'edge').map((member) => member.member_id)),
+    [activeContextMembers],
+  );
+  const isContextFiltering = !!activeContextId && activeContextMembers.length > 0;
+
+  const renderNodes = useMemo(() => {
+    const baseNodes = toRenderNodes(
+      nodes,
+      archetypes,
+      posMap,
+      networkNames,
+      projectNames,
+      archetypeNames,
+      relationTypeNames,
+      contextNames,
+    );
+
+    if (!isContextFiltering) return baseNodes;
+
+    return baseNodes.map((node, index) => ({
+      ...node,
+      dimmed: nodes[index]?.object ? !activeContextObjectIds.has(nodes[index].object!.id) : true,
+    }));
+  }, [
+    nodes,
+    archetypes,
+    posMap,
+    networkNames,
+    projectNames,
+    archetypeNames,
+    relationTypeNames,
+    contextNames,
+    isContextFiltering,
+    activeContextObjectIds,
+  ]);
+
+  const renderEdges = useMemo(() => {
+    const baseEdges = toRenderEdges(edges, visualMap);
+    if (!isContextFiltering) return baseEdges;
+    return baseEdges.map((edge) => ({
+      ...edge,
+      dimmed: !activeContextEdgeIds.has(edge.id),
+    }));
+  }, [edges, visualMap, isContextFiltering, activeContextEdgeIds]);
 
   // --- Layout plugin ---
   const layoutType = currentLayout?.layout_type ?? 'freeform';
@@ -371,6 +587,107 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   );
   const cardRenderNodes = useMemo<RenderNode[]>(() => cardNodes, [cardNodes]);
 
+  const openNodeObject = useCallback((node: NetworkNodeWithObject) => {
+    if (node.object?.object_type === 'network') {
+      navigateToChild(node.object.ref_id);
+      return;
+    }
+
+    if (node.object?.object_type === 'concept' && node.concept) {
+      useEditorStore.getState().openTab({
+        type: 'concept',
+        targetId: node.object.ref_id,
+        title: node.concept.title,
+        networkId: node.network_id,
+        nodeId: node.id,
+      });
+      return;
+    }
+
+    if (node.object?.object_type === 'file' && node.file?.path) {
+      useEditorStore.getState().openTab({
+        type: 'file',
+        targetId: node.file.path,
+        title: node.file.path.replace(/\\/g, '/').split('/').pop() || 'File',
+      });
+      return;
+    }
+
+    if (node.object?.object_type === 'archetype') {
+      useEditorStore.getState().openTab({
+        type: 'archetype',
+        targetId: node.object.ref_id,
+        title: archetypeNames.get(node.object.ref_id) ?? t('archetype.title'),
+      });
+      return;
+    }
+
+    if (node.object?.object_type === 'relation_type') {
+      useEditorStore.getState().openTab({
+        type: 'relationType',
+        targetId: node.object.ref_id,
+        title: relationTypeNames.get(node.object.ref_id) ?? t('relationType.title'),
+      });
+      return;
+    }
+
+    if (node.object?.object_type === 'context') {
+      useEditorStore.getState().openTab({
+        type: 'context',
+        targetId: node.object.ref_id,
+        title: contextNames.get(node.object.ref_id) ?? t('context.title'),
+      });
+    }
+  }, [archetypeNames, contextNames, navigateToChild, relationTypeNames, t]);
+
+  const syncNodeSelection = useCallback((node?: NetworkNodeWithObject) => {
+    if (!node?.object?.ref_id) {
+      useNetworkObjectSelectionStore.getState().clearSelection();
+      return;
+    }
+    const objectType = node.object.object_type;
+    if (!['network', 'concept', 'archetype', 'relation_type', 'context'].includes(objectType)) {
+      useNetworkObjectSelectionStore.getState().clearSelection();
+      return;
+    }
+    const title =
+      node.concept?.title ??
+      node.file?.path?.replace(/\\/g, '/').split('/').pop() ??
+      networkNames.get(node.object.ref_id) ??
+      archetypeNames.get(node.object.ref_id) ??
+      relationTypeNames.get(node.object.ref_id) ??
+      contextNames.get(node.object.ref_id);
+    useNetworkObjectSelectionStore.getState().setSelection({
+      objectType: objectType as 'network' | 'concept' | 'archetype' | 'relation_type' | 'context',
+      id: node.object.ref_id,
+      title,
+    });
+  }, [archetypeNames, contextNames, networkNames, relationTypeNames]);
+
+  const syncSelectionFromNodeIds = useCallback((nodeIds: string[]) => {
+    const selectedObjects = nodeIds
+      .map((id) => nodes.find((node) => node.id === id))
+      .filter((node): node is NetworkNodeWithObject =>
+        !!node?.object?.ref_id && ['network', 'concept', 'archetype', 'relation_type', 'context'].includes(node.object.object_type))
+      .map((node) => ({
+        objectType: node.object!.object_type as 'network' | 'concept' | 'archetype' | 'relation_type' | 'context',
+        id: node.object!.ref_id,
+        title:
+          node.concept?.title ??
+          node.file?.path?.replace(/\\/g, '/').split('/').pop() ??
+          networkNames.get(node.object!.ref_id) ??
+          archetypeNames.get(node.object!.ref_id) ??
+          relationTypeNames.get(node.object!.ref_id) ??
+          contextNames.get(node.object!.ref_id),
+      }))
+      .filter((item, index, list) => list.findIndex((candidate) => `${candidate.objectType}:${candidate.id}` === `${item.objectType}:${item.id}`) === index);
+
+    useNetworkObjectSelectionStore.getState().setSelectionState({
+      selection: selectedObjects[0] ?? null,
+      selectedItems: selectedObjects,
+    });
+  }, [archetypeNames, contextNames, networkNames, nodes, relationTypeNames]);
+
   if (layoutPlugin.key !== 'freeform' && cardNodes.length > 0) {
     console.log('[NW] cardNodes:', cardNodes.map(n => ({ id: n.id.slice(0,8), label: n.label, x: n.x, y: n.y, role: (n as any).metadata?.role, tv: (n as any).metadata?.time_value })));
   }
@@ -453,11 +770,13 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     setNetworkContextMenu(null);
     setEdgeLinkingState(null);
     setEdgeContextMenu(null);
+    useNetworkObjectSelectionStore.getState().clearSelection();
   }, []);
 
   const handleSelectionBox = useCallback((nodeIds: string[]) => {
     setSelectedIds(new Set(nodeIds));
-  }, []);
+    syncSelectionFromNodeIds(nodeIds);
+  }, [syncSelectionFromNodeIds]);
 
   const { dragState, nodeDragOffset, handleCanvasMouseDown, handleNodeDragStart } = useInteraction({
     containerRef: containerRef as React.RefObject<HTMLDivElement>,
@@ -532,13 +851,21 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     renderNodes,
     edgeLinkingActive: !!edgeLinkingState,
     canvasMode,
-    onClearSelection: () => setSelectedIds(new Set()),
+    onClearSelection: () => {
+      setSelectedIds(new Set());
+      useNetworkObjectSelectionStore.getState().clearSelection();
+    },
     onDeleteSelection: () => {
       selectedIds.forEach((id) => removeNode(id));
       setSelectedIds(new Set());
+      useNetworkObjectSelectionStore.getState().clearSelection();
     },
     onCancelLinking: () => setEdgeLinkingState(null),
-    onSelectAll: () => setSelectedIds(new Set(renderNodes.map((node) => node.id))),
+    onSelectAll: () => {
+      const allNodeIds = renderNodes.map((node) => node.id);
+      setSelectedIds(new Set(allNodeIds));
+      syncSelectionFromNodeIds(allNodeIds);
+    },
     onFitToScreen: fitToScreen,
   });
 
@@ -613,6 +940,21 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         }))}
       />
 
+      <div className="pointer-events-none absolute left-3 top-3 z-20 flex max-w-[320px] flex-col gap-2">
+        <div className="rounded-lg border border-subtle bg-surface-panel/90 px-3 py-2 shadow-sm backdrop-blur">
+          <div className="text-[10px] uppercase tracking-[0.12em] text-muted">Network</div>
+          <div className="truncate text-sm font-medium text-default">{currentNetwork.name}</div>
+          {activeContext && (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="rounded-full bg-accent-muted px-2 py-0.5 text-[10px] font-medium text-accent">
+                Context
+              </span>
+              <span className="truncate text-xs text-secondary">{activeContext.name}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       <layoutPlugin.BackgroundComponent
         width={containerSize.width}
         height={containerSize.height}
@@ -668,15 +1010,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           }}
           onNodeDoubleClick={(id) => {
             const node = nodes.find((n) => n.id === id);
-            if (node?.object?.object_type === 'network') {
-              navigateToChild(node.object.ref_id);
-            } else if (node?.object?.object_type === 'concept' && node.concept) {
-              useEditorStore.getState().openTab({
-                type: 'concept',
-                targetId: node.object.ref_id,
-                title: node.concept.title,
-              });
-            }
+            if (node) openNodeObject(node);
           }}
           onContextMenu={(type, x, y, targetId) => {
             if (type === 'node' && targetId) {
@@ -688,6 +1022,12 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
                 setContextMenu({
                   x, y,
                   nodeId: targetId,
+                  objectType: node.object?.object_type,
+                  objectTargetId: node.object?.ref_id,
+                  objectTitle: node.concept?.title
+                    ?? node.file?.path?.replace(/\\/g, '/').split('/').pop()
+                    ?? networkNames.get(node.object?.ref_id ?? '')
+                    ?? undefined,
                   conceptId: isConcept ? node.object?.ref_id : undefined,
                   fileId: isFile ? node.object?.ref_id : undefined,
                   filePath: node.file?.path ?? undefined,
@@ -745,25 +1085,13 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             setEdgeLinkingState(null);
             return;
           }
+          const node = nodes.find((n) => n.id === id);
           setSelectedIds(new Set([id]));
+          syncNodeSelection(node);
         }}
         onNodeDoubleClick={(id) => {
           const node = nodes.find((n) => n.id === id);
-          if (node?.object?.object_type === 'network') {
-            navigateToChild(node.object.ref_id);
-          } else if (node?.object?.object_type === 'concept' && node.concept) {
-            useEditorStore.getState().openTab({
-              type: 'concept',
-              targetId: node.object.ref_id,
-              title: node.concept.title,
-            });
-          } else if (node?.file?.path) {
-            useEditorStore.getState().openTab({
-              type: 'file',
-              targetId: node.file.path,
-              title: node.file.path.replace(/\\/g, '/').split('/').pop() || 'File',
-            });
-          }
+          if (node) openNodeObject(node);
         }}
         onNodeDragStart={handleNodeDragStart}
         onContextMenu={(type, x, y, targetId) => {
@@ -777,6 +1105,12 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
                 x,
                 y,
                 nodeId: targetId,
+                objectType: node.object?.object_type,
+                objectTargetId: node.object?.ref_id,
+                objectTitle: node.concept?.title
+                  ?? node.file?.path?.replace(/\\/g, '/').split('/').pop()
+                  ?? networkNames.get(node.object?.ref_id ?? '')
+                  ?? undefined,
                 conceptId: isConcept ? node.object?.ref_id : undefined,
                 fileId: isFile ? node.object?.ref_id : undefined,
                 networkId: isNetwork ? node.object?.ref_id : undefined,
@@ -794,6 +1128,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           x={contextMenu.x}
           y={contextMenu.y}
           nodeId={contextMenu.nodeId}
+          objectType={contextMenu.objectType as import('@netior/shared/types').NetworkObjectType | undefined}
+          objectTargetId={contextMenu.objectTargetId}
+          objectTitle={contextMenu.objectTitle}
           conceptId={contextMenu.conceptId}
           fileId={contextMenu.fileId}
           filePath={contextMenu.filePath}
@@ -863,6 +1200,10 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
               },
             });
           }}
+          onAddObject={() => {
+            setObjectInsertPosition({ x: networkContextMenu.worldX, y: networkContextMenu.worldY });
+            setObjectPickerOpen(true);
+          }}
           onAddFileNode={() => {
             setFileNodeModalOpen(true);
             setNetworkContextMenu(null);
@@ -892,6 +1233,28 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           });
           await setNodePosition(node.id, JSON.stringify({ x: networkContextMenu?.worldX ?? 0, y: networkContextMenu?.worldY ?? 0 }));
           setFileNodeModalOpen(false);
+        }}
+      />
+
+      <ObjectPickerModal
+        open={objectPickerOpen}
+        onClose={() => {
+          setObjectPickerOpen(false);
+          setObjectInsertPosition(null);
+        }}
+        onSelect={async (objectType, refId) => {
+          if (!currentNetwork || !objectInsertPosition) return;
+          const objectRecord = await objectService.getByRef(objectType, refId);
+          if (!objectRecord) return;
+
+          const node = await addNode({
+            network_id: currentNetwork.id,
+            object_id: objectRecord.id,
+            node_type: objectType === 'network' || objectType === 'project' ? 'portal' : 'basic',
+          });
+          await setNodePosition(node.id, JSON.stringify(objectInsertPosition));
+          setObjectPickerOpen(false);
+          setObjectInsertPosition(null);
         }}
       />
 

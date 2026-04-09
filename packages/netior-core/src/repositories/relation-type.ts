@@ -23,11 +23,12 @@ export function createRelationType(data: RelationTypeCreate): RelationType {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO relation_types (id, project_id, name, description, color, line_style, directed, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO relation_types (id, project_id, group_id, name, description, color, line_style, directed, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     data.project_id,
+    data.group_id ?? null,
     data.name,
     data.description ?? null,
     data.color ?? null,
@@ -62,8 +63,9 @@ export function updateRelationType(id: string, data: RelationTypeUpdate): Relati
 
   const now = new Date().toISOString();
   db.prepare(
-    `UPDATE relation_types SET name = ?, description = ?, color = ?, line_style = ?, directed = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE relation_types SET group_id = ?, name = ?, description = ?, color = ?, line_style = ?, directed = ?, updated_at = ? WHERE id = ?`,
   ).run(
+    data.group_id !== undefined ? data.group_id : existing.group_id,
     data.name !== undefined ? data.name : existing.name,
     data.description !== undefined ? data.description : existing.description,
     data.color !== undefined ? data.color : existing.color,

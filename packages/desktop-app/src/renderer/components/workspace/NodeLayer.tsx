@@ -74,28 +74,29 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
         const t = getNodePosition(node);
 
         return (
-          <NodeCardDefault
-            key={node.id}
-            id={node.id}
-            x={t.x}
-            y={t.y}
-            label={node.label}
-            icon={node.icon}
-            semanticType={node.semanticType}
-            semanticTypeLabel={node.semanticTypeLabel}
-            selected={selectedIds.has(node.id)}
-            highlighted={highlightedIds?.has(node.id)}
-            mode={mode}
-            shape={(node.shape as import('../canvas/node-components/types').NodeShape) || 'rectangle'}
-            width={node.width}
-            height={node.height}
-            onClick={onNodeClick}
-            onDoubleClick={onNodeDoubleClick}
-            onDragStart={onNodeDragStart}
-            onContextMenu={onContextMenu}
-            onMouseEnter={onNodeMouseEnter ? (e: React.MouseEvent) => onNodeMouseEnter(node.id, e.clientX, e.clientY) : undefined}
-            onMouseLeave={onNodeMouseLeave ? () => onNodeMouseLeave(node.id) : undefined}
-          />
+          <div key={node.id} style={{ opacity: node.dimmed ? 0.25 : 1, transition: 'opacity 120ms ease' }}>
+            <NodeCardDefault
+              id={node.id}
+              x={t.x}
+              y={t.y}
+              label={node.label}
+              icon={node.icon}
+              semanticType={node.semanticType}
+              semanticTypeLabel={node.semanticTypeLabel}
+              selected={selectedIds.has(node.id)}
+              highlighted={highlightedIds?.has(node.id)}
+              mode={mode}
+              shape={(node.shape as import('../canvas/node-components/types').NodeShape) || 'rectangle'}
+              width={node.width}
+              height={node.height}
+              onClick={onNodeClick}
+              onDoubleClick={onNodeDoubleClick}
+              onDragStart={onNodeDragStart}
+              onContextMenu={onContextMenu}
+              onMouseEnter={onNodeMouseEnter ? (e: React.MouseEvent) => onNodeMouseEnter(node.id, e.clientX, e.clientY) : undefined}
+              onMouseLeave={onNodeMouseLeave ? () => onNodeMouseLeave(node.id) : undefined}
+            />
+          </div>
         );
       })}
     </div>

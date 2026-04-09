@@ -5,7 +5,13 @@ import { Input } from '../ui/Input';
 import { TypeSelector } from '../ui/TypeSelector';
 import { Toggle } from '../ui/Toggle';
 import { Tooltip } from '../ui/Tooltip';
+import { ArchetypeRefPicker } from '../ui/ArchetypeRefPicker';
 import { useI18n } from '../../hooks/useI18n';
+import { useArchetypeStore } from '../../stores/archetype-store';
+import {
+  parseArchetypeFieldOptions,
+  stringifyArchetypeFieldOptions,
+} from '../../lib/archetype-field-options';
 
 interface ArchetypeFieldRowProps {
   field: ArchetypeField;
@@ -16,17 +22,16 @@ interface ArchetypeFieldRowProps {
 const CHOICE_TYPES = new Set(['select', 'multi-select', 'radio']);
 
 function parseChoices(options: string | null): string {
-  if (!options) return '';
-  try {
-    return JSON.parse(options).choices?.join(', ') ?? '';
-  } catch {
-    return '';
-  }
+  return parseArchetypeFieldOptions(options).choices.join(', ');
 }
 
 export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldRowProps): JSX.Element {
   const { t } = useI18n();
+  const archetypes = useArchetypeStore((state) => state.archetypes);
   const showOptions = CHOICE_TYPES.has(field.field_type);
+  const showArchetypeRef = field.field_type === 'archetype_ref';
+  const fieldOptions = parseArchetypeFieldOptions(field.options);
+  const conceptOptionSourceId = fieldOptions.conceptOptionSourceIds[0] ?? null;
 
   // Local state buffers to avoid breaking IME composition
   const [nameText, setNameText] = useState(field.name);
@@ -38,12 +43,35 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
 
   const commitOptions = () => {
     const choices = optionsText.split(',').map((s) => s.trim()).filter(Boolean);
-    onUpdate(field.id, { options: JSON.stringify({ choices }) });
+    onUpdate(field.id, {
+      options: stringifyArchetypeFieldOptions({
+        ...fieldOptions,
+        choices,
+      }),
+    });
+  };
+
+  const updateConceptOptionSource = (archetypeId: string | null) => {
+    const patch: ArchetypeFieldUpdate = {
+      options: stringifyArchetypeFieldOptions({
+        ...fieldOptions,
+        conceptOptionSourceIds: archetypeId ? [archetypeId] : [],
+      }),
+    };
+
+    if (archetypeId && !nameText.trim()) {
+      const sourceArchetype = archetypes.find((archetype) => archetype.id === archetypeId);
+      if (sourceArchetype) {
+        patch.name = sourceArchetype.name;
+        setNameText(sourceArchetype.name);
+      }
+    }
+
+    onUpdate(field.id, patch);
   };
 
   return (
     <div className="flex flex-col gap-1.5 py-1.5 group">
-      {/* Main row: name + type + required + delete */}
       <div className="flex items-center gap-2">
         <Input
           inputSize="sm"
@@ -56,7 +84,10 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
         />
         <TypeSelector
           value={field.field_type}
-          onChange={(type) => onUpdate(field.id, { field_type: type })}
+          onChange={(type) => onUpdate(field.id, {
+            field_type: type,
+            ref_archetype_id: type === 'archetype_ref' ? field.ref_archetype_id : null,
+          })}
         />
         <Toggle
           checked={field.required}
@@ -74,9 +105,8 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
         </Tooltip>
       </div>
 
-      {/* Options row (only for choice types) */}
       {showOptions && (
-        <div className="pl-0">
+        <div className="flex flex-col gap-1.5 pl-0">
           <Input
             inputSize="sm"
             value={optionsText}
@@ -86,6 +116,28 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitOptions();
             }}
+          />
+          <div>
+            <div className="mb-1 text-[11px] font-medium text-secondary">
+              {t('archetype.conceptOptions' as never)}
+            </div>
+            <ArchetypeRefPicker
+              mode="archetype"
+              value={conceptOptionSourceId}
+              excludeArchetypeId={field.archetype_id}
+              onChange={updateConceptOptionSource}
+            />
+          </div>
+        </div>
+      )}
+
+      {showArchetypeRef && (
+        <div className="pl-0">
+          <ArchetypeRefPicker
+            mode="archetype"
+            value={field.ref_archetype_id}
+            excludeArchetypeId={field.archetype_id}
+            onChange={(value) => onUpdate(field.id, { ref_archetype_id: value })}
           />
         </div>
       )}

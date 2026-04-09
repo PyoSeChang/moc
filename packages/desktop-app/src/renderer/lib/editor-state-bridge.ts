@@ -22,6 +22,7 @@ import { useProjectStore } from '../stores/project-store';
 import { useConceptStore } from '../stores/concept-store';
 import { useArchetypeStore } from '../stores/archetype-store';
 import { useRelationTypeStore } from '../stores/relation-type-store';
+import { useTypeGroupStore } from '../stores/type-group-store';
 import { useNetworkStore } from '../stores/network-store';
 import { useModuleStore } from '../stores/module-store';
 import type { EditorTab, Project, SplitNode } from '@netior/shared/types';
@@ -88,6 +89,7 @@ function bootstrapWorkspaceStores(project: Project): void {
   useConceptStore.getState().loadByProject(pid);
   useArchetypeStore.getState().loadByProject(pid);
   useRelationTypeStore.getState().loadByProject(pid);
+  useTypeGroupStore.getState().loadByProject(pid);
   useNetworkStore.getState().loadNetworks(pid);
   useModuleStore.getState().loadModules(pid);
 }

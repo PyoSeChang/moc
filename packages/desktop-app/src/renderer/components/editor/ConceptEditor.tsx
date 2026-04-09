@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import type { EditorTab } from '@netior/shared/types';
+import type { EditorTab, Network, NetworkNode, NetworkNodeUpdate, NodeType } from '@netior/shared/types';
 import { Eye, Bot } from 'lucide-react';
-import { conceptPropertyService, objectService } from '../../services';
+import { conceptPropertyService, networkService, objectService } from '../../services';
 import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -11,10 +11,17 @@ import { useEditorSession } from '../../hooks/useEditorSession';
 import { ScrollArea } from '../ui/ScrollArea';
 import { Select } from '../ui/Select';
 import { Input } from '../ui/Input';
+import { TextArea } from '../ui/TextArea';
+import { Button } from '../ui/Button';
 import { ConceptPropertiesPanel, FieldInput } from './ConceptPropertiesPanel';
 import { ConceptBodyEditor } from './ConceptBodyEditor';
 import { ConceptAgentView } from './ConceptAgentView';
 import { useI18n } from '../../hooks/useI18n';
+import {
+  NetworkObjectEditorShell,
+  NetworkObjectEditorSection,
+  NetworkObjectMetadataList,
+} from './NetworkObjectEditorShell';
 
 type ConceptViewMode = 'human' | 'agent';
 
@@ -31,7 +38,35 @@ interface ConceptEditorState {
   properties: Record<string, string | null>;
 }
 
+interface ConceptNodeOccurrence {
+  network: Network;
+  node: NetworkNode;
+}
+
 const isDraftTab = (tab: EditorTab) => tab.targetId.startsWith('draft-');
+
+const nodeTypeOptions: Array<{ value: NodeType; label: string }> = [
+  { value: 'basic', label: 'Basic' },
+  { value: 'portal', label: 'Portal' },
+  { value: 'box', label: 'Box' },
+];
+
+function resolvePreferredNodeId(
+  occurrences: ConceptNodeOccurrence[],
+  preferredNodeId?: string,
+  preferredNetworkId?: string,
+): string {
+  if (preferredNodeId && occurrences.some((item) => item.node.id === preferredNodeId)) {
+    return preferredNodeId;
+  }
+
+  if (preferredNetworkId) {
+    const nodeInNetwork = occurrences.find((item) => item.network.id === preferredNetworkId);
+    if (nodeInNetwork) return nodeInNetwork.node.id;
+  }
+
+  return occurrences[0]?.node.id ?? '';
+}
 
 export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const { t } = useI18n();
@@ -42,12 +77,18 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const fields = useArchetypeStore((s) => s.fields);
   const loadFields = useArchetypeStore((s) => s.loadFields);
-  const { addNode, openNetwork } = useNetworkStore();
+  const networks = useNetworkStore((s) => s.networks);
+  const currentNetwork = useNetworkStore((s) => s.currentNetwork);
+  const { addNode, openNetwork, loadNetworks, updateNode } = useNetworkStore();
+  const [nodeOccurrences, setNodeOccurrences] = useState<ConceptNodeOccurrence[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [nodeMetadataDraft, setNodeMetadataDraft] = useState('');
+  const [isLoadingNodeOccurrences, setIsLoadingNodeOccurrences] = useState(false);
+  const [isSavingNode, setIsSavingNode] = useState(false);
 
   const concept = isDraft ? undefined : concepts.find((c) => c.id === tab.targetId);
   const [viewMode, setViewMode] = useState<ConceptViewMode>('human');
 
-  // Load concept if missing
   useEffect(() => {
     if (!isDraft && !concept && currentProject) {
       loadByProject(currentProject.id);
@@ -67,7 +108,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
         })
       : async () => {
           const c = useConceptStore.getState().concepts.find((cc) => cc.id === tab.targetId);
-          // Load properties
           const props = await conceptPropertyService.getByConcept(tab.targetId);
           const propsMap: Record<string, string | null> = {};
           for (const p of props) {
@@ -94,13 +134,11 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             color: state.color || undefined,
             content: state.content || undefined,
           });
-          // Save properties
           for (const [fieldId, value] of Object.entries(state.properties)) {
             if (value != null) {
               await upsertProperty({ concept_id: newConcept.id, field_id: fieldId, value });
             }
           }
-          // Add node to network if draft has network info
           if (draft?.networkId) {
             const conceptObj = await objectService.getByRef('concept', newConcept.id);
             if (conceptObj) {
@@ -115,7 +153,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
               await networkStore.loadNetworkTree(networkStore.currentNetwork.project_id);
             }
           }
-          // Close draft tab, open real concept tab
           const editorStore = useEditorStore.getState();
           editorStore.closeTab(tab.id);
           editorStore.openTab({
@@ -133,7 +170,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             color: state.color,
             content: state.content,
           });
-          // Upsert each property
           for (const [fieldId, value] of Object.entries(state.properties)) {
             await upsertProperty({ concept_id: conceptId, field_id: fieldId, value });
           }
@@ -142,7 +178,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
     deps: isDraft ? [] : [tab.targetId, concept?.archetype_id],
   });
 
-  // Load fields when archetype changes
   const currentArchetypeId = session.state?.archetypeId;
   useEffect(() => {
     if (currentArchetypeId && !fields[currentArchetypeId]) {
@@ -150,7 +185,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
     }
   }, [currentArchetypeId, fields, loadFields]);
 
-  // Apply archetype defaults for draft
   useEffect(() => {
     if (!isDraft || !currentArchetypeId) return;
     const arch = archetypes.find((a) => a.id === currentArchetypeId);
@@ -163,7 +197,6 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
     }
   }, [isDraft, currentArchetypeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-select first archetype if restricted
   const allowedIds = tab.draftData?.allowedArchetypeIds;
   const filteredArchetypes = allowedIds
     ? archetypes.filter((a) => allowedIds.includes(a.id))
@@ -182,7 +215,92 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
   const archetypeFields = currentArchetypeId ? (fields[currentArchetypeId] ?? []) : [];
 
-  // Loading states
+  useEffect(() => {
+    if (!currentProject || isDraft || networks.length > 0) return;
+    loadNetworks(currentProject.id);
+  }, [currentProject, isDraft, loadNetworks, networks.length]);
+
+  useEffect(() => {
+    if (!currentProject || isDraft || networks.length === 0) {
+      setNodeOccurrences([]);
+      return;
+    }
+
+    let ignore = false;
+    setIsLoadingNodeOccurrences(true);
+
+    Promise.all(networks.map(async (network) => ({
+      network,
+      full: await networkService.getFull(network.id),
+    })))
+      .then((items) => {
+        if (ignore) return;
+        const occurrences = items.flatMap(({ network, full }) => (
+          full?.nodes
+            .filter((node) => node.object?.object_type === 'concept' && node.object.ref_id === tab.targetId)
+            .map((node) => ({ network, node })) ?? []
+        ));
+        setNodeOccurrences(occurrences);
+      })
+      .finally(() => {
+        if (!ignore) setIsLoadingNodeOccurrences(false);
+      });
+
+    return () => { ignore = true; };
+  }, [currentProject, isDraft, networks, tab.targetId]);
+
+  useEffect(() => {
+    setSelectedNodeId((current) => {
+      if (current && nodeOccurrences.some((item) => item.node.id === current)) return current;
+      return resolvePreferredNodeId(nodeOccurrences, tab.nodeId, tab.networkId);
+    });
+  }, [nodeOccurrences, tab.networkId, tab.nodeId]);
+
+  useEffect(() => {
+    const preferred = resolvePreferredNodeId(nodeOccurrences, tab.nodeId, tab.networkId);
+    if (preferred) setSelectedNodeId(preferred);
+  }, [tab.networkId, tab.nodeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedNodeOccurrence = useMemo(
+    () => nodeOccurrences.find((item) => item.node.id === selectedNodeId),
+    [nodeOccurrences, selectedNodeId],
+  );
+
+  useEffect(() => {
+    setNodeMetadataDraft(selectedNodeOccurrence?.node.metadata ?? '');
+  }, [selectedNodeOccurrence?.node.id, selectedNodeOccurrence?.node.metadata]);
+
+  const nodeOccurrenceOptions = useMemo(() => nodeOccurrences.map((item) => {
+    const sameNetworkCount = nodeOccurrences.filter((candidate) => candidate.network.id === item.network.id).length;
+    const occurrenceIndex = nodeOccurrences
+      .filter((candidate) => candidate.network.id === item.network.id)
+      .findIndex((candidate) => candidate.node.id === item.node.id);
+    const suffix = sameNetworkCount > 1 ? ` / node ${occurrenceIndex + 1}` : '';
+    return {
+      value: item.node.id,
+      label: `${item.network.name}${suffix}`,
+    };
+  }), [nodeOccurrences]);
+
+  const updateSelectedNetworkNode = async (data: NetworkNodeUpdate) => {
+    if (!selectedNodeOccurrence) return;
+    setIsSavingNode(true);
+    try {
+      const updated = currentNetwork?.id === selectedNodeOccurrence.network.id
+        ? await updateNode(selectedNodeOccurrence.node.id, data)
+        : await networkService.node.update(selectedNodeOccurrence.node.id, data);
+      setNodeOccurrences((items) => items.map((item) => (
+        item.node.id === updated.id ? { ...item, node: { ...item.node, ...updated } } : item
+      )));
+    } finally {
+      setIsSavingNode(false);
+    }
+  };
+
+  const saveNodeMetadata = async () => {
+    await updateSelectedNetworkNode({ metadata: nodeMetadataDraft.trim() ? nodeMetadataDraft : null });
+  };
+
   if (!isDraft && !concept) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted">
@@ -197,9 +315,11 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
     session.setState((prev) => ({ ...prev, ...patch }));
   };
 
+  const headerTitle = session.state.title || tab.title || t('concept.defaultTitle');
+  const headerSubtitle = isDraft ? t('concept.create') : t('editorShell.networkObject' as never);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* View mode toggle (existing only) / Draft header */}
       {isDraft ? (
         <div className="flex shrink-0 items-center justify-between border-b border-subtle bg-surface-panel px-3 py-1.5">
           <span className="text-xs text-muted">{t('concept.create') ?? 'New Concept'}</span>
@@ -227,79 +347,169 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
         </div>
       )}
 
-      {/* Agent view (existing only) */}
       {!isDraft && viewMode === 'agent' && (
         <div className="flex-1 overflow-hidden">
           <ConceptAgentView conceptId={tab.targetId} agentContent={concept?.agent_content ?? null} />
         </div>
       )}
 
-      {/* Human view (both draft and existing) */}
       {(isDraft || viewMode === 'human') && (
         <ScrollArea className="flex-1 min-h-0">
-          <div className="mx-auto max-w-[720px] px-6 py-4 flex flex-col gap-4">
-            {/* Title */}
-            <Input
-              value={session.state.title}
-              onChange={(e) => {
-                update({ title: e.target.value });
-                useEditorStore.getState().updateTitle(tab.id, e.target.value);
-              }}
-              placeholder={t('concept.title') ?? 'Title'}
-              inputSize={isDraft ? undefined : 'sm'}
-              autoFocus={isDraft}
-            />
+          <NetworkObjectEditorShell
+            badge={t('objectPanel.concept' as never)}
+            title={headerTitle}
+            subtitle={headerSubtitle}
+            description={session.state.archetypeId ? archetypes.find((a) => a.id === session.state.archetypeId)?.name ?? null : null}
+          >
+            <NetworkObjectEditorSection title={t('editorShell.overview' as never)}>
+              <Input
+                value={session.state.title}
+                onChange={(e) => {
+                  update({ title: e.target.value });
+                  useEditorStore.getState().updateTitle(tab.id, e.target.value);
+                }}
+                placeholder={t('concept.title') ?? 'Title'}
+                inputSize={isDraft ? undefined : 'sm'}
+                autoFocus={isDraft}
+              />
 
-            {/* Archetype selector */}
-            {archetypes.length > 0 && (
-              <div>
-                {isDraft && <label className="mb-1 block text-xs font-medium text-secondary">{t('concept.archetype') ?? 'Archetype'}</label>}
-                <Select
-                  options={archetypeOptions}
-                  value={session.state.archetypeId ?? ''}
-                  onChange={(e) => {
-                    update({ archetypeId: e.target.value || null, properties: {} });
-                  }}
-                  selectSize="sm"
-                />
-              </div>
-            )}
+              {archetypes.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-secondary">{t('concept.archetype') ?? 'Archetype'}</label>
+                  <Select
+                    options={archetypeOptions}
+                    value={session.state.archetypeId ?? ''}
+                    onChange={(e) => {
+                      update({ archetypeId: e.target.value || null, properties: {} });
+                    }}
+                    selectSize="sm"
+                  />
+                </div>
+              )}
+            </NetworkObjectEditorSection>
 
-            {/* Properties */}
             {session.state.archetypeId && (
-              isDraft ? (
-                archetypeFields.length > 0 && (
-                  <div className="flex flex-col gap-2 border-b border-subtle px-3 py-3">
-                    {archetypeFields.map((field) => (
-                      <FieldInput
-                        key={field.id}
-                        field={field}
-                        value={session.state.properties[field.id] ?? null}
-                        onChange={(val) => update({
-                          properties: { ...session.state.properties, [field.id]: val },
-                        })}
-                      />
-                    ))}
-                  </div>
-                )
-              ) : (
-                <ConceptPropertiesPanel
-                  archetypeId={session.state.archetypeId}
-                  properties={session.state.properties}
-                  onChange={(fieldId, value) => update({
-                    properties: { ...session.state.properties, [fieldId]: value },
-                  })}
-                />
-              )
+              <NetworkObjectEditorSection title={t('concept.properties')}>
+                {isDraft ? (
+                  archetypeFields.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {archetypeFields.map((field) => (
+                        <FieldInput
+                          key={field.id}
+                          field={field}
+                          value={session.state.properties[field.id] ?? null}
+                          onChange={(val) => update({
+                            properties: { ...session.state.properties, [field.id]: val },
+                          })}
+                        />
+                      ))}
+                    </div>
+                  ) : null
+                ) : (
+                  <ConceptPropertiesPanel
+                    archetypeId={session.state.archetypeId}
+                    properties={session.state.properties}
+                    onChange={(fieldId, value) => update({
+                      properties: { ...session.state.properties, [fieldId]: value },
+                    })}
+                  />
+                )}
+              </NetworkObjectEditorSection>
             )}
 
-            {/* Body */}
-            <ConceptBodyEditor
-              content={session.state.content ?? ''}
-              onChange={(content) => update({ content: content || null })}
-            />
+            {!isDraft && (
+              <NetworkObjectEditorSection title={t('concept.networkPlacement' as never)}>
+                {isLoadingNodeOccurrences && nodeOccurrences.length === 0 ? (
+                  <div className="text-xs text-muted">{t('common.loading')}</div>
+                ) : nodeOccurrences.length === 0 ? (
+                  <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2 text-xs text-muted">
+                    {t('concept.noNetworkPlacement' as never)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-secondary">{t('concept.networkPlacement' as never)}</label>
+                      <Select
+                        options={nodeOccurrenceOptions}
+                        value={selectedNodeId}
+                        onChange={(e) => setSelectedNodeId(e.target.value)}
+                        selectSize="sm"
+                      />
+                    </div>
 
-          </div>
+                    {selectedNodeOccurrence && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openNetwork(selectedNodeOccurrence.network.id)}
+                          >
+                            {t('network.switchNetwork')}
+                          </Button>
+                          <div className="min-w-0 rounded-lg border border-subtle bg-surface-base px-3 py-1.5 text-xs text-muted">
+                            <div className="truncate">{selectedNodeOccurrence.node.id}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-medium text-secondary">{t('concept.nodeType' as never)}</label>
+                          <Select
+                            options={nodeTypeOptions}
+                            value={selectedNodeOccurrence.node.node_type}
+                            onChange={(e) => updateSelectedNetworkNode({ node_type: e.target.value as NodeType })}
+                            selectSize="sm"
+                            disabled={isSavingNode}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-medium text-secondary">{t('concept.nodeMetadata' as never)}</label>
+                          <TextArea
+                            value={nodeMetadataDraft}
+                            onChange={(e) => setNodeMetadataDraft(e.target.value)}
+                            rows={4}
+                            placeholder='{"label":"local note"}'
+                            className="font-mono text-xs"
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              isLoading={isSavingNode}
+                              onClick={saveNodeMetadata}
+                            >
+                              {t('concept.saveNodeMetadata' as never)}
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </NetworkObjectEditorSection>
+            )}
+
+            <NetworkObjectEditorSection title={t('editorShell.content' as never)}>
+              <ConceptBodyEditor
+                content={session.state.content ?? ''}
+                onChange={(content) => update({ content: content || null })}
+              />
+            </NetworkObjectEditorSection>
+
+            {!isDraft && concept && (
+              <NetworkObjectEditorSection title={t('editorShell.metadata' as never)} defaultOpen={false}>
+                <NetworkObjectMetadataList
+                  items={[
+                    { label: t('editorShell.objectId' as never), value: <code className="font-mono text-xs">{concept.id}</code> },
+                    { label: t('concept.archetype'), value: session.state.archetypeId ? (archetypes.find((a) => a.id === session.state.archetypeId)?.name ?? t('common.none')) : t('common.none') },
+                  ]}
+                />
+              </NetworkObjectEditorSection>
+            )}
+          </NetworkObjectEditorShell>
         </ScrollArea>
       )}
     </div>

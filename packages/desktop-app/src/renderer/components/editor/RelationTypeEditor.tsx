@@ -1,7 +1,9 @@
-import React, { useCallback } from 'react';
-import type { EditorTab, LineStyle } from '@netior/shared/types';
+import React, { useCallback, useMemo } from 'react';
+import type { EditorTab, LineStyle, TypeGroup } from '@netior/shared/types';
+import type { TranslationKey } from '@netior/shared/i18n';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useTypeGroupStore } from '../../stores/type-group-store';
 import { useEditorSession } from '../../hooks/useEditorSession';
 import { useI18n } from '../../hooks/useI18n';
 import { Input } from '../ui/Input';
@@ -10,12 +12,18 @@ import { ColorPicker } from '../ui/ColorPicker';
 import { Select } from '../ui/Select';
 import { Toggle } from '../ui/Toggle';
 import { ScrollArea } from '../ui/ScrollArea';
+import {
+  NetworkObjectEditorShell,
+  NetworkObjectEditorSection,
+  NetworkObjectMetadataList,
+} from './NetworkObjectEditorShell';
 
 interface RelationTypeEditorProps {
   tab: EditorTab;
 }
 
 interface RelationTypeState {
+  group_id: string | null;
   name: string;
   description: string | null;
   color: string | null;
@@ -27,14 +35,16 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
   const { t } = useI18n();
   const relationTypeId = tab.targetId;
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
+  const groups = useTypeGroupStore((s) => s.groupsByKind.relation_type);
   const { updateRelationType } = useRelationTypeStore();
 
   const session = useEditorSession<RelationTypeState>({
     tabId: tab.id,
     load: () => {
       const rt = useRelationTypeStore.getState().relationTypes.find((r) => r.id === relationTypeId);
-      if (!rt) return { name: '', description: null, color: null, line_style: 'solid', directed: false };
+      if (!rt) return { group_id: null, name: '', description: null, color: null, line_style: 'solid', directed: false };
       return {
+        group_id: rt.group_id,
         name: rt.name,
         description: rt.description,
         color: rt.color,
@@ -55,6 +65,20 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
     { value: 'dotted', label: t('relationType.dotted') },
   ];
 
+  const buildGroupOptions = useCallback((items: TypeGroup[], parentGroupId: string | null = null, depth = 0): Array<{ value: string; label: string }> => {
+    return items
+      .filter((item) => (item.parent_group_id ?? null) === parentGroupId)
+      .flatMap((item) => ([
+        { value: item.id, label: `${'  '.repeat(depth)}${item.name}` },
+        ...buildGroupOptions(items, item.id, depth + 1),
+      ]));
+  }, []);
+
+  const groupOptions = useMemo(() => [
+    { value: '', label: t('typeGroup.ungrouped') },
+    ...buildGroupOptions(groups),
+  ], [groups, buildGroupOptions, t]);
+
   const relationType = relationTypes.find((rt) => rt.id === relationTypeId);
   if (!relationType) {
     return (
@@ -71,10 +95,24 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
   };
 
   return (
-    <ScrollArea>
-      <div className="flex h-full items-start justify-center">
-        <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
-          {/* Name */}
+    <ScrollArea className="h-full min-h-0">
+      <NetworkObjectEditorShell
+        badge={t('relationType.title')}
+        title={session.state.name || relationType.name}
+        subtitle={t('editorShell.networkObject' as never)}
+        description={t('relationType.descriptionPlaceholder')}
+      >
+        <NetworkObjectEditorSection title={t('editorShell.overview' as never)}>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-secondary">{t('typeGroup.group' as TranslationKey)}</label>
+            <Select
+              options={groupOptions}
+              value={session.state.group_id ?? ''}
+              onChange={(e) => update({ group_id: e.target.value || null })}
+              selectSize="sm"
+            />
+          </div>
+
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('relationType.name')}</label>
             <Input
@@ -83,7 +121,6 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
             />
           </div>
 
-          {/* Description */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('relationType.description')}</label>
             <TextArea
@@ -93,39 +130,44 @@ export function RelationTypeEditor({ tab }: RelationTypeEditorProps): JSX.Elemen
               placeholder={t('relationType.descriptionPlaceholder')}
             />
           </div>
+        </NetworkObjectEditorSection>
 
-          {/* Visual */}
-          <div className="flex flex-col gap-3">
-            <label className="text-xs font-medium text-secondary">{t('relationType.visual')}</label>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-xs text-secondary">{t('relationType.color')}</span>
-              <ColorPicker
-                value={session.state.color ?? undefined}
-                onChange={(color) => update({ color })}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
-              <Select
-                options={lineStyleOptions}
-                value={session.state.line_style}
-                onChange={(e) => update({ line_style: e.target.value as 'solid' | 'dashed' | 'dotted' })}
-                selectSize="sm"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Toggle
-                checked={session.state.directed}
-                onChange={(checked) => update({ directed: checked })}
-              />
-              <span className="text-xs text-secondary">{t('relationType.directed')}</span>
-            </div>
+        <NetworkObjectEditorSection title={t('relationType.visual')}>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-secondary">{t('relationType.color')}</span>
+            <ColorPicker
+              value={session.state.color ?? undefined}
+              onChange={(color) => update({ color })}
+            />
           </div>
-        </div>
-      </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-secondary">{t('relationType.lineStyle')}</span>
+            <Select
+              options={lineStyleOptions}
+              value={session.state.line_style}
+              onChange={(e) => update({ line_style: e.target.value as 'solid' | 'dashed' | 'dotted' })}
+              selectSize="sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Toggle
+              checked={session.state.directed}
+              onChange={(checked) => update({ directed: checked })}
+            />
+            <span className="text-xs text-secondary">{t('relationType.directed')}</span>
+          </div>
+        </NetworkObjectEditorSection>
+
+        <NetworkObjectEditorSection title={t('editorShell.metadata' as never)} defaultOpen={false}>
+          <NetworkObjectMetadataList
+            items={[
+              { label: t('editorShell.objectId' as never), value: <code className="font-mono text-xs">{relationType.id}</code> },
+            ]}
+          />
+        </NetworkObjectEditorSection>
+      </NetworkObjectEditorShell>
     </ScrollArea>
   );
 }

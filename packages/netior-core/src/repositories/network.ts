@@ -4,7 +4,7 @@ import { createLayout, getLayoutByNetwork, getNodePositions, getEdgeVisuals } fr
 import { createObject, deleteObjectByRef } from './objects';
 import type {
   Network, NetworkCreate, NetworkUpdate,
-  NetworkNode, NetworkNodeCreate,
+  NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
   Edge, EdgeCreate, EdgeUpdate,
   ObjectRecord,
   Concept,
@@ -331,11 +331,13 @@ export function addNetworkNode(data: NetworkNodeCreate): NetworkNode {
   return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
 }
 
-export function updateNetworkNode(id: string, data: { metadata?: string | null }): NetworkNode {
+export function updateNetworkNode(id: string, data: NetworkNodeUpdate): NetworkNode {
   const db = getDatabase();
   const sets: string[] = [];
   const values: unknown[] = [];
 
+  if ('node_type' in data) { sets.push('node_type = ?'); values.push(data.node_type); }
+  if ('parent_node_id' in data) { sets.push('parent_node_id = ?'); values.push(data.parent_node_id ?? null); }
   if ('metadata' in data) { sets.push('metadata = ?'); values.push(data.metadata ?? null); }
 
   if (sets.length === 0) {

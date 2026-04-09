@@ -63,20 +63,21 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
           if (!source || !target) return null;
 
           return (
-            <EdgeLine
-              key={edge.id}
-              id={edge.id}
-              sourceX={source.x}
-              sourceY={source.y}
-              targetX={target.x}
-              targetY={target.y}
-              directed={edge.directed}
-              label={edge.label}
-              color={edge.color}
-              lineStyle={edge.lineStyle}
-              onContextMenu={onContextMenu}
-              onDoubleClick={onDoubleClick}
-            />
+            <g key={edge.id} style={{ opacity: edge.dimmed ? 0.2 : 1, transition: 'opacity 120ms ease' }}>
+              <EdgeLine
+                id={edge.id}
+                sourceX={source.x}
+                sourceY={source.y}
+                targetX={target.x}
+                targetY={target.y}
+                directed={edge.directed}
+                label={edge.label}
+                color={edge.color}
+                lineStyle={edge.lineStyle}
+                onContextMenu={onContextMenu}
+                onDoubleClick={onDoubleClick}
+              />
+            </g>
           );
         })}
       </g>

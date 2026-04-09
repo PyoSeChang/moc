@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Trash2, Layout, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Waypoints, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
 import type { NetworkTreeNode } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
+import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 interface NetworkListProps {
   projectId: string;
@@ -11,58 +12,11 @@ interface NetworkListProps {
 
 // ─── Context Menu ────────────────────────────────────────────────
 
-interface ContextMenuState {
+interface NetworkContextMenuState {
   x: number;
   y: number;
   networkId: string;
   networkName: string;
-}
-
-function NetworkItemContextMenu({
-  x, y, networkId, networkName, onClose,
-}: ContextMenuState & { onClose: () => void }): JSX.Element {
-  const { t } = useI18n();
-  const { deleteNetwork } = useNetworkStore();
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed z-50 bg-surface-modal border border-default rounded-md shadow-lg py-1 min-w-[180px]"
-      style={{ left: x, top: y }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
-        onClick={() => {
-          useEditorStore.getState().openTab({
-            type: 'network',
-            targetId: networkId,
-            title: networkName,
-          });
-          onClose();
-        }}
-      >
-        {t('editor.openInEditor')}
-      </button>
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1 text-xs text-red-400 hover:bg-surface-hover cursor-pointer"
-        onClick={async () => {
-          await deleteNetwork(networkId);
-          onClose();
-        }}
-      >
-        <Trash2 size={12} />
-        {t('common.delete')}
-      </button>
-    </div>
-  );
 }
 
 // ─── Tree Item ───────────────────────────────────────────────────
@@ -111,7 +65,7 @@ function TreeNode({
         ) : (
           <span className="w-4 shrink-0" />
         )}
-        <Layout size={12} className="shrink-0 opacity-50" />
+        <Waypoints size={12} className="shrink-0 opacity-60" />
         <span className="flex-1 truncate">{treeNode.network.name}</span>
       </div>
 
@@ -137,17 +91,30 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   const { currentNetwork, createNetwork, openNetwork, loadNetworkTree, networkTree } = useNetworkStore();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [contextMenu, setContextMenu] = useState<NetworkContextMenuState | null>(null);
 
   useEffect(() => {
     loadNetworkTree(projectId);
   }, [projectId, loadNetworkTree]);
+
+  useEffect(() => {
+    if (!creating) return undefined;
+
+    const handleWindowBlur = () => {
+      setCreating(false);
+      setNewName('');
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, [creating]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
     const network = await createNetwork({
       project_id: projectId,
       name: newName.trim(),
+      parent_network_id: currentNetwork?.id ?? undefined,
     });
     await openNetwork(network.id);
     await loadNetworkTree(projectId);
@@ -163,6 +130,49 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   const handleContextMenu = useCallback((e: React.MouseEvent, networkId: string, networkName: string) => {
     setContextMenu({ x: e.clientX, y: e.clientY, networkId, networkName });
   }, []);
+
+  const contextMenuItems: ContextMenuEntry[] = contextMenu ? [
+    {
+      label: t('editor.openInEditor'),
+      icon: <ExternalLink size={14} />,
+      onClick: () => {
+        useEditorStore.getState().openTab({
+          type: 'network',
+          targetId: contextMenu.networkId,
+          title: contextMenu.networkName,
+        });
+      },
+    },
+    { type: 'divider' as const },
+    {
+      label: t('network.createSubNetwork'),
+      icon: <Plus size={14} />,
+      onClick: async () => {
+        const targetNetwork = useNetworkStore.getState().networks.find((network) => network.id === contextMenu.networkId);
+        const child = await createNetwork({
+          project_id: targetNetwork?.project_id ?? projectId,
+          name: t('network.defaultName'),
+          parent_network_id: contextMenu.networkId,
+        });
+        await loadNetworkTree(projectId);
+        await openNetwork(child.id);
+        useEditorStore.getState().openTab({
+          type: 'network',
+          targetId: child.id,
+          title: child.name,
+        });
+      },
+    },
+    {
+      label: t('common.delete'),
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onClick: async () => {
+        await useNetworkStore.getState().deleteNetwork(contextMenu.networkId);
+        await loadNetworkTree(projectId);
+      },
+    },
+  ] : [];
 
   return (
     <div className="flex flex-col gap-0.5" onMouseDown={() => setContextMenu(null)}>
@@ -182,6 +192,7 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
             className="rounded border border-subtle bg-input px-2 py-1 text-xs text-default outline-none focus:border-accent"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            onBlur={handleCancel}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleCreate();
               if (e.key === 'Escape') handleCancel();
@@ -210,8 +221,10 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
       )}
 
       {contextMenu && (
-        <NetworkItemContextMenu
-          {...contextMenu}
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
           onClose={() => setContextMenu(null)}
         />
       )}

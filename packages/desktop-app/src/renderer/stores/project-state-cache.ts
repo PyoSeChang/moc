@@ -4,6 +4,7 @@ import { useModuleStore } from './module-store';
 import { useConceptStore } from './concept-store';
 import { useArchetypeStore } from './archetype-store';
 import { useRelationTypeStore } from './relation-type-store';
+import { useTypeGroupStore } from './type-group-store';
 import { useFileStore, type OpenFile, type ClipboardAction, type ClipboardState } from './file-store';
 import type {
   Network, NetworkNode, Edge, Concept, RelationType,
@@ -12,6 +13,7 @@ import type {
   Module, ModuleDirectory,
   ConceptProperty,
   Archetype, ArchetypeField,
+  TypeGroup,
   FileTreeNode,
 } from '@netior/shared/types';
 
@@ -52,6 +54,13 @@ interface RelationTypeSnapshot {
   relationTypes: RelationType[];
 }
 
+interface TypeGroupSnapshot {
+  groupsByKind: {
+    archetype: TypeGroup[];
+    relation_type: TypeGroup[];
+  };
+}
+
 interface FileSnapshot {
   fileTree: FileTreeNode[];
   openFiles: OpenFile[];
@@ -67,6 +76,7 @@ interface ProjectSnapshot {
   concept: ConceptSnapshot;
   archetype: ArchetypeSnapshot;
   relationType: RelationTypeSnapshot;
+  typeGroup: TypeGroupSnapshot;
   file: FileSnapshot;
 }
 
@@ -79,6 +89,7 @@ function capture(): ProjectSnapshot {
   const concept = useConceptStore.getState();
   const archetype = useArchetypeStore.getState();
   const relationType = useRelationTypeStore.getState();
+  const typeGroup = useTypeGroupStore.getState();
   const file = useFileStore.getState();
 
   return {
@@ -113,6 +124,9 @@ function capture(): ProjectSnapshot {
     relationType: {
       relationTypes: relationType.relationTypes,
     },
+    typeGroup: {
+      groupsByKind: typeGroup.groupsByKind,
+    },
     file: {
       fileTree: file.fileTree,
       openFiles: file.openFiles,
@@ -130,6 +144,7 @@ function restore(snapshot: ProjectSnapshot): void {
   useConceptStore.setState(snapshot.concept);
   useArchetypeStore.setState(snapshot.archetype);
   useRelationTypeStore.setState(snapshot.relationType);
+  useTypeGroupStore.setState(snapshot.typeGroup);
   useFileStore.setState(snapshot.file);
 }
 
@@ -140,6 +155,7 @@ export function clearAllProjectStores(): void {
   useConceptStore.getState().clear();
   useArchetypeStore.getState().clear();
   useRelationTypeStore.getState().clear();
+  useTypeGroupStore.getState().clear();
   useFileStore.getState().clear();
 }
 

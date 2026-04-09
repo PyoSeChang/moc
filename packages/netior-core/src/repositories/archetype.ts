@@ -57,11 +57,12 @@ export function createArchetype(data: ArchetypeCreate): Archetype {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO archetypes (id, project_id, name, description, icon, color, node_shape, file_template, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO archetypes (id, project_id, group_id, name, description, icon, color, node_shape, file_template, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     data.project_id,
+    data.group_id ?? null,
     data.name,
     data.description ?? null,
     data.icon ?? null,
@@ -94,8 +95,9 @@ export function updateArchetype(id: string, data: ArchetypeUpdate): Archetype | 
 
   const now = new Date().toISOString();
   db.prepare(
-    `UPDATE archetypes SET name = ?, description = ?, icon = ?, color = ?, node_shape = ?, file_template = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE archetypes SET group_id = ?, name = ?, description = ?, icon = ?, color = ?, node_shape = ?, file_template = ?, updated_at = ? WHERE id = ?`,
   ).run(
+    data.group_id !== undefined ? data.group_id : existing.group_id,
     data.name !== undefined ? data.name : existing.name,
     data.description !== undefined ? data.description : existing.description,
     data.icon !== undefined ? data.icon : existing.icon,

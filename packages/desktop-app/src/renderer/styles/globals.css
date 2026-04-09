@@ -45,6 +45,34 @@ body,
   background: var(--text-muted);
 }
 
+.editor-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--text-muted) color-mix(in srgb, var(--surface-hover) 72%, transparent);
+  scrollbar-gutter: stable;
+}
+
+.editor-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.editor-scrollbar::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--surface-hover) 72%, transparent);
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.editor-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-default) 88%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
 /* Terminal-specific scrollbar tuning */
 .terminal-editor .monaco-scrollable-element > .scrollbar.vertical {
   width: 8px !important;

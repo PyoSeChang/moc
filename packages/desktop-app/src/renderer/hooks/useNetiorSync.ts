@@ -5,6 +5,7 @@ import { useConceptStore } from '../stores/concept-store';
 import { useRelationTypeStore } from '../stores/relation-type-store';
 import { useNetworkStore } from '../stores/network-store';
 import { useContextStore } from '../stores/context-store';
+import { useTypeGroupStore } from '../stores/type-group-store';
 
 export function useNetiorSync(projectId: string | null): void {
   useEffect(() => {
@@ -21,6 +22,9 @@ export function useNetiorSync(projectId: string | null): void {
           break;
         case 'relationTypes':
           useRelationTypeStore.getState().loadByProject(projectId);
+          break;
+        case 'typeGroups':
+          useTypeGroupStore.getState().loadByProject(projectId);
           break;
         case 'networks':
           useNetworkStore.getState().loadNetworks(projectId);

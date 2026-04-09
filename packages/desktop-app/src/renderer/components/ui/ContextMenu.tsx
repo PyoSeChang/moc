@@ -34,12 +34,22 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
+    const handleWindowBlur = () => {
+      onClose();
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) onClose();
+    };
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEsc);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [onClose]);
 
@@ -60,6 +70,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
       ref={menuRef}
       className="fixed z-50 min-w-[180px] rounded-md border border-default bg-surface-modal py-1 shadow-lg"
       style={{ left: x, top: y }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {items.map((item, i) => {
         if ('type' in item && item.type === 'divider') {

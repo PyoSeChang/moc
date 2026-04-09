@@ -37,7 +37,7 @@ export function FullModeEditor(): JSX.Element | null {
 
       return (
         <div
-          className={`flex h-full flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
+          className={`flex h-full min-h-0 flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
           onMouseDown={() => {
             if (!leaf.tabIds.includes(activeTabId!)) {
               setActiveTab(leaf.activeTabId);
@@ -59,7 +59,7 @@ export function FullModeEditor(): JSX.Element | null {
               />
             }
           />
-          <div className="relative flex-1 overflow-hidden bg-surface-panel">
+          <div className="relative flex-1 min-h-0 overflow-hidden bg-surface-panel">
             {activeTab && <EditorContent tab={activeTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
@@ -86,7 +86,7 @@ export function FullModeEditor(): JSX.Element | null {
 
   return (
     <div
-      className="flex h-full w-full bg-surface-panel"
+      className="flex h-full min-h-0 w-full min-w-0 bg-surface-panel"
       onDragEnter={(e) => { if (isTabDrag(e)) setIsDragging(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
       onDrop={() => setIsDragging(false)}

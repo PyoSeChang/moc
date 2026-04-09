@@ -5,7 +5,7 @@ export interface Viewport {
   panY: number;
 }
 
-export type CanvasNodeType = 'concept' | 'file' | 'dir' | 'network';
+export type CanvasNodeType = 'concept' | 'file' | 'dir' | 'network' | 'object';
 
 /** Node data for rendering */
 export interface RenderNode {
@@ -22,9 +22,14 @@ export interface RenderNode {
   conceptId?: string;
   canvasCount: number;
   nodeType: CanvasNodeType;
+  objectType?: string;
+  objectTargetId?: string;
+  isPortal?: boolean;
+  isBox?: boolean;
   fileId?: string;
   filePath?: string;
   networkId?: string;
+  dimmed?: boolean;
 }
 
 /** Edge data for rendering */
@@ -36,6 +41,7 @@ export interface RenderEdge {
   label: string;
   color?: string;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  dimmed?: boolean;
 }
 
 /** Layout input node */

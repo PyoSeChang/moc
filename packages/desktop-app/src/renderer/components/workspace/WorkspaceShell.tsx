@@ -186,7 +186,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
       return (
         <div
-          className={`flex h-full flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
+          className={`flex h-full min-h-0 flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
           onMouseDown={() => {
             if (!leaf.tabIds.includes(activeTabId!)) {
               setActiveTab(leaf.activeTabId);
@@ -208,7 +208,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               />
             }
           />
-          <div className="relative flex-1 overflow-hidden bg-surface-panel">
+          <div className="relative flex-1 min-h-0 overflow-hidden bg-surface-panel">
             {activeLeafTab && <EditorContent tab={activeLeafTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
@@ -306,10 +306,10 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
         </>
       )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
           ref={editorContainerRef}
-          className="relative flex flex-1 overflow-hidden"
+          className="relative flex min-h-0 flex-1 overflow-hidden"
           onDragEnter={handleShellDragEnter}
           onDragOver={handleShellDragOver}
           onDragLeave={handleShellDragLeave}
@@ -322,7 +322,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               {/* Canvas area */}
               <div
                 data-pane="canvas"
-                className="relative flex flex-col overflow-hidden"
+                className="relative flex min-h-0 min-w-0 flex-col overflow-hidden"
                 style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
                 onDragOver={handleCanvasDragOver}
                 onDrop={handleCanvasDrop}
@@ -336,7 +336,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                   <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
                   <div
                     data-pane="editor"
-                    className="flex flex-col overflow-hidden bg-surface-panel"
+                    className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-panel"
                     style={{ width: `${(1 - splitRatio) * 100}%` }}
                   >
                     <SplitPaneRenderer

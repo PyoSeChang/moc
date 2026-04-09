@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { useAnchoredDropdown } from '../../hooks/useAnchoredDropdown';
 
 export interface SelectOption {
   value: string;
@@ -27,10 +28,12 @@ export const Select: React.FC<SelectProps> = ({
   selectSize = 'default',
 }) => {
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownPos = useAnchoredDropdown(open, buttonRef, {
+    estimatedHeight: 220,
+  }, dropdownRef);
 
   useEffect(() => {
     if (!open) return;
@@ -49,14 +52,6 @@ export const Select: React.FC<SelectProps> = ({
 
   const handleOpen = () => {
     if (disabled) return;
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
     setOpen(!open);
   };
 
@@ -111,6 +106,7 @@ export const Select: React.FC<SelectProps> = ({
               top: dropdownPos.top,
               left: dropdownPos.left,
               width: dropdownPos.width,
+              visibility: dropdownPos.ready ? 'visible' : 'hidden',
               zIndex: 10001,
               boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             }}

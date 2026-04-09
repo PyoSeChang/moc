@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, FolderTree, Shapes, Settings, Terminal, Sparkles } from 'lucide-react';
+import { Waypoints, FolderTree, Boxes, Settings, Terminal, Sparkles } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
@@ -7,18 +7,17 @@ import { useI18n } from '../../hooks/useI18n';
 import { openTerminalTab } from '../../lib/terminal/open-terminal-tab';
 import { Tooltip } from '../ui/Tooltip';
 
-
-const ITEMS = [
-  { key: 'canvases' as const, icon: Layout, label: 'Canvases' },
-  { key: 'files' as const, icon: FolderTree, label: 'Files' },
-  { key: 'archetypes' as const, icon: Shapes, label: 'Archetypes' },
-] as const;
-
 export function ActivityBar(): JSX.Element {
   const { t } = useI18n();
+  const tk = (key: string) => t(key as import('@netior/shared/i18n').TranslationKey);
   const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
+  const items = [
+    { key: 'networks' as const, icon: Waypoints, label: t('sidebar.networks') },
+    { key: 'objects' as const, icon: Boxes, label: tk('sidebar.objects') },
+    { key: 'files' as const, icon: FolderTree, label: t('sidebar.files') },
+  ] as const;
 
-  const handleClick = (key: 'canvases' | 'files' | 'archetypes') => {
+  const handleClick = (key: 'networks' | 'objects' | 'files') => {
     if (sidebarOpen && sidebarView === key) {
       // Same tab clicked → close sidebar
       toggleSidebar();
@@ -35,7 +34,7 @@ export function ActivityBar(): JSX.Element {
   return (
     <nav className="flex h-full w-10 shrink-0 flex-col items-center border-r border-subtle bg-[var(--surface-sidebar)] py-2">
       <div className="flex flex-1 flex-col items-center gap-1">
-        {ITEMS.map(({ key, icon: Icon, label }) => {
+        {items.map(({ key, icon: Icon, label }) => {
           const isActive = sidebarOpen && sidebarView === key;
           return (
             <Tooltip key={key} content={label} position="right">

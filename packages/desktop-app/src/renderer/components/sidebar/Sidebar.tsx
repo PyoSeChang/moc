@@ -9,12 +9,11 @@ import { useUIStore } from '../../stores/ui-store';
 import { NetworkList } from './NetworkList';
 import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
-import { ArchetypeList } from './ArchetypeList';
-import { RelationTypeList } from './RelationTypeList';
+import { ObjectPanel } from './ObjectPanel';
 import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
-import { Divider } from '../ui/Divider';
+import { useTypeGroupStore } from '../../stores/type-group-store';
 import { ScrollArea } from '../ui/ScrollArea';
 import { Spinner } from '../ui/Spinner';
 import { Tooltip } from '../ui/Tooltip';
@@ -34,6 +33,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { loadByProject: loadConcepts } = useConceptStore();
   const { loadByProject: loadArchetypes } = useArchetypeStore();
   const { loadByProject: loadRelationTypes } = useRelationTypeStore();
+  const { loadByProject: loadTypeGroups } = useTypeGroupStore();
 
   useEffect(() => {
     loadNetworks(project.id);
@@ -42,7 +42,8 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     loadConcepts(project.id);
     loadArchetypes(project.id);
     loadRelationTypes(project.id);
-  }, [project.id, loadNetworks, loadNetworkTree, loadModules, loadConcepts, loadArchetypes, loadRelationTypes]);
+    loadTypeGroups(project.id);
+  }, [project.id, loadNetworks, loadNetworkTree, loadModules, loadConcepts, loadArchetypes, loadRelationTypes, loadTypeGroups]);
 
   useEffect(() => {
     if (directories.length > 0) {
@@ -81,7 +82,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
     >
       <ScrollArea className="flex-1">
         <div className="flex min-h-full flex-col py-2">
-          {sidebarView === 'canvases' && <NetworkList projectId={project.id} />}
+          {sidebarView === 'networks' && <NetworkList projectId={project.id} />}
           {sidebarView === 'files' && (
             <>
               <div className="flex items-center">
@@ -115,13 +116,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
               )}
             </>
           )}
-          {sidebarView === 'archetypes' && (
-            <>
-              <ArchetypeList />
-              <Divider />
-              <RelationTypeList />
-            </>
-          )}
+          {sidebarView === 'objects' && <ObjectPanel />}
         </div>
       </ScrollArea>
     </div>

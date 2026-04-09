@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Palette, Globe, Bell } from 'lucide-react';
+import { X, Search, Palette, Globe, Bell, Boxes } from 'lucide-react';
 import {
   useSettingsStore,
   AVAILABLE_THEME_FAMILIES,
@@ -386,6 +386,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     darkTheme,
     locale,
     detachedAgentToastMode,
+    fieldComplexityLevel,
     setAppearanceMode,
     setThemeFamily,
     setThemeVariant,
@@ -394,6 +395,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     setThemePrimaryCustomColor,
     setLocale,
     setDetachedAgentToastMode,
+    setFieldComplexityLevel,
   } = useSettingsStore();
 
   const [activeCategory, setActiveCategory] = useState('appearance');
@@ -421,6 +423,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
       icon: Bell,
       label: t('settings.categoryNotifications'),
       anchors: [t('settings.detachedAgentToasts')],
+    },
+    {
+      key: 'modeling',
+      icon: Boxes,
+      label: t('settings.categoryModeling' as never),
+      anchors: [t('settings.fieldComplexity' as never)],
     },
   ];
 
@@ -481,6 +489,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
   const showDetachedAgentToasts = [
     t('settings.categoryNotifications'),
     t('settings.detachedAgentToasts'),
+  ].some(matchesSearch);
+  const showModeling = [
+    t('settings.categoryModeling' as never),
+    t('settings.fieldComplexity' as never),
+    t('settings.fieldComplexityBasic' as never),
+    t('settings.fieldComplexityStandard' as never),
+    t('settings.fieldComplexityAdvanced' as never),
   ].some(matchesSearch);
 
   if (!open) return null;
@@ -694,7 +709,48 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
               </div>
             )}
 
-            {searchQuery && !showAppearance && !showLanguage && !showDetachedAgentToasts && (
+            {(activeCategory === 'modeling' || searchQuery) && showModeling && (
+              <div data-section="modeling">
+                <section data-section="field-complexity" className="mb-8">
+                  <h3 className="text-base font-semibold text-default">{t('settings.fieldComplexity' as never)}</h3>
+                  <p className="mb-4 text-sm text-secondary">{t('settings.fieldComplexityDesc' as never)}</p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {([
+                      {
+                        key: 'basic' as const,
+                        label: t('settings.fieldComplexityBasic' as never),
+                        description: t('settings.fieldComplexityBasicDesc' as never),
+                      },
+                      {
+                        key: 'standard' as const,
+                        label: t('settings.fieldComplexityStandard' as never),
+                        description: t('settings.fieldComplexityStandardDesc' as never),
+                      },
+                      {
+                        key: 'advanced' as const,
+                        label: t('settings.fieldComplexityAdvanced' as never),
+                        description: t('settings.fieldComplexityAdvancedDesc' as never),
+                      },
+                    ]).map(({ key, label, description }) => (
+                      <button
+                        key={key}
+                        className={`rounded-xl border p-4 text-left transition-all ${
+                          fieldComplexityLevel === key
+                            ? 'border-accent bg-interactive-selected text-accent shadow-sm'
+                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                        }`}
+                        onClick={() => setFieldComplexityLevel(key)}
+                      >
+                        <div className="text-sm font-semibold">{label}</div>
+                        <div className="mt-2 text-xs leading-5 text-muted">{description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {searchQuery && !showAppearance && !showLanguage && !showDetachedAgentToasts && !showModeling && (
               <div className="flex flex-col items-center justify-center py-16 text-muted">
                 <Search size={32} className="mb-3 opacity-40" />
                 <p className="text-sm">{t('common.noResults')}</p>

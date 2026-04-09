@@ -196,6 +196,8 @@ export interface NetworkNodeCreate {
 }
 
 export interface NetworkNodeUpdate {
+  node_type?: NodeType;
+  parent_node_id?: string | null;
   metadata?: string | null;
 }
 
@@ -340,6 +342,7 @@ export interface Archetype {
 
 export interface ArchetypeCreate {
   project_id: string;
+  group_id?: string | null;
   name: string;
   description?: string;
   icon?: string;
@@ -349,6 +352,7 @@ export interface ArchetypeCreate {
 }
 
 export interface ArchetypeUpdate {
+  group_id?: string | null;
   name?: string;
   description?: string | null;
   icon?: string | null;
@@ -484,6 +488,7 @@ export interface RelationType {
 
 export interface RelationTypeCreate {
   project_id: string;
+  group_id?: string | null;
   name: string;
   description?: string;
   color?: string;
@@ -492,6 +497,7 @@ export interface RelationTypeCreate {
 }
 
 export interface RelationTypeUpdate {
+  group_id?: string | null;
   name?: string;
   description?: string | null;
   color?: string | null;
@@ -575,8 +581,10 @@ export interface EditorTab {
   activeFilePath: string | null;
   /** Override editor type for file tabs (when user switches via context menu) */
   editorType?: string;
-  /** Network context for fileMetadata tabs (which network this node belongs to) */
+  /** Network context for object tabs opened from a network node */
   networkId?: string;
+  /** Network node context for object tabs opened from a concrete node */
+  nodeId?: string;
   /** Working directory override for terminal tabs */
   terminalCwd?: string;
   /** Draft data for unsaved new entities (concept creation flow) */
@@ -732,7 +740,7 @@ export interface NarreSummaryCard {
 export type NarreCard = NarreProposalCard | NarrePermissionCard | NarreInterviewCard | NarreSummaryCard;
 
 export interface NetiorChangeEvent {
-  type: 'archetypes' | 'concepts' | 'relationTypes' | 'networks' | 'edges' | 'layouts' | 'contexts';
+  type: 'archetypes' | 'concepts' | 'relationTypes' | 'typeGroups' | 'networks' | 'edges' | 'layouts' | 'contexts';
   action: 'created' | 'updated' | 'deleted';
   id: string;
 }

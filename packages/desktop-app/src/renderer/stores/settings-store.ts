@@ -32,6 +32,7 @@ interface ThemeFamilyDefinition {
 export type AppearanceMode = 'system' | 'dark' | 'light';
 export type ThemePrimaryMode = 'preset' | 'custom';
 export type DetachedAgentToastMode = 'always' | 'inactive-only';
+export type FieldComplexityLevel = 'basic' | 'standard' | 'advanced';
 export type ThemeFamily = ThemeFamilyDefinition['id'];
 export type ResolvedThemeMode = 'dark' | 'light';
 export type PrimaryPresetId = string;
@@ -50,6 +51,7 @@ interface SettingsSyncState {
   darkTheme: ThemeSlotConfig;
   locale: Locale;
   detachedAgentToastMode: DetachedAgentToastMode;
+  fieldComplexityLevel: FieldComplexityLevel;
 }
 
 const PRIMARY_PRESETS: readonly PrimaryPresetDefinition[] = [
@@ -530,6 +532,7 @@ export interface SettingsStore {
   darkTheme: ThemeSlotConfig;
   locale: Locale;
   detachedAgentToastMode: DetachedAgentToastMode;
+  fieldComplexityLevel: FieldComplexityLevel;
 
   setAppearanceMode: (mode: AppearanceMode) => void;
   setThemeFamily: (mode: ResolvedThemeMode, family: ThemeFamily) => void;
@@ -539,6 +542,7 @@ export interface SettingsStore {
   setThemePrimaryCustomColor: (mode: ResolvedThemeMode, color: string) => void;
   setLocale: (locale: Locale) => void;
   setDetachedAgentToastMode: (mode: DetachedAgentToastMode) => void;
+  setFieldComplexityLevel: (level: FieldComplexityLevel) => void;
 }
 
 function applyCurrentThemeSnapshot(
@@ -554,13 +558,14 @@ function applyCurrentThemeSnapshot(
 function getSettingsSyncState(state: Pick<
   SettingsStore,
   'appearanceMode' | 'lightTheme' | 'darkTheme' | 'locale' | 'detachedAgentToastMode'
->): SettingsSyncState {
+> & { fieldComplexityLevel?: FieldComplexityLevel }): SettingsSyncState {
   return {
     appearanceMode: state.appearanceMode,
     lightTheme: normalizeThemeSlot(state.lightTheme),
     darkTheme: normalizeThemeSlot(state.darkTheme),
     locale: state.locale,
     detachedAgentToastMode: state.detachedAgentToastMode,
+    fieldComplexityLevel: state.fieldComplexityLevel ?? 'standard',
   };
 }
 
@@ -589,6 +594,7 @@ export const useSettingsStore = create<SettingsStore>()(
       darkTheme: getDefaultThemeSlot('dark'),
       locale: 'ko',
       detachedAgentToastMode: 'inactive-only',
+      fieldComplexityLevel: 'standard',
 
       setAppearanceMode: (appearanceMode) => {
         set({ appearanceMode });
@@ -685,6 +691,7 @@ export const useSettingsStore = create<SettingsStore>()(
 
       setLocale: (locale) => set({ locale }),
       setDetachedAgentToastMode: (detachedAgentToastMode) => set({ detachedAgentToastMode }),
+      setFieldComplexityLevel: (fieldComplexityLevel) => set({ fieldComplexityLevel }),
     }),
     {
       name: SETTINGS_STORAGE_KEY,
@@ -695,6 +702,7 @@ export const useSettingsStore = create<SettingsStore>()(
         darkTheme: state.darkTheme,
         locale: state.locale,
         detachedAgentToastMode: state.detachedAgentToastMode,
+        fieldComplexityLevel: state.fieldComplexityLevel,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -758,7 +766,8 @@ export function initializeSettingsStore(): void {
         nextState.lightTheme === prevState.lightTheme &&
         nextState.darkTheme === prevState.darkTheme &&
         nextState.locale === prevState.locale &&
-        nextState.detachedAgentToastMode === prevState.detachedAgentToastMode
+        nextState.detachedAgentToastMode === prevState.detachedAgentToastMode &&
+        nextState.fieldComplexityLevel === prevState.fieldComplexityLevel
       ) {
         return;
       }

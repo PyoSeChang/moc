@@ -22,6 +22,7 @@ interface OpenTabParams {
   viewMode?: EditorViewMode;
   draftData?: EditorTab['draftData'];
   networkId?: string;
+  nodeId?: string;
   terminalCwd?: string;
   /** Host to open the tab in (defaults to MAIN_HOST_ID) */
   hostId?: string;
@@ -313,7 +314,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   focusedHostId: MAIN_HOST_ID,
   pendingCloseTabId: null,
 
-  openTab: async ({ type, targetId, title, viewMode, draftData, networkId, terminalCwd, hostId }) => {
+  openTab: async ({ type, targetId, title, viewMode, draftData, networkId, nodeId, terminalCwd, hostId }) => {
     const { tabs } = get();
     const tabId = makeTabId(type, targetId);
     const resolvedHostId = hostId ?? MAIN_HOST_ID;
@@ -321,8 +322,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     // Reuse existing tab
     const existing = tabs.find((t) => t.id === tabId);
     if (existing) {
+      const contextPatch: Partial<EditorTab> = {};
+      if (networkId !== undefined) contextPatch.networkId = networkId;
+      if (nodeId !== undefined) contextPatch.nodeId = nodeId;
+      if (draftData !== undefined) contextPatch.draftData = draftData;
+
       // If tab exists in a different host, move it
       if (existing.hostId !== resolvedHostId) {
+        if (Object.keys(contextPatch).length > 0) {
+          set((s) => ({
+            tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, ...contextPatch } : t)),
+          }));
+        }
         get().moveTabToHost(tabId, resolvedHostId);
         return;
       }
@@ -339,7 +350,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         set({
           ...layoutUpdate,
           activeTabId: tabId,
-          tabs: tabs.map((t) => (t.id === tabId ? { ...t, isMinimized: false } : t)),
+          tabs: tabs.map((t) => (t.id === tabId ? { ...t, ...contextPatch, isMinimized: false } : t)),
         });
       } else {
         // Activate in detached host
@@ -348,7 +359,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             ...s.hosts,
             [resolvedHostId]: { ...s.hosts[resolvedHostId], activeTabId: tabId },
           },
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isMinimized: false } : t)),
+          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, ...contextPatch, isMinimized: false } : t)),
         }));
       }
       return;
@@ -405,6 +416,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       activeFilePath: null,
       draftData,
       networkId,
+      nodeId,
       terminalCwd,
     };
 

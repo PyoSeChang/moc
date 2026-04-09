@@ -500,7 +500,11 @@ const linkHandler = EditorView.domEventHandlers({
     const el = (e.target as HTMLElement).closest('.md-link');
     if (!el) return false;
     const href = el.getAttribute('data-href');
-    if (href) { e.preventDefault(); window.open(href, '_blank'); return true; }
+            if (href) {
+              e.preventDefault();
+              void import('../../../lib/open-external').then(({ openExternal }) => openExternal(href));
+              return true;
+            }
     return false;
   },
 });

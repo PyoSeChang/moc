@@ -29,6 +29,9 @@ const electronAPI = {
       return () => { ipcRenderer.removeListener('app:shortcut', handler); };
     },
   },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url) as Promise<boolean>,
+  },
   project: {
     create: (data: { name: string; root_dir: string }) =>
       ipcRenderer.invoke('project:create', data),

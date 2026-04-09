@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import type { SplitDirection } from '@netior/shared/types';
 import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
+import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
 
 export type DropZone = 'top' | 'bottom' | 'left' | 'right' | 'center';
 
@@ -13,6 +14,7 @@ export interface DropResult {
 
 interface DropZoneOverlayProps {
   onDrop: (result: DropResult) => void;
+  onFileDrop?: (filePaths: string[], result: Omit<DropResult, 'tabId'>) => void;
   centerOnly?: boolean;
   active: boolean;
 }
@@ -43,12 +45,12 @@ function getZone(e: React.DragEvent<HTMLDivElement>, centerOnly?: boolean): Drop
   return 'center';
 }
 
-export function DropZoneOverlay({ onDrop, centerOnly, active }: DropZoneOverlayProps): JSX.Element | null {
+export function DropZoneOverlay({ onDrop, onFileDrop, centerOnly, active }: DropZoneOverlayProps): JSX.Element | null {
   const [activeZone, setActiveZone] = useState<DropZone | null>(null);
 
   const handleDragOver = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
-      if (!isTabDrag(e)) return;
+      if (!isTabDrag(e) && !isFileOpenDrag(e)) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
@@ -71,12 +73,18 @@ export function DropZoneOverlay({ onDrop, centerOnly, active }: DropZoneOverlayP
       const { direction, position } = zoneToSplit(zone);
       setActiveZone(null);
 
+      if (isFileOpenDrag(e)) {
+        const filePaths = getFileOpenDragData(e);
+        console.log(`[DropZoneOverlay] drop file centerOnly=${!!centerOnly}, zone=${zone}, count=${filePaths.length}`);
+        if (filePaths.length > 0) onFileDrop?.(filePaths, { zone, direction, position });
+        return;
+      }
+
       const tabId = await getTabDragDataAsync(e);
-      console.log(`[DropZoneOverlay] drop centerOnly=${!!centerOnly}, zone=${zone}, tabId=${tabId}`);
-      if (!tabId) return;
-      onDrop({ tabId, zone, direction, position });
+      console.log(`[DropZoneOverlay] drop tab centerOnly=${!!centerOnly}, zone=${zone}, tabId=${tabId}`);
+      if (tabId) onDrop({ tabId, zone, direction, position });
     },
-    [onDrop, centerOnly],
+    [onDrop, onFileDrop, centerOnly],
   );
 
   // Only render when a drag is active

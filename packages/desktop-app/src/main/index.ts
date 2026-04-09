@@ -187,6 +187,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('window:isMaximized', (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
   });
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    await shell.openExternal(url);
+    return true;
+  });
 
   // Detached editor window IPC (host-based)
   ipcMain.handle('editor:detach', (_event, hostId: string, title: string) => {

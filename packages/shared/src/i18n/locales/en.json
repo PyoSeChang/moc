@@ -689,7 +689,16 @@
     "todoHide": "Hide Todo",
     "todoTitle": "Todo",
     "todoAddPlaceholder": "Add todo...",
-    "todoEmpty": "No todos"
+    "todoEmpty": "No todos",
+    "openFileAction": "Open file",
+    "openSplitRightAction": "Open split right",
+    "openSplitBelowAction": "Open split below",
+    "openInPaneAction": "Open in {pane}",
+    "openUrlAction": "Open URL in browser",
+    "copySelectionAction": "Copy selection",
+    "copyResolvedPathAction": "Copy resolved path",
+    "resolvingFile": "Resolving file...",
+    "fileNotFoundNothingOpened": "File not found. Nothing was opened."
   },
   "narre": {
     "title": "Narre",

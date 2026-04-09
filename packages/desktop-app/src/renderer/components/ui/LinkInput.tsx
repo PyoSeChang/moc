@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { openExternal } from '../../lib/open-external';
 
 export interface LinkInputProps {
   value?: string;
@@ -9,8 +10,8 @@ export interface LinkInputProps {
 }
 
 export const LinkInput: React.FC<LinkInputProps> = ({ value, onChange, placeholder = 'https://', disabled }) => {
-  const openExternal = () => {
-    if (value) window.open(value, '_blank');
+  const handleOpenExternal = () => {
+    if (value) void openExternal(value);
   };
 
   return (
@@ -26,7 +27,7 @@ export const LinkInput: React.FC<LinkInputProps> = ({ value, onChange, placehold
       {value && (
         <button
           type="button"
-          onClick={openExternal}
+          onClick={handleOpenExternal}
           className="p-1.5 text-muted hover:text-default transition-colors"
           title="Open link"
         >

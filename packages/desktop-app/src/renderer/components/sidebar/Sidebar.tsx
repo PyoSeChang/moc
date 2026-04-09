@@ -4,7 +4,6 @@ import type { Project } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useFileStore } from '../../stores/file-store';
 import { useModuleStore } from '../../stores/module-store';
-import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { NetworkList } from './NetworkList';
 import { FileTree } from './FileTree';
@@ -19,6 +18,7 @@ import { Spinner } from '../ui/Spinner';
 import { Tooltip } from '../ui/Tooltip';
 import { fsService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
+import { openFileTab } from '../../lib/open-file-tab';
 
 interface SidebarProps {
   project: Project;
@@ -67,12 +67,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
   }, [refreshFileTree]);
 
   const handleFileClick = (absolutePath: string) => {
-    const fileName = absolutePath.replace(/\\/g, '/').split('/').pop() ?? absolutePath;
-    useEditorStore.getState().openTab({
-      type: 'file',
-      targetId: absolutePath,
-      title: fileName,
-    });
+    void openFileTab({ filePath: absolutePath });
   };
 
   return (

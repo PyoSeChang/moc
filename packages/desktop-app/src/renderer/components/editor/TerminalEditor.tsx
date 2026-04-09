@@ -1,28 +1,110 @@
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EditorTab } from '@netior/shared/types';
+import type { TranslationKey } from '@netior/shared/i18n';
 import type { ITerminalInstance } from '@codingame/monaco-vscode-api/vscode/vs/workbench/contrib/terminal/browser/terminal';
 import { useEditorStore } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
 import { getOrCreateTerminalInstance, adjustTerminalFontSize, resetTerminalFontSize } from '../../lib/terminal/terminal-services';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { TerminalTodoPanel } from './TerminalTodoPanel';
-import { extractFileLinks } from '../../lib/terminal/terminal-link-parser';
+import { extractFileLink, extractFileLinks, extractUrl, extractUrls } from '../../lib/terminal/terminal-link-parser';
 import { subscribeTodoStore, isTodoEnabled } from '../../lib/terminal-todo-store';
 import { logShortcut } from '../../shortcuts/shortcut-utils';
 import { getDefaultTerminalCwd } from '../../lib/terminal/open-terminal-tab';
+import { resolveFirstExistingFilePath, type ResolvedFilePath } from '../../lib/file-open-resolver';
+import { openExternal } from '../../lib/open-external';
+import { useI18n } from '../../hooks/useI18n';
+import {
+  getFileOpenPaneOptions,
+  openFileInPane,
+  openFileTab,
+  type FileOpenPaneOption,
+  type FileOpenPlacement,
+} from '../../lib/open-file-tab';
 
 interface TerminalEditorProps {
   tab: EditorTab;
 }
 
+interface TerminalTextTarget {
+  text: string;
+  col: number;
+  x: number;
+  y: number;
+  link?: TerminalTextLink;
+  linkStart?: number;
+  linkEnd?: number;
+}
+
+interface TerminalTextLink {
+  url?: string;
+  fileLink?: { path: string; line?: number; col?: number };
+}
+
+interface TerminalCursorPosition {
+  x: number;
+  y: number;
+}
+
+interface TerminalActionOverlayState {
+  x: number;
+  y: number;
+  selectedText: string;
+  url?: string;
+  fileInput?: string;
+  resolvedFile?: ResolvedFilePath | null;
+  resolving?: boolean;
+}
+
+interface TerminalLinkUnderlineSegment {
+  x: number;
+  y: number;
+  width: number;
+}
+
+function getTerminalTextLinkKey(link: TerminalTextLink | undefined): string | null {
+  return link?.url ?? link?.fileLink?.path ?? null;
+}
+
+function isNearPosition(a: TerminalCursorPosition | null, b: TerminalCursorPosition | null, threshold = 4): boolean {
+  if (!a || !b) return false;
+  return Math.abs(a.x - b.x) <= threshold && Math.abs(a.y - b.y) <= threshold;
+}
+
+function disposeVsCodeTerminalLinks(instance: ITerminalInstance): boolean {
+  const contribution = (instance as unknown as {
+    getContribution?(id: string): { dispose?(): void } | undefined;
+  }).getContribution?.('terminal.link');
+
+  if (contribution?.dispose) {
+    contribution.dispose();
+    return true;
+  }
+  return false;
+}
+
 export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
+  const actionOverlayRefEl = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<ITerminalInstance | null>(null);
   const sessionId = tab.targetId;
   const currentProjectId = useProjectStore((s) => s.currentProject?.id ?? null);
   const cwdRef = useRef(tab.terminalCwd ?? getDefaultTerminalCwd());
   const updateTitle = useEditorStore((s) => s.updateTitle);
+  const { t } = useI18n();
   const [searchVisible, setSearchVisible] = useState(false);
+  const [actionOverlay, setActionOverlay] = useState<TerminalActionOverlayState | null>(null);
+  const [linkUnderlineSegments, setLinkUnderlineSegments] = useState<TerminalLinkUnderlineSegment[]>([]);
+  const actionOverlayRef = useRef<TerminalActionOverlayState | null>(null);
+  const overlayHoverRef = useRef(false);
+  const modifierDownRef = useRef(false);
+  const hoveredLinkTargetRef = useRef<TerminalTextTarget | null>(null);
+  const lastMousePositionRef = useRef<TerminalCursorPosition | null>(null);
+  const pendingModifierOverlayRef = useRef<TerminalCursorPosition | null>(null);
+  const getMouseBufferCellRef = useRef<(() => { x: number; y: number } | null) | null>(null);
+  const readHoveredLinkTargetRef = useRef<(() => TerminalTextTarget | null) | null>(null);
+  const ctrlMouseDownRef = useRef<TerminalTextTarget | null>(null);
+  const suppressNextTerminalClickRef = useRef(false);
   const todoEnabled = useSyncExternalStore(
     subscribeTodoStore,
     () => isTodoEnabled(sessionId),
@@ -31,6 +113,160 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   const handleSearchClose = useCallback(() => {
     setSearchVisible(false);
     void instanceRef.current?.focusWhenReady();
+  }, []);
+
+  useEffect(() => {
+    actionOverlayRef.current = actionOverlay;
+  }, [actionOverlay]);
+
+  const clearLinkUi = useCallback(() => {
+    pendingModifierOverlayRef.current = null;
+    setLinkUnderlineSegments([]);
+  }, []);
+
+  const closeActionOverlay = useCallback(() => {
+    overlayHoverRef.current = false;
+    actionOverlayRef.current = null;
+    clearLinkUi();
+    setActionOverlay(null);
+  }, [clearLinkUi]);
+
+  const isPointInsideActionOverlay = useCallback((x: number, y: number): boolean => {
+    const overlay = actionOverlayRefEl.current;
+    if (!overlay) return false;
+    const rect = overlay.getBoundingClientRect();
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }, []);
+
+  const finishModifierHold = useCallback((pointer?: TerminalCursorPosition | null) => {
+    modifierDownRef.current = false;
+    clearLinkUi();
+    const isInsideOverlay = pointer ? isPointInsideActionOverlay(pointer.x, pointer.y) : overlayHoverRef.current;
+    if (!isInsideOverlay) {
+      closeActionOverlay();
+    }
+  }, [clearLinkUi, closeActionOverlay, isPointInsideActionOverlay]);
+
+  const resolveAndSetOverlay = useCallback((overlay: TerminalActionOverlayState) => {
+    setActionOverlay(overlay);
+    if (!overlay.fileInput) return;
+
+    const fileInput = overlay.fileInput;
+    void resolveFirstExistingFilePath(fileInput, cwdRef.current).then((resolvedFile) => {
+      setActionOverlay((current) => {
+        if (!current || current.fileInput !== fileInput) return current;
+        return { ...current, resolving: false, resolvedFile };
+      });
+    });
+  }, []);
+
+  const showOverlayForText = useCallback((text: string, x: number, y: number, col?: number) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const url = col != null
+      ? extractUrl(text, col)?.url
+      : extractUrls(trimmed)[0]?.url;
+    if (url) {
+      setActionOverlay({ x, y, selectedText: url, url });
+      return;
+    }
+
+    const fileLink = col != null
+      ? extractFileLink(text, col)
+      : extractFileLinks(trimmed)[0];
+    if (fileLink) {
+      resolveAndSetOverlay({
+        x,
+        y,
+        selectedText: fileLink.path,
+        fileInput: fileLink.path,
+        resolving: true,
+      });
+      return;
+    }
+
+    closeActionOverlay();
+  }, [closeActionOverlay, resolveAndSetOverlay]);
+
+  const showOverlayForTarget = useCallback((target: TerminalTextTarget, x: number, y: number) => {
+    const link = target.link ?? {
+      url: extractUrl(target.text, target.col)?.url,
+      fileLink: extractFileLink(target.text, target.col) ?? undefined,
+    };
+    if (link.url) {
+      setActionOverlay({ x, y, selectedText: link.url, url: link.url });
+      return;
+    }
+    if (link.fileLink) {
+      resolveAndSetOverlay({
+        x,
+        y,
+        selectedText: link.fileLink.path,
+        fileInput: link.fileLink.path,
+        resolving: true,
+      });
+      return;
+    }
+    closeActionOverlay();
+  }, [closeActionOverlay, resolveAndSetOverlay]);
+
+  const openOverlayFile = useCallback((placement: FileOpenPlacement) => {
+    const file = actionOverlay?.resolvedFile;
+    if (!file) return;
+    void openFileTab({
+      filePath: file.path,
+      sourceTabId: tab.id,
+      placement,
+    });
+    closeActionOverlay();
+  }, [actionOverlay?.resolvedFile, closeActionOverlay, tab.id]);
+
+  const openOverlayFileInPane = useCallback((pane: FileOpenPaneOption) => {
+    const file = actionOverlay?.resolvedFile;
+    if (!file) return;
+    void openFileInPane(file.path, pane.activeTabId, pane.mode);
+    closeActionOverlay();
+  }, [actionOverlay?.resolvedFile, closeActionOverlay]);
+
+  const getTextTargetLink = useCallback((target: TerminalTextTarget, exactOnly = true): TerminalTextLink => {
+    if (target.link) return target.link;
+
+    const url = extractUrl(target.text, target.col)?.url;
+    const fileLink = extractFileLink(target.text, target.col);
+    if (url || fileLink) return { url, fileLink: fileLink ?? undefined };
+    if (exactOnly) return {};
+
+    // Terminal click coordinates can be off by a few columns because xterm
+    // wraps and pads buffer lines. Fall back to the first link on this
+    // logical row so Ctrl+click does not leak to the terminal's built-in URL opener.
+    const fallbackUrl = extractUrls(target.text)[0]?.url;
+    if (fallbackUrl) return { url: fallbackUrl };
+    const fallbackFile = extractFileLinks(target.text)[0];
+    return fallbackFile ? { fileLink: fallbackFile } : {};
+  }, []);
+
+  const showPendingModifierOverlay = useCallback((): boolean => {
+    const pendingOverlay = pendingModifierOverlayRef.current;
+    if (!modifierDownRef.current || !pendingOverlay) return false;
+    if (!isNearPosition(pendingOverlay, lastMousePositionRef.current)) return false;
+
+    const target = hoveredLinkTargetRef.current;
+    const link = target ? getTextTargetLink(target) : {};
+    if (!target || (!link.url && !link.fileLink)) return false;
+
+    pendingModifierOverlayRef.current = null;
+    showOverlayForTarget(target, pendingOverlay.x, pendingOverlay.y);
+    return true;
+  }, [getTextTargetLink, showOverlayForTarget]);
+
+  const updateHoveredLinkFromProviderRanges = useCallback((): TerminalTextTarget | null => {
+    const directTarget = readHoveredLinkTargetRef.current?.();
+    if (directTarget || readHoveredLinkTargetRef.current) {
+      return directTarget ?? null;
+    }
+    hoveredLinkTargetRef.current = null;
+    return null;
   }, []);
 
   useEffect(() => {
@@ -46,6 +282,14 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     let resizeObserver: ResizeObserver | null = null;
     let scrollbarObserver: MutationObserver | null = null;
     let titleListener: { dispose(): void } | null = null;
+    const linkContributionDisposeTimers: number[] = [];
+
+    const disposeBuiltInLinksSoon = (instance: ITerminalInstance): void => {
+      disposeVsCodeTerminalLinks(instance);
+      linkContributionDisposeTimers.push(window.setTimeout(() => disposeVsCodeTerminalLinks(instance), 0));
+      linkContributionDisposeTimers.push(window.setTimeout(() => disposeVsCodeTerminalLinks(instance), 120));
+      linkContributionDisposeTimers.push(window.setTimeout(() => disposeVsCodeTerminalLinks(instance), 500));
+    };
 
     const patchScrollbars = (): void => {
       const vertical = container.querySelector<HTMLElement>('.xterm-scrollbar.xterm-vertical');
@@ -105,6 +349,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
 
       instance.attachToElement(container);
       instance.setVisible(true);
+      disposeBuiltInLinksSoon(instance);
       instance.layout({
         width: container.clientWidth,
         height: container.clientHeight,
@@ -137,9 +382,169 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       });
 
       void instance.focusWhenReady();
+
+      type XtermBufferLine = { translateToString(trimRight?: boolean): string; isWrapped?: boolean };
+      type XtermLike = {
+        element?: HTMLElement;
+        cols?: number;
+        dimensions?: { css?: { cell?: { width?: number; height?: number } } };
+        buffer: {
+          active: {
+            viewportY: number;
+            length: number;
+            getLine(bufferLineIndex: number): XtermBufferLine | undefined;
+          };
+        };
+      };
+      type XtermTerminalWrapper = { raw?: XtermLike };
+      const xt = (instance as unknown as { xterm?: XtermTerminalWrapper }).xterm?.raw;
+      if (xt) {
+        const getLogicalLine = (bufferLineNumber: number): { text: string; startLineNumber: number } => {
+          const startBufferIndex = bufferLineNumber - 1;
+          let logicalStartIndex = startBufferIndex;
+          while (logicalStartIndex > 0 && xt.buffer.active.getLine(logicalStartIndex)?.isWrapped) {
+            logicalStartIndex--;
+          }
+
+          let text = '';
+          for (let index = logicalStartIndex; index < xt.buffer.active.length; index++) {
+            const line = xt.buffer.active.getLine(index);
+            if (!line) break;
+            if (index > logicalStartIndex && !line.isWrapped) break;
+            text += line.translateToString(true);
+          }
+
+          return { text, startLineNumber: logicalStartIndex + 1 };
+        };
+
+        const getMouseBufferCell = (): { x: number; y: number } | null => {
+          const mouse = lastMousePositionRef.current;
+          const screen = xt.element?.querySelector<HTMLElement>('.xterm-screen');
+          const cellWidth = xt.dimensions?.css?.cell?.width;
+          const cellHeight = xt.dimensions?.css?.cell?.height;
+          if (!mouse || !screen || !cellWidth || !cellHeight) return null;
+
+          const rect = screen.getBoundingClientRect();
+          const viewportX = Math.floor((mouse.x - rect.left) / cellWidth) + 1;
+          const viewportY = Math.floor((mouse.y - rect.top) / cellHeight);
+          if (viewportX < 1 || viewportY < 0) return null;
+          return {
+            x: viewportX,
+            y: xt.buffer.active.viewportY + viewportY + 1,
+          };
+        };
+        getMouseBufferCellRef.current = getMouseBufferCell;
+
+        const setUnderlineForLogicalRange = (
+          start: number,
+          endExclusive: number,
+          startLineNumber: number,
+        ): void => {
+          if (!modifierDownRef.current) return;
+          const screen = xt.element?.querySelector<HTMLElement>('.xterm-screen');
+          const cellWidth = xt.dimensions?.css?.cell?.width;
+          const cellHeight = xt.dimensions?.css?.cell?.height;
+          const cols = xt.cols ?? 120;
+          if (!screen || !cellWidth || !cellHeight) return;
+
+          const screenRect = screen.getBoundingClientRect();
+          const endInclusive = Math.max(start, endExclusive - 1);
+          const startRow = Math.floor(start / cols);
+          const endRow = Math.floor(endInclusive / cols);
+          const viewportStartY = xt.buffer.active.viewportY + 1;
+          const segments: TerminalLinkUnderlineSegment[] = [];
+
+          for (let row = startRow; row <= endRow; row++) {
+            const bufferLineNumber = startLineNumber + row;
+            const viewportRow = bufferLineNumber - viewportStartY;
+            if (viewportRow < 0) continue;
+            const startCol = row === startRow ? start % cols : 0;
+            const endColInclusive = row === endRow ? endInclusive % cols : cols - 1;
+            if (endColInclusive < startCol) continue;
+
+            segments.push({
+              x: screenRect.left + startCol * cellWidth,
+              y: screenRect.top + (viewportRow + 1) * cellHeight - 2,
+              width: (endColInclusive - startCol + 1) * cellWidth,
+            });
+          }
+
+          setLinkUnderlineSegments(segments);
+        };
+
+        const readHoveredLinkTarget = (): TerminalTextTarget | null => {
+          const mouseCell = getMouseBufferCell();
+          const mouse = lastMousePositionRef.current;
+          const cols = xt.cols ?? 120;
+          if (!mouseCell || !mouse) {
+            hoveredLinkTargetRef.current = null;
+            return null;
+          }
+
+          const { text, startLineNumber } = getLogicalLine(mouseCell.y);
+          const col = ((mouseCell.y - startLineNumber) * cols) + mouseCell.x - 1;
+          const urlCandidate = extractUrls(text).find((link) => col >= link.start && col <= link.end);
+          const fileCandidate = extractFileLinks(text).find((link) => col >= link.start && col <= link.end);
+          const linkStart = urlCandidate?.start ?? fileCandidate?.start;
+          const linkEnd = urlCandidate?.end ?? fileCandidate?.end;
+          const link: TerminalTextLink = {
+            url: urlCandidate?.url,
+            fileLink: fileCandidate
+              ? { path: fileCandidate.path, line: fileCandidate.line, col: fileCandidate.col }
+              : undefined,
+          };
+
+          if (!link.url && !link.fileLink || linkStart == null || linkEnd == null) {
+            hoveredLinkTargetRef.current = null;
+            setLinkUnderlineSegments([]);
+            return null;
+          }
+
+          const target: TerminalTextTarget = {
+            text,
+            col,
+            x: mouse.x,
+            y: mouse.y,
+            link,
+            linkStart,
+            linkEnd,
+          };
+          hoveredLinkTargetRef.current = target;
+          setUnderlineForLogicalRange(linkStart, linkEnd, startLineNumber);
+          return target;
+        };
+        readHoveredLinkTargetRef.current = readHoveredLinkTarget;
+
+      }
     };
 
     void attach();
+
+    const showOverlayForHoveredLink = (e: KeyboardEvent): boolean => {
+      if ((e.key === 'Control' || e.key === 'Meta') && !e.repeat) {
+        modifierDownRef.current = true;
+        pendingModifierOverlayRef.current = lastMousePositionRef.current;
+        const target = updateHoveredLinkFromProviderRanges();
+        if (!target) {
+          closeActionOverlay();
+        } else {
+          const link = getTextTargetLink(target);
+          if (link.url || link.fileLink) {
+            const pos = lastMousePositionRef.current;
+            pendingModifierOverlayRef.current = null;
+            showOverlayForTarget(target, pos?.x ?? target.x, pos?.y ?? target.y);
+          } else {
+            closeActionOverlay();
+          }
+        }
+        return true;
+      }
+      return false;
+    };
+
+    const handleWindowModifierKeyDown = (e: KeyboardEvent): void => {
+      showOverlayForHoveredLink(e);
+    };
 
     const handleKeyDown = (e: KeyboardEvent): void => {
       const instance = instanceRef.current;
@@ -223,90 +628,190 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       }
     };
 
-    const handleCtrlClick = (e: MouseEvent): void => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      const instance = instanceRef.current;
-      if (!instance) return;
-
-      type BufferLine = { translateToString(trimRight?: boolean): string; isWrapped?: boolean };
-      const xterm = instance as unknown as {
-        xterm?: {
-          buffer: {
-            active: {
-              baseY: number;
-              length: number;
-              getLine(y: number): BufferLine | undefined;
-            };
-          };
-          _renderService?: { dimensions: { css: { cell: { width: number; height: number } } } };
-        };
-      };
-      const xt = xterm.xterm;
-      if (!xt) return;
-
-      // Get cell height from render service (most accurate)
-      const cellHeight = xt._renderService?.dimensions?.css?.cell?.height ?? 18;
-
-      const xtermScreen = container.querySelector('.xterm-screen') as HTMLElement | null;
-      if (!xtermScreen) return;
-      const screenRect = xtermScreen.getBoundingClientRect();
-      const viewportRow = Math.floor((e.clientY - screenRect.top) / cellHeight);
-      const bufferRow = xt.buffer.active.baseY + viewportRow;
-
-      // Collect the full logical line by joining wrapped lines
-      // Walk backward to find the start of the logical line
-      let startRow = bufferRow;
-      while (startRow > 0) {
-        const prev = xt.buffer.active.getLine(startRow);
-        if (!prev || !prev.isWrapped) break;
-        startRow--;
-      }
-      // Walk forward to collect all wrapped continuations
-      let fullText = '';
-      for (let r = startRow; r < xt.buffer.active.length; r++) {
-        const bufLine = xt.buffer.active.getLine(r);
-        if (!bufLine) break;
-        if (r > startRow && !bufLine.isWrapped) break;
-        fullText += bufLine.translateToString(r === startRow);
-      }
-
-      const links = extractFileLinks(fullText);
-      if (links.length === 0) return;
-
-      const bestLink = links[0];
+    const stopTerminalLinkEvent = (e: MouseEvent): void => {
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
+    };
 
-      // Resolve relative paths against terminal cwd
-      let filePath = bestLink.path;
-      if (!filePath.match(/^[A-Za-z]:[\\/]/) && !filePath.startsWith('/')) {
-        filePath = cwd + '/' + filePath;
+    const openTerminalLinkTarget = (target: TerminalTextTarget, link: TerminalTextLink): void => {
+      closeActionOverlay();
+
+      if (link.url) {
+        void openExternal(link.url);
+        return;
       }
-      filePath = filePath.replace(/\\/g, '/');
 
-      const fileName = filePath.split('/').pop() ?? filePath;
-      void useEditorStore.getState().openTab({
-        type: 'file',
-        targetId: filePath,
-        title: fileName,
-      });
+      if (link.fileLink) {
+        const fileInput = link.fileLink.path;
+        void resolveFirstExistingFilePath(fileInput, cwdRef.current).then((resolvedFile) => {
+          if (!resolvedFile) {
+            resolveAndSetOverlay({
+              x: target.x,
+              y: target.y,
+              selectedText: fileInput,
+              fileInput,
+              resolving: true,
+            });
+            return;
+          }
+          void openFileTab({
+            filePath: resolvedFile.path,
+            sourceTabId: tab.id,
+            placement: 'smart',
+          });
+        });
+      }
+    };
+
+    const handleCtrlMouseDown = (e: MouseEvent): void => {
+      ctrlMouseDownRef.current = null;
+      if (!e.ctrlKey && !e.metaKey) return;
+      const target = updateHoveredLinkFromProviderRanges();
+      if (!target) return;
+      const link = getTextTargetLink(target);
+      if (!link.url && !link.fileLink) return;
+      ctrlMouseDownRef.current = target;
+      stopTerminalLinkEvent(e);
+    };
+
+    const handleCtrlClick = (e: MouseEvent): void => {
+      if (suppressNextTerminalClickRef.current) {
+        suppressNextTerminalClickRef.current = false;
+        stopTerminalLinkEvent(e);
+        return;
+      }
+
+      if (!e.ctrlKey && !e.metaKey) return;
+      const target = updateHoveredLinkFromProviderRanges();
+      if (!target) return;
+      const link = getTextTargetLink(target);
+      if (!link.url && !link.fileLink) return;
+      stopTerminalLinkEvent(e);
+    };
+
+    const handleMouseMove = (e: MouseEvent): void => {
+      lastMousePositionRef.current = { x: e.clientX, y: e.clientY };
+      if (modifierDownRef.current && !e.ctrlKey && !e.metaKey) {
+        finishModifierHold(lastMousePositionRef.current);
+      }
+      if (!isNearPosition(pendingModifierOverlayRef.current, lastMousePositionRef.current)) {
+        pendingModifierOverlayRef.current = null;
+      }
+      const target = updateHoveredLinkFromProviderRanges();
+      if (e.ctrlKey || e.metaKey) {
+        modifierDownRef.current = true;
+        if (target) {
+          const targetKey = getTerminalTextLinkKey(target.link);
+          if (targetKey && actionOverlayRef.current?.selectedText !== targetKey) {
+            pendingModifierOverlayRef.current = null;
+            showOverlayForTarget(target, e.clientX, e.clientY);
+          }
+        } else if (!actionOverlayRef.current) {
+          pendingModifierOverlayRef.current = lastMousePositionRef.current;
+        } else if (!overlayHoverRef.current) {
+          closeActionOverlay();
+        }
+        showPendingModifierOverlay();
+        return;
+      }
+      showPendingModifierOverlay();
+      clearLinkUi();
+    };
+
+    const handleMouseUp = (e: MouseEvent): void => {
+      if (!e.ctrlKey && !e.metaKey) return;
+
+      const target = updateHoveredLinkFromProviderRanges();
+      if (target) {
+        const link = getTextTargetLink(target);
+        if (link.url || link.fileLink) {
+          stopTerminalLinkEvent(e);
+          suppressNextTerminalClickRef.current = true;
+
+          const downTarget = ctrlMouseDownRef.current;
+          const isClick =
+            !!downTarget
+            && Math.abs(downTarget.x - target.x) < 5
+            && Math.abs(downTarget.y - target.y) < 5;
+          ctrlMouseDownRef.current = null;
+
+          if (isClick) {
+            openTerminalLinkTarget(target, link);
+          }
+          return;
+        }
+      }
+
+      ctrlMouseDownRef.current = null;
+      const instance = instanceRef.current as unknown as {
+        getSelection?(): string;
+        xterm?: { getSelection?(): string };
+      } | null;
+      const selectedText = (instance?.getSelection?.() ?? instance?.xterm?.getSelection?.() ?? '').trim();
+      if (!selectedText) return;
+      const rect = container.getBoundingClientRect();
+      showOverlayForText(selectedText, rect.left + 24, rect.top + 24);
+    };
+
+    const handleKeyUp = (e: KeyboardEvent): void => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        finishModifierHold(lastMousePositionRef.current);
+      }
+    };
+
+    const handleWindowBlur = (): void => {
+      finishModifierHold(null);
     };
 
     container.addEventListener('keydown', handleKeyDown, true);
+    container.addEventListener('mousedown', handleCtrlMouseDown, true);
     container.addEventListener('click', handleCtrlClick, true);
+    container.addEventListener('mousemove', handleMouseMove, true);
+    container.addEventListener('mouseup', handleMouseUp, true);
+    document.addEventListener('keydown', handleWindowModifierKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
       disposed = true;
       container.removeEventListener('keydown', handleKeyDown, true);
+      container.removeEventListener('mousedown', handleCtrlMouseDown, true);
       container.removeEventListener('click', handleCtrlClick, true);
+      container.removeEventListener('mousemove', handleMouseMove, true);
+      container.removeEventListener('mouseup', handleMouseUp, true);
+      document.removeEventListener('keydown', handleWindowModifierKeyDown, true);
+      document.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
+      linkContributionDisposeTimers.forEach((timer) => window.clearTimeout(timer));
       titleListener?.dispose();
       resizeObserver?.disconnect();
       scrollbarObserver?.disconnect();
+      getMouseBufferCellRef.current = null;
+      readHoveredLinkTargetRef.current = null;
+      pendingModifierOverlayRef.current = null;
       instanceRef.current?.detachFromElement();
       instanceRef.current?.setVisible(false);
       instanceRef.current = null;
     };
-  }, [sessionId, tab.id, tab.title, updateTitle, currentProjectId]);
+  }, [
+    sessionId,
+    tab.id,
+    tab.title,
+    updateTitle,
+    currentProjectId,
+    showOverlayForText,
+    showOverlayForTarget,
+    resolveAndSetOverlay,
+    getTextTargetLink,
+    updateHoveredLinkFromProviderRanges,
+    showPendingModifierOverlay,
+    clearLinkUi,
+    closeActionOverlay,
+    finishModifierHold,
+  ]);
+
+  const paneOptions = actionOverlay?.resolvedFile ? getFileOpenPaneOptions(tab.id) : [];
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col bg-[var(--surface-editor)] p-2">
@@ -315,6 +820,119 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
         <TerminalSearchBar instanceRef={instanceRef} onClose={handleSearchClose} />
       )}
       {todoEnabled && <TerminalTodoPanel sessionId={sessionId} autoShowSeconds={10} />}
+      {linkUnderlineSegments.map((segment, index) => (
+        <div
+          key={`${Math.round(segment.x)}:${Math.round(segment.y)}:${index}`}
+          className="pointer-events-none fixed z-[10040] h-px bg-accent"
+          style={{
+            left: segment.x,
+            top: segment.y,
+            width: segment.width,
+          }}
+        />
+      ))}
+      {actionOverlay && (
+        <div
+          ref={actionOverlayRefEl}
+          className="fixed z-[10050] w-[min(560px,calc(100vw-24px))] rounded-md border border-default bg-surface-modal py-1 text-xs text-default shadow-lg"
+          style={{ left: actionOverlay.x + 10, top: actionOverlay.y + 10 }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseEnter={() => {
+            overlayHoverRef.current = true;
+          }}
+          onMouseLeave={() => {
+            overlayHoverRef.current = false;
+            closeActionOverlay();
+          }}
+        >
+          <div className="border-b border-subtle px-3 py-2 font-mono text-[11px] text-muted" title={actionOverlay.selectedText}>
+            <div className="max-h-24 overflow-auto break-all leading-relaxed">
+              {actionOverlay.selectedText}
+            </div>
+          </div>
+          <div className="py-1">
+            {actionOverlay.fileInput && actionOverlay.resolvedFile && (
+              <>
+                <TerminalOverlayItem shortcut="Click" onClick={() => openOverlayFile('smart')}>
+                  {t('terminal.openFileAction' as TranslationKey)}
+                </TerminalOverlayItem>
+                <TerminalOverlayItem shortcut="Ctrl+Alt+Right" onClick={() => openOverlayFile('right')}>
+                  {t('terminal.openSplitRightAction' as TranslationKey)}
+                </TerminalOverlayItem>
+                <TerminalOverlayItem shortcut="Ctrl+Alt+Down" onClick={() => openOverlayFile('below')}>
+                  {t('terminal.openSplitBelowAction' as TranslationKey)}
+                </TerminalOverlayItem>
+                {paneOptions.length > 0 && <TerminalOverlaySeparator />}
+                {paneOptions.map((pane) => (
+                  <TerminalOverlayItem key={pane.id} onClick={() => openOverlayFileInPane(pane)}>
+                    {t('terminal.openInPaneAction' as TranslationKey, { pane: pane.label })}
+                  </TerminalOverlayItem>
+                ))}
+                <TerminalOverlaySeparator />
+              </>
+            )}
+            {actionOverlay.url && (
+              <>
+                <TerminalOverlayItem shortcut="Click" onClick={() => {
+                  void openExternal(actionOverlay.url!);
+                  closeActionOverlay();
+                }}>
+                  {t('terminal.openUrlAction' as TranslationKey)}
+                </TerminalOverlayItem>
+                <TerminalOverlaySeparator />
+              </>
+            )}
+            <TerminalOverlayItem onClick={() => {
+              void navigator.clipboard.writeText(actionOverlay.selectedText);
+              closeActionOverlay();
+            }}>
+              {t('terminal.copySelectionAction' as TranslationKey)}
+            </TerminalOverlayItem>
+            {actionOverlay.resolvedFile && (
+              <TerminalOverlayItem onClick={() => {
+                void navigator.clipboard.writeText(actionOverlay.resolvedFile!.path);
+                closeActionOverlay();
+              }}>
+                {t('terminal.copyResolvedPathAction' as TranslationKey)}
+              </TerminalOverlayItem>
+            )}
+          </div>
+          {actionOverlay.fileInput && actionOverlay.resolving && (
+            <div className="border-t border-subtle px-3 py-2 text-[11px] text-muted">{t('terminal.resolvingFile' as TranslationKey)}</div>
+          )}
+          {actionOverlay.fileInput && !actionOverlay.resolving && !actionOverlay.resolvedFile && (
+            <div className="border-t border-subtle px-3 py-2 text-[11px] text-status-error">{t('terminal.fileNotFoundNothingOpened' as TranslationKey)}</div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function TerminalOverlaySeparator(): JSX.Element {
+  return <div className="my-1 border-t border-subtle" />;
+}
+
+function TerminalOverlayItem({
+  children,
+  shortcut,
+  muted,
+  onClick,
+}: {
+  children: React.ReactNode;
+  shortcut?: string;
+  muted?: boolean;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <button
+      className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-surface-hover ${
+        muted ? 'text-muted' : 'text-default'
+      }`}
+      onClick={onClick}
+    >
+      <span className="min-w-0 truncate">{children}</span>
+      {shortcut && <span className="shrink-0 font-mono text-[10px] text-muted">{shortcut}</span>}
+    </button>
   );
 }

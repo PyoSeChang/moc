@@ -8,6 +8,7 @@
     "rebuild:node": "node scripts/rebuild-native.js",
     "postinstall": "electron-rebuild -f -o better-sqlite3",
     "dev": "electron-vite dev",
+    "dev:theme-lab": "vite src/renderer --host 127.0.0.1 --port 5177",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "electron-builder",

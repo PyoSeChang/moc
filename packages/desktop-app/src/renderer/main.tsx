@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { DetachedEditorShell } from './components/editor/DetachedEditorShell';
+import { ThemeLab } from './components/dev/ThemeLab';
 import { initTerminalTracker } from './lib/terminal-tracker';
 import { initClaudeTerminalTracker } from './lib/claude-terminal-tracker';
 import { initTerminalAgentNotifier } from './lib/terminal-agent-notifier';
@@ -11,11 +12,14 @@ import './styles/globals.css';
 
 const hash = window.location.hash;
 const isDetached = hash.startsWith('#/detached/');
+const isThemeLab = import.meta.env.DEV && hash.startsWith('#/theme-lab');
 
-initTerminalTracker();
-initClaudeTerminalTracker();
-initTerminalAgentNotifier();
-initializeSettingsStore();
+if (!isThemeLab) {
+  initTerminalTracker();
+  initClaudeTerminalTracker();
+  initTerminalAgentNotifier();
+  initializeSettingsStore();
+}
 
 // Main-window-only module-level init.
 // Detached windows must not push their local store as the shared source of truth.
@@ -24,6 +28,10 @@ if (!isDetached) {
 }
 
 function Root(): JSX.Element {
+  if (isThemeLab) {
+    return <ThemeLab />;
+  }
+
   if (isDetached) {
     const detachedMatch = hash.match(/^#\/detached\/([^/]+)$/);
     const hostId = decodeURIComponent(detachedMatch![1]);

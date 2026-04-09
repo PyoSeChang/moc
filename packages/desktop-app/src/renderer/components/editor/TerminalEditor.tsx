@@ -309,8 +309,8 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   }, [sessionId, tab.id, tab.title, updateTitle, currentProjectId]);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col bg-surface-panel p-2">
-      <div ref={containerRef} className="terminal-editor flex-1 min-h-0 overflow-hidden bg-surface-panel" />
+    <div className="relative flex h-full min-h-0 w-full flex-col bg-[var(--surface-editor)] p-2">
+      <div ref={containerRef} className="terminal-editor flex-1 min-h-0 overflow-hidden bg-[var(--surface-editor)]" />
       {searchVisible && (
         <TerminalSearchBar instanceRef={instanceRef} onClose={handleSearchClose} />
       )}

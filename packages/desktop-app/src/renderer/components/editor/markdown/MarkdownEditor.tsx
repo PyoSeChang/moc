@@ -150,7 +150,7 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
   ], [cursorPlugin]);
 
   const theme = useMemo(() => {
-    const bg = getCssColorAsHex('--surface-panel', isDark ? '#1e1e1e' : '#ffffff');
+    const bg = getCssColorAsHex('--surface-editor', isDark ? '#242424' : '#f5f5f5');
     const fg = getCssColorAsHex('--text-default', isDark ? '#d4d4d4' : '#1e1e1e');
     const cursor = getCssColorAsHex('--accent', isDark ? '#569cd6' : '#0078d4');
 

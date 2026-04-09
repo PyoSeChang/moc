@@ -61,7 +61,7 @@ export function CodeEditor({ tabId, content, language, onChange }: CodeEditorPro
   }, [onChange]);
 
   const isDark = resolvedThemeMode !== 'light';
-  const bg = getCssColorAsHex('--surface-panel', isDark ? '#1e1e1e' : '#ffffff');
+  const bg = getCssColorAsHex('--surface-editor', isDark ? '#242424' : '#f5f5f5');
 
   const handleBeforeMount = useCallback((monaco: MonacoNamespace) => {
     monacoRef.current = monaco;

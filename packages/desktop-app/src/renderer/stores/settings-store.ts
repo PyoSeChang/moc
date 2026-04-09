@@ -65,7 +65,7 @@ const PRIMARY_PRESETS: readonly PrimaryPresetDefinition[] = [
   { id: 'moss', labelKey: 'settings.primaryPresets.moss.label', descriptionKey: 'settings.primaryPresets.moss.description', color: '#568b5f' },
   { id: 'amber', labelKey: 'settings.primaryPresets.amber.label', descriptionKey: 'settings.primaryPresets.amber.description', color: '#c88733' },
   { id: 'ember', labelKey: 'settings.primaryPresets.ember.label', descriptionKey: 'settings.primaryPresets.ember.description', color: '#c45b3c' },
-  { id: 'sky', labelKey: 'settings.primaryPresets.sky.label', descriptionKey: 'settings.primaryPresets.sky.description', color: '#5c92d6' },
+  { id: 'sky', labelKey: 'settings.primaryPresets.sky.label', descriptionKey: 'settings.primaryPresets.sky.description', color: '#0d99ff' },
 ] as const;
 
 const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
@@ -456,15 +456,15 @@ function getDefaultThemeSlot(mode: ResolvedThemeMode): ThemeSlotConfig {
         family: 'pastel',
         variant: 'violet',
         primaryMode: 'preset',
-        primaryPresetId: 'violet',
-        primaryCustomColor: '#9b8cff',
+        primaryPresetId: 'sky',
+        primaryCustomColor: '#0d99ff',
       }
     : {
         family: 'hearth',
         variant: 'warm',
         primaryMode: 'preset',
-        primaryPresetId: 'warm-gray',
-        primaryCustomColor: '#8f7f73',
+        primaryPresetId: 'sky',
+        primaryCustomColor: '#0d99ff',
       };
 }
 

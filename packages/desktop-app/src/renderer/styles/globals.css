@@ -162,7 +162,7 @@ body,
 .tab-active {
   position: relative;
   z-index: 1;
-  border-bottom: 1px solid var(--surface-panel);
+  border-bottom: 1px solid var(--surface-editor);
   margin-bottom: -1px;
 }
 

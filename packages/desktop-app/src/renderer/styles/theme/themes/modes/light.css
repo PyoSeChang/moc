@@ -1,38 +1,40 @@
 :root[data-mode="light"] {
+    --theme-background-image: none;
+
     /* Core roles */
-    --bg-app: var(--theme-light-surface-base, var(--palette-neutral-50));
-    --bg-sidebar: color-mix(in srgb, var(--theme-light-surface-panel, white) 92%, var(--palette-tint-50));
-    --bg-workspace: color-mix(in srgb, var(--bg-app) 88%, white);
-    --bg-canvas: color-mix(in srgb, var(--bg-app) 84%, var(--palette-tint-50));
-    --bg-panel: var(--theme-light-surface-panel, #ffffff);
-    --bg-elevated: var(--theme-light-surface-card, #ffffff);
-    --bg-float: color-mix(in srgb, var(--theme-light-surface-modal, white) 94%, var(--palette-tint-50));
-    --bg-titlebar: color-mix(in srgb, var(--bg-app) 58%, var(--palette-neutral-200));
+    --bg-app: #f5f5f5;
+    --bg-sidebar: #ffffff;
+    --bg-workspace: #f5f5f5;
+    --bg-canvas: #f5f5f5;
+    --bg-panel: #ffffff;
+    --bg-elevated: #f7f7f7;
+    --bg-float: #ffffff;
+    --bg-titlebar: #ffffff;
     --bg-tabstrip: var(--bg-titlebar);
-    --bg-sidebar-panel: color-mix(in srgb, var(--bg-sidebar) 68%, var(--palette-tint-100));
-    --bg-tool-panel: color-mix(in srgb, var(--bg-panel) 64%, var(--palette-tint-100));
-    --bg-editor: color-mix(in srgb, var(--bg-panel) 88%, var(--palette-neutral-100));
+    --bg-sidebar-panel: #ffffff;
+    --bg-tool-panel: #ffffff;
+    --bg-editor: #f5f5f5;
     --bg-document: hsl(0, 0%, 100%);
     --bg-document-shadow: rgba(15, 23, 42, 0.14);
-    --bg-input: var(--theme-light-input-bg, #ffffff);
+    --bg-input: #ffffff;
     --bg-overlay: rgba(12, 18, 28, 0.42);
-    --bg-node: color-mix(in srgb, var(--theme-light-surface-card, #ffffff) 80%, var(--palette-tint-50));
-    --bg-node-selected: color-mix(in srgb, var(--bg-node) 74%, var(--palette-tint-100));
-    --bg-interactive-hover: color-mix(in srgb, var(--theme-light-surface-hover, var(--palette-neutral-100)) 82%, var(--palette-tint-50));
+    --bg-node: #f7f7f7;
+    --bg-node-selected: #eeeeee;
+    --bg-interactive-hover: #eeeeee;
     --bg-interactive-selected: color-mix(in srgb, var(--palette-primary-600) 12%, white);
     --bg-interactive-muted: color-mix(in srgb, var(--palette-primary-600) 8%, white);
     --bg-selection-soft: color-mix(in srgb, var(--palette-primary-600) 16%, white);
 
-    --text-strong: var(--palette-neutral-950);
-    --text-default: var(--palette-neutral-900);
-    --text-subtle: var(--palette-neutral-600);
-    --text-dim: var(--palette-neutral-500);
+    --text-strong: #111111;
+    --text-default: #1f2328;
+    --text-subtle: #59636e;
+    --text-dim: #818b98;
     --text-on-accent: white;
     --text-accent: var(--palette-primary-700);
 
-    --border-faint: color-mix(in srgb, var(--palette-neutral-300) 86%, transparent);
-    --border-default: var(--palette-neutral-400);
-    --border-strong: var(--palette-neutral-500);
+    --border-faint: #e0e0e0;
+    --border-default: #d1d1d1;
+    --border-strong: #9a9a9a;
     --border-accent: color-mix(in srgb, var(--palette-primary-600) 78%, white);
 
     --accent: var(--palette-primary-600);
@@ -40,17 +42,17 @@
     --accent-muted: color-mix(in srgb, var(--palette-primary-600) 12%, white);
 
     /* Status */
-    --status-success: #16a34a;
-    --status-warning: #ca8a04;
-    --status-error: #dc2626;
-    --status-info: #2563eb;
+    --status-success: #1a7f37;
+    --status-warning: #9a6700;
+    --status-error: #cf222e;
+    --status-info: #0969da;
 
     --input-bg: var(--bg-input);
     --input-border: var(--border-default);
     --input-placeholder: var(--text-dim);
 
     --accent-ring: color-mix(in srgb, var(--accent) 22%, transparent);
-    --edge-default: color-mix(in srgb, var(--palette-neutral-400) 84%, var(--palette-primary-200));
+    --edge-default: #9a9a9a;
     --edge-hover: var(--palette-primary-700);
 
     --shadow-panel: 0 10px 22px -18px rgba(15, 23, 42, 0.18);

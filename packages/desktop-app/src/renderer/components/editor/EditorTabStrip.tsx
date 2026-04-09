@@ -108,7 +108,7 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
       onDragEnd={() => clearTabDragData()}
       className={`group flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
         isActive
-          ? `tab-active bg-surface-panel text-default border-l border-r border-default ${
+          ? `tab-active bg-[var(--surface-editor)] text-default border-l border-r border-default ${
               isFocusedPane ? 'border-t-2 border-t-accent' : 'border-t border-t-default'
             }`
           : 'relative text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'

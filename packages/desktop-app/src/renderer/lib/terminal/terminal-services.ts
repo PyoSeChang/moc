@@ -48,7 +48,7 @@ function withAlpha(hex: string, alphaHex: string): string {
 
 function buildTerminalUserConfiguration(): string {
   const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
-  const background = getCssColorAsHex('--surface-panel', isDark ? '#141414' : '#fbfbfb');
+  const background = getCssColorAsHex('--surface-editor', isDark ? '#242424' : '#f5f5f5');
   const foreground = getCssColorAsHex('--text-default', isDark ? '#d4d4d4' : '#1f2328');
   const muted = getCssColorAsHex('--text-muted', isDark ? '#8b949e' : '#6b7280');
   const border = getCssColorAsHex('--border-default', isDark ? '#30363d' : '#d0d7de');

@@ -594,6 +594,7 @@ export interface EditorTab {
   draftData?: {
     networkId?: string;
     parentGroupNodeId?: string;
+    slotIndex?: number;
     positionX?: number;
     positionY?: number;
     allowedArchetypeIds?: string[];

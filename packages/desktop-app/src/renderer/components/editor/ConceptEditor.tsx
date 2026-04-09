@@ -152,7 +152,11 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
               }
               const positionX = typeof draft.positionX === 'number' ? draft.positionX : 0;
               const positionY = typeof draft.positionY === 'number' ? draft.positionY : 0;
-              await setNodePosition(node.id, JSON.stringify({ x: positionX, y: positionY }));
+              const positionPayload: Record<string, number> = { x: positionX, y: positionY };
+              if (typeof draft.slotIndex === 'number') {
+                positionPayload.slotIndex = draft.slotIndex;
+              }
+              await setNodePosition(node.id, JSON.stringify(positionPayload));
             }
             await openNetwork(draft.networkId);
             const networkStore = useNetworkStore.getState();

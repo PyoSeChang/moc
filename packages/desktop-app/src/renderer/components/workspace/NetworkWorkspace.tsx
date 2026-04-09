@@ -40,6 +40,9 @@ interface ParsedNodePosition {
   [key: string]: unknown;
 }
 
+const HIERARCHY_HEADER_OFFSET = 76;
+const HIERARCHY_ROW_GAP = 92;
+
 function pickInitialNetworkId(
   projectId: string,
   networks: Array<{ id: string; project_id: string | null; scope: string; parent_network_id: string | null }>,
@@ -89,10 +92,121 @@ function buildContainsParentMap(edges: EdgeWithRelationType[]): Map<string, stri
   return map;
 }
 
-function resolveWorldPosition(
+function getPositionSlotIndex(position?: ParsedNodePosition): number | null {
+  return typeof position?.slotIndex === 'number' ? position.slotIndex : null;
+}
+
+function getDefaultNodeDimensions(node: NetworkNodeWithObject): { width: number; height: number } {
+  const rawNodeType = node.node_type as string;
+  const isPortal = rawNodeType === 'portal';
+  const isGroup = rawNodeType === 'group' || rawNodeType === 'box';
+  const isHierarchy = rawNodeType === 'hierarchy';
+  const objectType = node.object?.object_type;
+
+  if (objectType === 'concept') {
+    return {
+      width: isPortal ? 180 : isHierarchy ? 380 : isGroup ? 360 : 160,
+      height: isPortal ? 68 : isHierarchy ? 240 : isGroup ? 220 : 60,
+    };
+  }
+
+  if (objectType === 'file') {
+    return {
+      width: isHierarchy ? 300 : isGroup ? 280 : 140,
+      height: isHierarchy ? 220 : isGroup ? 180 : 50,
+    };
+  }
+
+  if (objectType === 'network') {
+    return {
+      width: isPortal ? 180 : isHierarchy ? 340 : isGroup ? 320 : 160,
+      height: isPortal ? 68 : isHierarchy ? 220 : isGroup ? 200 : 60,
+    };
+  }
+
+  return {
+    width: isHierarchy ? 340 : isGroup ? 320 : objectType === 'project' ? 180 : 140,
+    height: isHierarchy ? 220 : isGroup ? 200 : objectType === 'project' ? 64 : 50,
+  };
+}
+
+function getNodeDimensions(
   nodeId: string,
+  nodeById: Map<string, NetworkNodeWithObject>,
+  rawPosMap: Map<string, ParsedNodePosition>,
+): { width: number; height: number } {
+  const defaults = nodeById.get(nodeId) ? getDefaultNodeDimensions(nodeById.get(nodeId)!) : { width: 160, height: 60 };
+  const position = rawPosMap.get(nodeId);
+  return {
+    width: typeof position?.width === 'number' ? position.width : defaults.width,
+    height: typeof position?.height === 'number' ? position.height : defaults.height,
+  };
+}
+
+function buildHierarchyChildMap(
+  nodes: NetworkNodeWithObject[],
   rawPosMap: Map<string, ParsedNodePosition>,
   containsParentByChild: Map<string, string>,
+): Map<string, string[]> {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const grouped = new Map<string, NetworkNodeWithObject[]>();
+
+  for (const node of nodes) {
+    const parentId = containsParentByChild.get(node.id);
+    if (!parentId) continue;
+
+    const parent = nodeById.get(parentId);
+    if ((parent?.node_type as string) !== 'hierarchy') continue;
+
+    const siblings = grouped.get(parentId) ?? [];
+    siblings.push(node);
+    grouped.set(parentId, siblings);
+  }
+
+  const childMap = new Map<string, string[]>();
+  for (const [parentId, children] of grouped) {
+    children.sort((left, right) => {
+      const leftPos = rawPosMap.get(left.id);
+      const rightPos = rawPosMap.get(right.id);
+      const leftSlot = getPositionSlotIndex(leftPos);
+      const rightSlot = getPositionSlotIndex(rightPos);
+
+      if (leftSlot != null || rightSlot != null) {
+        if (leftSlot == null) return 1;
+        if (rightSlot == null) return -1;
+        if (leftSlot !== rightSlot) return leftSlot - rightSlot;
+      }
+
+      const leftY = leftPos?.y ?? 0;
+      const rightY = rightPos?.y ?? 0;
+      if (leftY !== rightY) return leftY - rightY;
+
+      const leftX = leftPos?.x ?? 0;
+      const rightX = rightPos?.x ?? 0;
+      if (leftX !== rightX) return leftX - rightX;
+
+      return left.created_at.localeCompare(right.created_at);
+    });
+
+    childMap.set(parentId, children.map((child) => child.id));
+  }
+
+  return childMap;
+}
+
+function getHierarchyAnchor(parentSize: { width: number; height: number }, childIndex: number): RenderPoint {
+  return {
+    x: 0,
+    y: -(parentSize.height / 2) + HIERARCHY_HEADER_OFFSET + childIndex * HIERARCHY_ROW_GAP,
+  };
+}
+
+function resolveWorldPosition(
+  nodeId: string,
+  nodeById: Map<string, NetworkNodeWithObject>,
+  rawPosMap: Map<string, ParsedNodePosition>,
+  containsParentByChild: Map<string, string>,
+  hierarchyChildrenByParent: Map<string, string[]>,
   cache: Map<string, ParsedNodePosition>,
   visiting: Set<string>,
 ): ParsedNodePosition {
@@ -109,8 +223,31 @@ function resolveWorldPosition(
   }
 
   visiting.add(nodeId);
-  const parent = resolveWorldPosition(parentId, rawPosMap, containsParentByChild, cache, visiting);
+  const parent = resolveWorldPosition(
+    parentId,
+    nodeById,
+    rawPosMap,
+    containsParentByChild,
+    hierarchyChildrenByParent,
+    cache,
+    visiting,
+  );
   visiting.delete(nodeId);
+
+  const parentNodeType = nodeById.get(parentId)?.node_type as string | undefined;
+  if (parentNodeType === 'hierarchy') {
+    const children = hierarchyChildrenByParent.get(parentId) ?? [];
+    const childIndex = Math.max(children.indexOf(nodeId), 0);
+    const parentSize = getNodeDimensions(parentId, nodeById, rawPosMap);
+    const anchor = getHierarchyAnchor(parentSize, childIndex);
+    const resolved = {
+      ...base,
+      x: parent.x + anchor.x + base.x,
+      y: parent.y + anchor.y + base.y,
+    };
+    cache.set(nodeId, resolved);
+    return resolved;
+  }
 
   const resolved = {
     ...base,
@@ -122,15 +259,25 @@ function resolveWorldPosition(
 }
 
 function buildWorldPositionMap(
-  nodeIds: string[],
+  nodes: NetworkNodeWithObject[],
   rawPosMap: Map<string, ParsedNodePosition>,
   containsParentByChild: Map<string, string>,
 ): Map<string, ParsedNodePosition> {
   const cache = new Map<string, ParsedNodePosition>();
-  const ids = new Set<string>([...nodeIds, ...rawPosMap.keys()]);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const hierarchyChildrenByParent = buildHierarchyChildMap(nodes, rawPosMap, containsParentByChild);
+  const ids = new Set<string>([...nodes.map((node) => node.id), ...rawPosMap.keys()]);
 
   for (const nodeId of ids) {
-    resolveWorldPosition(nodeId, rawPosMap, containsParentByChild, cache, new Set<string>());
+    resolveWorldPosition(
+      nodeId,
+      nodeById,
+      rawPosMap,
+      containsParentByChild,
+      hierarchyChildrenByParent,
+      cache,
+      new Set<string>(),
+    );
   }
 
   return cache;
@@ -481,6 +628,19 @@ function wouldCreateContainmentCycle(
   return false;
 }
 
+function hasHierarchyAncestor(
+  nodeId: string,
+  containsParentByChild: Map<string, string>,
+  hierarchyContainerIds: Set<string>,
+): boolean {
+  let current: string | undefined = nodeId;
+  while (current) {
+    if (hierarchyContainerIds.has(current)) return true;
+    current = containsParentByChild.get(current);
+  }
+  return false;
+}
+
 export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Element {
   const {
     currentNetwork, currentLayout, nodes, edges, nodePositions, edgeVisuals,
@@ -629,7 +789,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const rawPosMap = useMemo(() => buildPositionMap(nodePositions), [nodePositions]);
   const containsParentByChild = useMemo(() => buildContainsParentMap(edges), [edges]);
   const worldPosMap = useMemo(
-    () => buildWorldPositionMap(nodes.map((node) => node.id), rawPosMap, containsParentByChild),
+    () => buildWorldPositionMap(nodes, rawPosMap, containsParentByChild),
     [nodes, rawPosMap, containsParentByChild],
   );
   const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
@@ -688,14 +848,30 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     activeContextObjectIds,
   ]);
 
+  const hierarchyContainerIds = useMemo(
+    () => new Set(renderNodes.filter((node) => node.isHierarchy).map((node) => node.id)),
+    [renderNodes],
+  );
+
   const renderEdges = useMemo(() => {
     const baseEdges = toRenderEdges(edges, visualMap);
-    if (!isContextFiltering) return baseEdges;
-    return baseEdges.map((edge) => ({
-      ...edge,
-      dimmed: !activeContextEdgeIds.has(edge.id),
-    }));
-  }, [edges, visualMap, isContextFiltering, activeContextEdgeIds]);
+    return baseEdges.map((edge) => {
+      const explicitRoute = visualMap.get(edge.id)?.route;
+      const shouldUseHierarchyRoute =
+        edge.route === 'straight' &&
+        !explicitRoute &&
+        (
+          hasHierarchyAncestor(edge.sourceId, containsParentByChild, hierarchyContainerIds) ||
+          hasHierarchyAncestor(edge.targetId, containsParentByChild, hierarchyContainerIds)
+        );
+
+      return {
+        ...edge,
+        route: shouldUseHierarchyRoute ? 'orthogonal' : edge.route,
+        dimmed: isContextFiltering ? !activeContextEdgeIds.has(edge.id) : edge.dimmed,
+      };
+    });
+  }, [edges, visualMap, isContextFiltering, activeContextEdgeIds, containsParentByChild, hierarchyContainerIds]);
 
   // --- Layout plugin ---
   const layoutType = currentLayout?.layout_type ?? 'freeform';
@@ -910,13 +1086,21 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
 
   const isTimeline = layoutPlugin.key !== 'freeform';
 
-  const serializePositionJson = useCallback((nodeId: string, x: number, y: number) => {
+  const serializePositionJson = useCallback((nodeId: string, x: number, y: number, slotIndex?: number | null) => {
     const existing = rawPosMap.get(nodeId);
-    return JSON.stringify({
+    const nextPosition: ParsedNodePosition = {
       ...(existing ?? {}),
       x,
       y,
-    });
+    };
+
+    if (slotIndex === null) {
+      delete nextPosition.slotIndex;
+    } else if (typeof slotIndex === 'number') {
+      nextPosition.slotIndex = slotIndex;
+    }
+
+    return JSON.stringify(nextPosition);
   }, [rawPosMap]);
 
   const findDropTargetContainer = useCallback((nodeId: string, x: number, y: number): RenderNode | null => {
@@ -933,17 +1117,90 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     return candidates[0] ?? null;
   }, [cardRenderNodes, containsParentByChild]);
 
+  const getOrderedHierarchySiblings = useCallback((containerId: string, excludeNodeId?: string): RenderNode[] => (
+    cardRenderNodes
+      .filter((node) => containsParentByChild.get(node.id) === containerId)
+      .filter((node) => node.id !== excludeNodeId)
+      .sort((left, right) => {
+        const leftSlot = getPositionSlotIndex(rawPosMap.get(left.id));
+        const rightSlot = getPositionSlotIndex(rawPosMap.get(right.id));
+        if (leftSlot != null || rightSlot != null) {
+          if (leftSlot == null) return 1;
+          if (rightSlot == null) return -1;
+          if (leftSlot !== rightSlot) return leftSlot - rightSlot;
+        }
+        if (left.y !== right.y) return left.y - right.y;
+        if (left.x !== right.x) return left.x - right.x;
+        return left.id.localeCompare(right.id);
+      })
+  ), [cardRenderNodes, containsParentByChild, rawPosMap]);
+
+  const getHierarchyInsertionIndex = useCallback((containerId: string, worldY: number, excludeNodeId?: string): number => {
+    const siblings = getOrderedHierarchySiblings(containerId, excludeNodeId);
+    const insertionIndex = siblings.findIndex((sibling) => worldY < sibling.y);
+    return insertionIndex === -1 ? siblings.length : insertionIndex;
+  }, [getOrderedHierarchySiblings]);
+
+  const getHierarchySlotIndex = useCallback((containerId: string, insertionIndex: number, excludeNodeId?: string): number => {
+    const siblings = getOrderedHierarchySiblings(containerId, excludeNodeId);
+    if (siblings.length === 0) return 0;
+
+    const getRankValue = (nodeId: string, fallbackIndex: number): number =>
+      getPositionSlotIndex(rawPosMap.get(nodeId)) ?? fallbackIndex * 1024;
+
+    if (insertionIndex <= 0) {
+      return getRankValue(siblings[0].id, 0) - 1024;
+    }
+
+    if (insertionIndex >= siblings.length) {
+      return getRankValue(siblings[siblings.length - 1].id, siblings.length - 1) + 1024;
+    }
+
+    const previousRank = getRankValue(siblings[insertionIndex - 1].id, insertionIndex - 1);
+    const nextRank = getRankValue(siblings[insertionIndex].id, insertionIndex);
+    return previousRank === nextRank ? previousRank + 0.5 : (previousRank + nextRank) / 2;
+  }, [getOrderedHierarchySiblings, rawPosMap]);
+
+  const getLocalPlacementForContainer = useCallback((
+    nodeId: string,
+    container: RenderNode,
+    worldX: number,
+    worldY: number,
+  ): { x: number; y: number; slotIndex?: number | null } => {
+    if (!container.isHierarchy) {
+      return {
+        x: worldX - container.x,
+        y: worldY - container.y,
+        slotIndex: null,
+      };
+    }
+
+    const insertionIndex = getHierarchyInsertionIndex(container.id, worldY, nodeId);
+    const anchor = getHierarchyAnchor(
+      { width: container.width ?? 340, height: container.height ?? 220 },
+      insertionIndex,
+    );
+
+    return {
+      x: worldX - container.x - anchor.x,
+      y: worldY - container.y - anchor.y,
+      slotIndex: getHierarchySlotIndex(container.id, insertionIndex, nodeId),
+    };
+  }, [getHierarchyInsertionIndex, getHierarchySlotIndex]);
+
   const placeNodeAtPosition = useCallback(async (nodeId: string, position: { x: number; y: number }) => {
     if (layoutPlugin.key !== 'freeform' || !currentNetwork || !currentLayout) {
-      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y));
+      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y, null));
       return;
     }
 
     const targetContainer = findDropTargetContainer(nodeId, position.x, position.y);
     if (!targetContainer) {
-      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y));
+      await setNodePosition(nodeId, serializePositionJson(nodeId, position.x, position.y, null));
       return;
     }
+
+    const localPlacement = getLocalPlacementForContainer(nodeId, targetContainer, position.x, position.y);
 
     await networkService.edge.create({
       network_id: currentNetwork.id,
@@ -954,13 +1211,14 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     await layoutService.node.setPosition(
       currentLayout.id,
       nodeId,
-      serializePositionJson(nodeId, position.x - targetContainer.x, position.y - targetContainer.y),
+      serializePositionJson(nodeId, localPlacement.x, localPlacement.y, localPlacement.slotIndex ?? null),
     );
     await openNetwork(currentNetwork.id);
   }, [
     currentLayout,
     currentNetwork,
     findDropTargetContainer,
+    getLocalPlacementForContainer,
     layoutPlugin.key,
     openNetwork,
     serializePositionJson,
@@ -1042,22 +1300,25 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
           config: layoutConfig,
           node,
         });
-        await setNodePosition(nodeId, serializePositionJson(nodeId, result.position.x, result.position.y));
+        await setNodePosition(nodeId, serializePositionJson(nodeId, result.position.x, result.position.y, null));
         return;
       }
     }
 
     if (layoutPlugin.key !== 'freeform' || !currentNetwork || !currentLayout) {
-      await setNodePosition(nodeId, serializePositionJson(nodeId, x, y));
+      await setNodePosition(nodeId, serializePositionJson(nodeId, x, y, null));
       return;
     }
 
     const currentParentGroupId = containsParentByChild.get(nodeId) ?? null;
     const nextParentGroup = findDropTargetContainer(nodeId, x, y);
     const nextParentGroupId = nextParentGroup?.id ?? null;
-    const nextPositionJson = nextParentGroup
-      ? serializePositionJson(nodeId, x - nextParentGroup.x, y - nextParentGroup.y)
-      : serializePositionJson(nodeId, x, y);
+    const nextLocalPlacement = nextParentGroup
+      ? getLocalPlacementForContainer(nodeId, nextParentGroup, x, y)
+      : null;
+    const nextPositionJson = nextLocalPlacement
+      ? serializePositionJson(nodeId, nextLocalPlacement.x, nextLocalPlacement.y, nextLocalPlacement.slotIndex ?? null)
+      : serializePositionJson(nodeId, x, y, null);
 
     if (currentParentGroupId === nextParentGroupId) {
       await setNodePosition(nodeId, nextPositionJson);
@@ -1089,6 +1350,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     currentNetwork,
     edges,
     findDropTargetContainer,
+    getLocalPlacementForContainer,
     layoutConfig,
     layoutPlugin,
     openNetwork,
@@ -1547,6 +1809,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             const worldX = networkContextMenu.worldX;
             const worldY = networkContextMenu.worldY;
             const targetGroup = findDropTargetContainer(draftId, worldX, worldY);
+            const localPlacement = targetGroup
+              ? getLocalPlacementForContainer(draftId, targetGroup, worldX, worldY)
+              : null;
             setNetworkContextMenu(null);
             useEditorStore.getState().openTab({
               type: 'concept',
@@ -1555,8 +1820,9 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
               draftData: {
                 networkId: currentNetwork.id,
                 parentGroupNodeId: targetGroup?.id,
-                positionX: targetGroup ? worldX - targetGroup.x : worldX,
-                positionY: targetGroup ? worldY - targetGroup.y : worldY,
+                slotIndex: typeof localPlacement?.slotIndex === 'number' ? localPlacement.slotIndex : undefined,
+                positionX: localPlacement ? localPlacement.x : worldX,
+                positionY: localPlacement ? localPlacement.y : worldY,
                 allowedArchetypeIds: isTimeline ? Object.keys(fieldMappingsConfig) : undefined,
               },
             });

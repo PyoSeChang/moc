@@ -27,10 +27,10 @@ packages:
     impact: local
     contracts: []
   desktop-app:
-    version: "0.8.1"
-    type: patch
+    version: "1.0.0"
+    type: major
     summary: "Network/Object UI 전환, Archetype 필드 합성, 관계형 속성 편집 흐름 보강"
-    impact: cross-package
+    impact: breaking
     contracts: [ipc, schema]
   narre-eval:
     version: "1.0.0"

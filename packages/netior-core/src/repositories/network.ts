@@ -2,6 +2,12 @@ import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
 import { createLayout, getLayoutByNetwork, getNodePositions, getEdgeVisuals } from './layout';
 import { createObject, deleteObjectByRef } from './objects';
+import {
+  ensureAppRootNetworkForDb,
+  ensureProjectRootNetworkForDb,
+  getAppRootNetworkForDb,
+  getProjectRootNetworkForDb,
+} from './network-roots';
 import type {
   Network, NetworkCreate, NetworkUpdate,
   NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
@@ -60,6 +66,7 @@ export function getNetworkTree(projectId: string): NetworkTreeNode[] {
   const allNetworks = db.prepare(
     'SELECT * FROM networks WHERE project_id = ? ORDER BY created_at',
   ).all(projectId) as Network[];
+  const networkIds = new Set(allNetworks.map((network) => network.id));
 
   // Group by parent_network_id
   const childrenOf = new Map<string, NetworkTreeNode[]>();
@@ -68,7 +75,7 @@ export function getNetworkTree(projectId: string): NetworkTreeNode[] {
   for (const network of allNetworks) {
     const node: NetworkTreeNode = { network, children: [] };
 
-    if (!network.parent_network_id) {
+    if (!network.parent_network_id || !networkIds.has(network.parent_network_id)) {
       roots.push(node);
     } else {
       const siblings = childrenOf.get(network.parent_network_id) ?? [];
@@ -143,39 +150,19 @@ export function deleteNetwork(id: string): boolean {
 // ── App / Project Root ──
 
 export function getAppRootNetwork(): Network | undefined {
-  const db = getDatabase();
-  return db.prepare(
-    `SELECT * FROM networks WHERE scope = 'app' AND parent_network_id IS NULL`,
-  ).get() as Network | undefined;
+  return getAppRootNetworkForDb(getDatabase());
 }
 
 export function ensureAppRootNetwork(): Network {
-  const existing = getAppRootNetwork();
-  if (existing) return existing;
-
-  const db = getDatabase();
-  const id = randomUUID();
-  const now = new Date().toISOString();
-
-  db.prepare(
-    `INSERT INTO networks (id, project_id, name, scope, parent_network_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, null, 'App Root', 'app', null, now, now);
-
-  createLayout({ networkId: id });
-  createObject('network', 'app', null, id);
-
-  return db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network;
+  return ensureAppRootNetworkForDb(getDatabase());
 }
 
 export function getProjectRootNetwork(projectId: string): Network | undefined {
-  const db = getDatabase();
-  const appRoot = getAppRootNetwork();
-  if (!appRoot) return undefined;
+  return getProjectRootNetworkForDb(getDatabase(), projectId);
+}
 
-  return db.prepare(
-    `SELECT * FROM networks WHERE scope = 'project' AND project_id = ? AND parent_network_id = ?`,
-  ).get(projectId, appRoot.id) as Network | undefined;
+export function ensureProjectRootNetwork(projectId: string): Network {
+  return ensureProjectRootNetworkForDb(getDatabase(), projectId);
 }
 
 // ── Network Full Data ──
@@ -226,7 +213,7 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       id: row.id as string,
       network_id: row.network_id as string,
       object_id: row.object_id as string,
-      node_type: (row.node_type as string) ?? 'basic',
+      node_type: ((row.node_type as string) === 'box' ? 'group' : ((row.node_type as string) ?? 'basic')),
       parent_node_id: (row.parent_node_id as string | null) ?? null,
       metadata: (row.metadata as string | null) ?? null,
       created_at: row.created_at as string,
@@ -285,6 +272,7 @@ export function getNetworkFull(networkId: string): NetworkFullData | undefined {
       source_node_id: row.source_node_id as string,
       target_node_id: row.target_node_id as string,
       relation_type_id: (row.relation_type_id as string | null) ?? null,
+      system_contract: (row.system_contract as string | null) ?? null,
       description: (row.description as string | null) ?? null,
       created_at: row.created_at as string,
       ...(hasRelationType ? {
@@ -365,11 +353,11 @@ export function createEdge(data: EdgeCreate): Edge {
   const now = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, description, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO edges (id, network_id, source_node_id, target_node_id, relation_type_id, system_contract, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.network_id, data.source_node_id, data.target_node_id,
-    data.relation_type_id ?? null, data.description ?? null,
+    data.relation_type_id ?? null, data.system_contract ?? null, data.description ?? null,
     now,
   );
 
@@ -386,8 +374,9 @@ export function updateEdge(id: string, data: EdgeUpdate): Edge | undefined {
   const existing = db.prepare('SELECT * FROM edges WHERE id = ?').get(id) as Edge | undefined;
   if (!existing) return undefined;
 
-  db.prepare('UPDATE edges SET relation_type_id = ?, description = ? WHERE id = ?').run(
+  db.prepare('UPDATE edges SET relation_type_id = ?, system_contract = ?, description = ? WHERE id = ?').run(
     data.relation_type_id !== undefined ? data.relation_type_id : existing.relation_type_id,
+    data.system_contract !== undefined ? data.system_contract : existing.system_contract,
     data.description !== undefined ? data.description : existing.description,
     id,
   );

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { RenderNode } from './types';
 import type { CanvasMode } from '../../stores/ui-store';
 import { NodeCardDefault } from '../canvas/node-components/NodeCardDefault';
+import type { NodeResizeDirection } from '../canvas/node-components/types';
 
 interface NodeLayerProps {
   nodes: RenderNode[];
@@ -14,9 +15,13 @@ interface NodeLayerProps {
   /** Timeline mode: zoom only affects X position, nodes render at fixed size */
   timelineMode?: boolean;
   nodeDragOffset: { id: string; dx: number; dy: number } | null;
+  dragFollowerIds?: Set<string>;
   onNodeClick: (id: string, event: React.MouseEvent) => void;
   onNodeDoubleClick: (id: string) => void;
   onNodeDragStart: (nodeId: string, startX: number, startY: number) => void;
+  onNodeResizeStart?: (nodeId: string, direction: NodeResizeDirection, startX: number, startY: number) => void;
+  onNodeToggleCollapse?: (nodeId: string) => void;
+  onNodePortalChipClick?: (nodeId: string, chipId: string, networkId: string) => void;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
   onNodeMouseEnter?: (id: string, screenX: number, screenY: number) => void;
   onNodeMouseLeave?: (id: string) => void;
@@ -32,18 +37,27 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   panY,
   timelineMode,
   nodeDragOffset,
+  dragFollowerIds,
   onNodeClick,
   onNodeDoubleClick,
   onNodeDragStart,
+  onNodeResizeStart,
+  onNodeToggleCollapse,
+  onNodePortalChipClick,
   onContextMenu,
   onNodeMouseEnter,
   onNodeMouseLeave,
 }) => {
+  const orderedNodes = useMemo(
+    () => [...nodes].sort((a, b) => (b.isContainer ? 1 : 0) - (a.isContainer ? 1 : 0)),
+    [nodes],
+  );
+
   const getNodePosition = (node: RenderNode) => {
     let x = node.x;
     let y = node.y;
 
-    if (nodeDragOffset && nodeDragOffset.id === node.id) {
+    if (nodeDragOffset && (nodeDragOffset.id === node.id || dragFollowerIds?.has(node.id))) {
       if (timelineMode) {
         // In timeline, dx is screen pixels, convert to canvas X delta
         x += nodeDragOffset.dx / zoom;
@@ -65,12 +79,12 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
   // Timeline: no container transform, positions are screen coords
   // Freeform: container transform with scale(zoom)
   const containerStyle = timelineMode
-    ? { position: 'absolute' as const, left: 0, top: 0 }
-    : { position: 'absolute' as const, left: 0, top: 0, transformOrigin: '0 0', transform: `translate(${panX}px, ${panY}px) scale(${zoom})` };
+    ? { position: 'absolute' as const, left: 0, top: 0, zIndex: 2 }
+    : { position: 'absolute' as const, left: 0, top: 0, zIndex: 2, transformOrigin: '0 0', transform: `translate(${panX}px, ${panY}px) scale(${zoom})` };
 
   return (
     <div style={containerStyle}>
-      {nodes.map((node) => {
+      {orderedNodes.map((node) => {
         const t = getNodePosition(node);
 
         return (
@@ -89,6 +103,13 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
               shape={(node.shape as import('../canvas/node-components/types').NodeShape) || 'rectangle'}
               width={node.width}
               height={node.height}
+              metadata={node.metadata}
+              resizable={!!onNodeResizeStart && !timelineMode && !!node.isContainer}
+              onResizeStart={onNodeResizeStart}
+              collapsed={node.isCollapsed}
+              onToggleCollapse={onNodeToggleCollapse}
+              portalChips={node.portalChips}
+              onPortalChipClick={onNodePortalChipClick}
               onClick={onNodeClick}
               onDoubleClick={onNodeDoubleClick}
               onDragStart={onNodeDragStart}

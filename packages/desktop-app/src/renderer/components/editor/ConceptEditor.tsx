@@ -45,7 +45,8 @@ const isDraftTab = (tab: EditorTab) => tab.targetId.startsWith('draft-');
 const nodeTypeOptions: Array<{ value: NodeType; label: string }> = [
   { value: 'basic', label: 'Basic' },
   { value: 'portal', label: 'Portal' },
-  { value: 'box', label: 'Box' },
+  { value: 'group', label: 'Group' },
+  { value: 'hierarchy', label: 'Hierarchy' },
 ];
 
 function resolvePreferredNodeId(
@@ -76,7 +77,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
   const loadFields = useArchetypeStore((s) => s.loadFields);
   const networks = useNetworkStore((s) => s.networks);
   const currentNetwork = useNetworkStore((s) => s.currentNetwork);
-  const { addNode, openNetwork, loadNetworks, updateNode } = useNetworkStore();
+  const { addNode, openNetwork, loadNetworks, updateNode, setNodePosition } = useNetworkStore();
   const [nodeOccurrences, setNodeOccurrences] = useState<ConceptNodeOccurrence[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [nodeMetadataDraft, setNodeMetadataDraft] = useState('');
@@ -137,10 +138,36 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
           if (draft?.networkId) {
             const conceptObj = await objectService.getByRef('concept', newConcept.id);
             if (conceptObj) {
-              await addNode({
+              const node = await addNode({
                 network_id: draft.networkId,
                 object_id: conceptObj.id,
               });
+              const parentGroupNode = draft.parentGroupNodeId
+                ? useNetworkStore.getState().nodes.find((item) => item.id === draft.parentGroupNodeId)
+                : undefined;
+              if (draft.parentGroupNodeId) {
+                await networkService.edge.create({
+                  network_id: draft.networkId,
+                  source_node_id: draft.parentGroupNodeId,
+                  target_node_id: node.id,
+                  system_contract: 'core:contains',
+                });
+                if (parentGroupNode?.node_type === 'hierarchy') {
+                  await networkService.edge.create({
+                    network_id: draft.networkId,
+                    source_node_id: draft.parentGroupNodeId,
+                    target_node_id: node.id,
+                    system_contract: 'core:root_child',
+                  });
+                }
+              }
+              const positionX = typeof draft.positionX === 'number' ? draft.positionX : 0;
+              const positionY = typeof draft.positionY === 'number' ? draft.positionY : 0;
+              const positionPayload: Record<string, number> = { x: positionX, y: positionY };
+              if (typeof draft.slotIndex === 'number') {
+                positionPayload.slotIndex = draft.slotIndex;
+              }
+              await setNodePosition(node.id, JSON.stringify(positionPayload));
             }
             await openNetwork(draft.networkId);
             const networkStore = useNetworkStore.getState();

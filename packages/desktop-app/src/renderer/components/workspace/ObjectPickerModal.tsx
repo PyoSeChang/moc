@@ -8,33 +8,49 @@ import { useNetworkStore } from '../../stores/network-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useContextStore } from '../../stores/context-store';
+import { useProjectStore } from '../../stores/project-store';
 import { useI18n } from '../../hooks/useI18n';
 
 interface ObjectPickerModalProps {
   open: boolean;
   onClose: () => void;
   onSelect: (objectType: NetworkObjectType, refId: string) => void;
+  initialTab?: PickerTab;
+  allowedTabs?: PickerTab[];
 }
 
-type PickerTab = 'concept' | 'network' | 'archetype' | 'relation_type' | 'context';
+type PickerTab = 'concept' | 'network' | 'project' | 'archetype' | 'relation_type' | 'context';
 
-const TABS: PickerTab[] = ['concept', 'network', 'archetype', 'relation_type', 'context'];
+const TABS: PickerTab[] = ['concept', 'network', 'project', 'archetype', 'relation_type', 'context'];
 
-export function ObjectPickerModal({ open, onClose, onSelect }: ObjectPickerModalProps): JSX.Element {
+export function ObjectPickerModal({
+  open,
+  onClose,
+  onSelect,
+  initialTab = 'concept',
+  allowedTabs,
+}: ObjectPickerModalProps): JSX.Element {
   const { t } = useI18n();
-  const [activeTab, setActiveTab] = useState<PickerTab>('concept');
+  const [activeTab, setActiveTab] = useState<PickerTab>(initialTab);
   const [search, setSearch] = useState('');
+  const tabs = useMemo<PickerTab[]>(
+    () => (allowedTabs && allowedTabs.length > 0 ? [...allowedTabs] : TABS),
+    [allowedTabs],
+  );
+  const tabsKey = tabs.join('|');
 
   const concepts = useConceptStore((s) => s.concepts);
   const networks = useNetworkStore((s) => s.networks);
   const currentNetwork = useNetworkStore((s) => s.currentNetwork);
+  const projects = useProjectStore((s) => s.projects);
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
   const contexts = useContextStore((s) => s.contexts);
 
   const tabLabels: Record<PickerTab, string> = {
     concept: t('concept.title'),
-    network: t('sidebar.networks'),
+    network: t('sidebar.networks' as never),
+    project: t('project.title' as never) ?? 'Projects',
     archetype: t('archetype.title'),
     relation_type: t('relationType.title'),
     context: t('context.title'),
@@ -43,7 +59,8 @@ export function ObjectPickerModal({ open, onClose, onSelect }: ObjectPickerModal
   useEffect(() => {
     if (!open) return;
     setSearch('');
-  }, [open, activeTab]);
+    setActiveTab(tabs.includes(initialTab) ? initialTab : tabs[0] ?? 'concept');
+  }, [initialTab, open, tabsKey]);
 
   const items = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -58,7 +75,11 @@ export function ObjectPickerModal({ open, onClose, onSelect }: ObjectPickerModal
         return networks
           .filter((network) => network.id !== currentNetwork?.id)
           .filter((network) => !query || matches(network.name))
-          .map((network) => ({ id: network.id, title: network.name, subtitle: t('sidebar.networks') }));
+          .map((network) => ({ id: network.id, title: network.name, subtitle: t('sidebar.networks' as never) }));
+      case 'project':
+        return projects
+          .filter((project) => !query || matches(project.name))
+          .map((project) => ({ id: project.id, title: project.name, subtitle: t('project.title' as never) ?? 'Project' }));
       case 'archetype':
         return archetypes
           .filter((archetype) => !query || matches(archetype.name))
@@ -74,7 +95,7 @@ export function ObjectPickerModal({ open, onClose, onSelect }: ObjectPickerModal
       default:
         return [];
     }
-  }, [activeTab, archetypes, concepts, contexts, currentNetwork?.id, networks, relationTypes, search, t]);
+  }, [activeTab, archetypes, concepts, contexts, currentNetwork?.id, networks, projects, relationTypes, search, t]);
 
   const handleSelect = (refId: string) => {
     onSelect(activeTab, refId);
@@ -85,7 +106,7 @@ export function ObjectPickerModal({ open, onClose, onSelect }: ObjectPickerModal
     <Modal open={open} onClose={onClose} title={t('common.add')} width="520px">
       <div className="flex min-h-[360px] flex-col gap-3">
         <div className="flex flex-wrap gap-1 border-b border-subtle pb-2">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab}
               type="button"

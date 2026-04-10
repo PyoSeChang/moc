@@ -25,6 +25,7 @@ interface EdgeVisualState {
 
 interface EdgeState {
   relation_type_id: string | null;
+  system_contract: string | null;
   description: string | null;
   visual: EdgeVisualState;
 }
@@ -45,11 +46,12 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     tabId: tab.id,
     load: () => {
       const e = useNetworkStore.getState().edges.find((ed) => ed.id === edgeId);
-      if (!e) return { relation_type_id: null, description: null, visual: { color: null, line_style: null, directed: null } };
+      if (!e) return { relation_type_id: null, system_contract: null, description: null, visual: { color: null, line_style: null, directed: null } };
       const ev = useNetworkStore.getState().edgeVisuals.find((v) => v.edgeId === edgeId);
       const parsed: EdgeVisualState = ev ? JSON.parse(ev.visualJson) : { color: null, line_style: null, directed: null };
       return {
         relation_type_id: e.relation_type_id,
+        system_contract: e.system_contract,
         description: e.description,
         visual: parsed,
       };
@@ -57,6 +59,7 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     save: async (state) => {
       await networkService.edge.update(edgeId, {
         relation_type_id: state.relation_type_id,
+        system_contract: state.system_contract,
         description: state.description,
       });
       await setEdgeVisual(edgeId, JSON.stringify(state.visual));
@@ -71,6 +74,8 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
 
   const sourceLabel = sourceNode?.concept?.title ?? sourceNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
   const targetLabel = targetNode?.concept?.title ?? targetNode?.file?.path?.replace(/\\/g, '/').split('/').pop() ?? '?';
+  const isHierarchyContract =
+    session.state.system_contract === 'core:root_child' || session.state.system_contract === 'core:tree_parent';
 
   const relationTypeOptions = useMemo(() => [
     { value: '', label: t('edge.noRelationType') },
@@ -115,6 +120,15 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
     <ScrollArea>
       <div className="flex h-full items-start justify-center">
         <div className="flex flex-col gap-6 p-6 w-full max-w-[600px]">
+          {isHierarchyContract && (
+            <div className="sticky top-3 z-[1] mx-auto w-full max-w-[520px] rounded-md border border-default bg-surface-modal px-4 py-3 text-xs text-default shadow-sm">
+              <div className="font-medium">{t('edge.hierarchyDirectionTitle')}</div>
+              <div className="mt-1 text-secondary">
+                {t('edge.hierarchyDirectionBody', { source: sourceLabel, target: targetLabel })}
+              </div>
+            </div>
+          )}
+
           {/* Source */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('edge.source')}</label>
@@ -132,6 +146,15 @@ export function EdgeEditor({ tab }: EdgeEditorProps): JSX.Element {
           </div>
 
           {/* Relation Type */}
+          {session.state.system_contract && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-secondary">System Contract</label>
+              <div className="rounded-md border border-subtle bg-surface-base px-3 py-2 text-xs text-default">
+                {session.state.system_contract}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-secondary">{t('edge.relationType')}</label>
             <Select

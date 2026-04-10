@@ -28,6 +28,13 @@ export function useNetiorSync(projectId: string | null): void {
           break;
         case 'networks':
           useNetworkStore.getState().loadNetworks(projectId);
+          useNetworkStore.getState().loadNetworkTree(projectId);
+          {
+            const currentNetwork = useNetworkStore.getState().currentNetwork;
+            if (currentNetwork) {
+              useNetworkStore.getState().openNetwork(currentNetwork.id);
+            }
+          }
           break;
         case 'contexts': {
           const currentNetwork = useNetworkStore.getState().currentNetwork;

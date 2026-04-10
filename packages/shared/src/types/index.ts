@@ -15,6 +15,11 @@ export interface ProjectCreate {
   root_dir: string;
 }
 
+export interface ProjectUpdate {
+  name?: string;
+  root_dir?: string;
+}
+
 // ============================================
 // Concept
 // ============================================
@@ -162,7 +167,7 @@ export type NetworkObjectType =
   | 'relation_type' | 'agent' | 'context'
   | 'file' | 'module' | 'folder';
 
-export type NodeType = 'basic' | 'portal' | 'box';
+export type NodeType = 'basic' | 'portal' | 'group' | 'hierarchy';
 
 export interface ObjectRecord {
   id: string;
@@ -211,6 +216,7 @@ export interface Edge {
   source_node_id: string;
   target_node_id: string;
   relation_type_id: string | null;
+  system_contract: string | null;
   description: string | null;
   created_at: string;
 }
@@ -220,11 +226,13 @@ export interface EdgeCreate {
   source_node_id: string;
   target_node_id: string;
   relation_type_id?: string;
+  system_contract?: string;
   description?: string;
 }
 
 export interface EdgeUpdate {
   relation_type_id?: string | null;
+  system_contract?: string | null;
   description?: string | null;
 }
 
@@ -528,7 +536,7 @@ export interface NetworkBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'network' | 'narre' | 'fileMetadata' | 'context';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'network' | 'project' | 'narre' | 'fileMetadata' | 'context';
 
 /** Identifies a window that hosts editor tabs (main window or detached window) */
 export interface EditorHostState {
@@ -592,6 +600,8 @@ export interface EditorTab {
   /** Draft data for unsaved new entities (concept creation flow) */
   draftData?: {
     networkId?: string;
+    parentGroupNodeId?: string;
+    slotIndex?: number;
     positionX?: number;
     positionY?: number;
     allowedArchetypeIds?: string[];

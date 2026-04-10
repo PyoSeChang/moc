@@ -142,6 +142,9 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
                 network_id: draft.networkId,
                 object_id: conceptObj.id,
               });
+              const parentGroupNode = draft.parentGroupNodeId
+                ? useNetworkStore.getState().nodes.find((item) => item.id === draft.parentGroupNodeId)
+                : undefined;
               if (draft.parentGroupNodeId) {
                 await networkService.edge.create({
                   network_id: draft.networkId,
@@ -149,6 +152,14 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
                   target_node_id: node.id,
                   system_contract: 'core:contains',
                 });
+                if (parentGroupNode?.node_type === 'hierarchy') {
+                  await networkService.edge.create({
+                    network_id: draft.networkId,
+                    source_node_id: draft.parentGroupNodeId,
+                    target_node_id: node.id,
+                    system_contract: 'core:root_child',
+                  });
+                }
               }
               const positionX = typeof draft.positionX === 'number' ? draft.positionX : 0;
               const positionY = typeof draft.positionY === 'number' ? draft.positionY : 0;

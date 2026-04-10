@@ -14,6 +14,7 @@ export interface ShapeLayoutProps {
   icon: string;
   semanticTypeLabel: string;
   systemType?: string;
+  collapsed?: boolean;
   updatedAt?: string;
   content?: Record<string, unknown>;
   metadata?: Record<string, unknown>;

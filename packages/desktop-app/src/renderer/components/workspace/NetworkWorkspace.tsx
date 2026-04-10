@@ -22,7 +22,7 @@ import { useProjectStore } from '../../stores/project-store';
 import { useNetworkObjectSelectionStore } from '../../stores/network-object-selection-store';
 import type { Archetype } from '@netior/shared/types';
 import { useI18n } from '../../hooks/useI18n';
-import type { RenderNode, RenderEdge, RenderPoint } from './types';
+import type { RenderNode, RenderEdge, RenderPoint, RenderEdgeAnchor } from './types';
 import type { NodeResizeDirection } from '../canvas/node-components/types';
 import { getLayout } from './layout-plugins/registry';
 import type { LayoutRenderNode } from './layout-plugins/types';
@@ -764,6 +764,55 @@ function hasHierarchyAncestor(
   return false;
 }
 
+function getClosestHierarchyAncestorId(
+  nodeId: string,
+  containsParentByChild: Map<string, string>,
+  hierarchyContainerIds: Set<string>,
+): string | null {
+  let current: string | undefined = nodeId;
+  while (current) {
+    if (hierarchyContainerIds.has(current)) return current;
+    current = containsParentByChild.get(current);
+  }
+  return null;
+}
+
+function resolveOrthogonalEdgeHints(
+  edge: RenderEdge,
+  nodeMap: Map<string, RenderNode>,
+  containsParentByChild: Map<string, string>,
+  hierarchyContainerIds: Set<string>,
+): Pick<RenderEdge, 'sourceAnchor' | 'targetAnchor' | 'orthogonalAxis'> {
+  const sourceNode = nodeMap.get(edge.sourceId);
+  const targetNode = nodeMap.get(edge.targetId);
+  if (!sourceNode || !targetNode) return {};
+
+  const sourceHierarchyId = getClosestHierarchyAncestorId(edge.sourceId, containsParentByChild, hierarchyContainerIds);
+  const targetHierarchyId = getClosestHierarchyAncestorId(edge.targetId, containsParentByChild, hierarchyContainerIds);
+  const sharesHierarchy = !!sourceHierarchyId && sourceHierarchyId === targetHierarchyId;
+
+  let sourceAnchor: RenderEdgeAnchor;
+  let targetAnchor: RenderEdgeAnchor;
+  let orthogonalAxis: 'horizontal' | 'vertical';
+
+  const dx = targetNode.x - sourceNode.x;
+  const dy = targetNode.y - sourceNode.y;
+
+  if (sharesHierarchy) {
+    const downward = dy >= 0;
+    sourceAnchor = edge.sourceId === sourceHierarchyId
+      ? (downward ? 'root-bottom' : 'root-top')
+      : (downward ? 'bottom' : 'top');
+    targetAnchor = edge.targetId === targetHierarchyId
+      ? (downward ? 'root-top' : 'root-bottom')
+      : (downward ? 'top' : 'bottom');
+    orthogonalAxis = 'vertical';
+    return { sourceAnchor, targetAnchor, orthogonalAxis };
+  }
+
+  return {};
+}
+
 function hasCollapsedAncestor(
   nodeId: string,
   containsParentByChild: Map<string, string>,
@@ -965,6 +1014,17 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     () => buildWorldPositionMap(nodes, rawPosMap, containsParentByChild),
     [nodes, rawPosMap, containsParentByChild],
   );
+  const nodeById = useMemo(
+    () => new Map(nodes.map((node) => [node.id, node] as const)),
+    [nodes],
+  );
+  const directChildCountByParent = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const parentId of containsParentByChild.values()) {
+      map.set(parentId, (map.get(parentId) ?? 0) + 1);
+    }
+    return map;
+  }, [containsParentByChild]);
   const visualMap = useMemo(() => buildVisualMap(edgeVisuals), [edgeVisuals]);
 
   useEffect(() => {
@@ -991,19 +1051,30 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const isContextFiltering = !!activeContextId && activeContextMembers.length > 0;
 
   const renderNodes = useMemo(() => {
-    const baseNodes = toRenderNodes(
-      nodes,
-      archetypes,
-      worldPosMap,
+      const baseNodes = toRenderNodes(
+        nodes,
+        archetypes,
+        worldPosMap,
       networkNames,
       projectNames,
       archetypeNames,
       relationTypeNames,
-      contextNames,
-      entryPortalData.portalChipsBySource,
-    );
+        contextNames,
+        entryPortalData.portalChipsBySource,
+      ).map((node) => (
+        node.isContainer
+          ? {
+              ...node,
+              metadata: {
+                ...(node.metadata ?? {}),
+                childCount: directChildCountByParent.get(node.id) ?? 0,
+                portalCount: node.portalChips?.length ?? 0,
+              },
+            }
+          : node
+      ));
 
-    if (!isContextFiltering) return baseNodes;
+      if (!isContextFiltering) return baseNodes;
 
     return baseNodes.map((node, index) => ({
       ...node,
@@ -1019,6 +1090,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     relationTypeNames,
     contextNames,
     entryPortalData,
+    directChildCountByParent,
     isContextFiltering,
     activeContextObjectIds,
   ]);
@@ -1043,24 +1115,30 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const renderEdges = useMemo(() => {
     const baseEdges = toRenderEdges(edges, visualMap);
     const visibleNodeIds = new Set(visibleRenderNodes.map((node) => node.id));
+    const visibleNodeMap = new Map(visibleRenderNodes.map((node) => [node.id, node] as const));
     return baseEdges
       .filter((edge) => visibleNodeIds.has(edge.sourceId) && visibleNodeIds.has(edge.targetId))
       .map((edge) => {
-      const explicitRoute = visualMap.get(edge.id)?.route;
-      const shouldUseHierarchyRoute =
-        edge.route === 'straight' &&
-        !explicitRoute &&
-        (
-          hasHierarchyAncestor(edge.sourceId, containsParentByChild, hierarchyContainerIds) ||
-          hasHierarchyAncestor(edge.targetId, containsParentByChild, hierarchyContainerIds)
-        );
+        const explicitRoute = visualMap.get(edge.id)?.route;
+        const sourceHierarchyId = getClosestHierarchyAncestorId(edge.sourceId, containsParentByChild, hierarchyContainerIds);
+        const targetHierarchyId = getClosestHierarchyAncestorId(edge.targetId, containsParentByChild, hierarchyContainerIds);
+        const sharesHierarchy = !!sourceHierarchyId && sourceHierarchyId === targetHierarchyId;
+        const shouldUseHierarchyRoute =
+          edge.route === 'straight' &&
+          !explicitRoute &&
+          sharesHierarchy;
+        const route = shouldUseHierarchyRoute ? 'orthogonal' : edge.route;
+        const orthogonalHints = route === 'orthogonal' && !edge.routePoints
+          ? resolveOrthogonalEdgeHints(edge, visibleNodeMap, containsParentByChild, hierarchyContainerIds)
+          : {};
 
-      return {
-        ...edge,
-        route: shouldUseHierarchyRoute ? 'orthogonal' : edge.route,
-        dimmed: isContextFiltering ? !activeContextEdgeIds.has(edge.id) : edge.dimmed,
-      };
-    });
+        return {
+          ...edge,
+          ...orthogonalHints,
+          route,
+          dimmed: isContextFiltering ? !activeContextEdgeIds.has(edge.id) : edge.dimmed,
+        };
+      });
   }, [edges, visualMap, isContextFiltering, activeContextEdgeIds, containsParentByChild, hierarchyContainerIds, visibleRenderNodes]);
 
   // --- Layout plugin ---
@@ -1218,8 +1296,40 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     return candidates[0] ?? null;
   }, [previewCardRenderNodes]);
 
-  const createEntryPortalAttachment = useCallback(async (sourceNodeId: string, networkRefId: string) => {
+  const syncHierarchyRootChildEdge = useCallback(async (nodeId: string, nextParentGroupId: string | null) => {
     if (!currentNetwork) return;
+
+    const nextParentNode = nextParentGroupId ? nodeById.get(nextParentGroupId) : undefined;
+    const nextHierarchyParentId = nextParentNode?.node_type === 'hierarchy' ? nextParentGroupId : null;
+    const existingRootChildEdges = edges.filter(
+      (edge) => edge.system_contract === 'core:root_child' && edge.target_node_id === nodeId,
+    );
+
+    for (const edge of existingRootChildEdges) {
+      if (edge.source_node_id !== nextHierarchyParentId) {
+        await networkService.edge.delete(edge.id);
+      }
+    }
+
+    if (
+      nextHierarchyParentId &&
+      !existingRootChildEdges.some((edge) => edge.source_node_id === nextHierarchyParentId)
+    ) {
+      await networkService.edge.create({
+        network_id: currentNetwork.id,
+        source_node_id: nextHierarchyParentId,
+        target_node_id: nodeId,
+        system_contract: 'core:root_child',
+      });
+    }
+  }, [currentNetwork, edges, nodeById]);
+
+  const createEntryPortalAttachment = useCallback(async (
+    sourceNodeId: string,
+    networkRefId: string,
+    targetNodeId?: string,
+  ): Promise<boolean> => {
+    if (!currentNetwork) return false;
 
     const targetNodeForNetwork = nodes.find((node) => (
       entryPortalData.entryPortalTargetNodeIds.has(node.id)
@@ -1227,10 +1337,29 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       && node.object.ref_id === networkRefId
       && edges.some((edge) => edge.system_contract === 'core:entry_portal' && edge.source_node_id === sourceNodeId && edge.target_node_id === node.id)
     ));
-    if (targetNodeForNetwork) return;
+    if (targetNodeForNetwork) return false;
+
+    if (targetNodeId) {
+      const existingContainmentEdges = edges.filter(
+        (edge) => edge.system_contract === 'core:contains' && edge.target_node_id === targetNodeId,
+      );
+      for (const edge of existingContainmentEdges) {
+        await networkService.edge.delete(edge.id);
+      }
+
+      await syncHierarchyRootChildEdge(targetNodeId, null);
+      await networkService.edge.create({
+        network_id: currentNetwork.id,
+        source_node_id: sourceNodeId,
+        target_node_id: targetNodeId,
+        system_contract: 'core:entry_portal',
+      });
+      await openNetwork(currentNetwork.id);
+      return true;
+    }
 
     const networkObject = await objectService.getByRef('network', networkRefId);
-    if (!networkObject) return;
+    if (!networkObject) return false;
 
     const sourceRawPosition = rawPosMap.get(sourceNodeId) ?? { x: 0, y: 0 };
     const targetNode = await addNode({
@@ -1255,7 +1384,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       system_contract: 'core:entry_portal',
     });
     await openNetwork(currentNetwork.id);
-  }, [addNode, currentNetwork, edges, entryPortalData.entryPortalTargetNodeIds, nodes, openNetwork, rawPosMap, setNodePosition]);
+    return true;
+  }, [addNode, currentNetwork, edges, entryPortalData.entryPortalTargetNodeIds, nodes, openNetwork, rawPosMap, setNodePosition, syncHierarchyRootChildEdge]);
 
   const closeObjectPicker = useCallback(() => {
     setObjectPickerOpen(false);
@@ -1521,6 +1651,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       target_node_id: nodeId,
       system_contract: 'core:contains',
     });
+    await syncHierarchyRootChildEdge(nodeId, targetContainer.id);
     await layoutService.node.setPosition(
       currentLayout.id,
       nodeId,
@@ -1536,6 +1667,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     openNetwork,
     serializePositionJson,
     setNodePosition,
+    syncHierarchyRootChildEdge,
   ]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -1702,6 +1834,16 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       return;
     }
 
+    const draggedNode = nodeById.get(nodeId);
+    const draggedNetworkRefId = draggedNode?.object?.object_type === 'network'
+      ? draggedNode.object.ref_id
+      : null;
+    const entryPortalHost = draggedNetworkRefId ? findEntryPortalHostAtPosition(x, y) : null;
+    if (draggedNetworkRefId && entryPortalHost && entryPortalHost.id !== nodeId) {
+      const attached = await createEntryPortalAttachment(entryPortalHost.id, draggedNetworkRefId, nodeId);
+      if (attached) return;
+    }
+
     const currentParentGroupId = containsParentByChild.get(nodeId) ?? null;
     const nextParentGroup = findDropTargetContainer(nodeId, x, y);
     const nextParentGroupId = nextParentGroup?.id ?? null;
@@ -1713,6 +1855,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       : serializePositionJson(nodeId, x, y, null);
 
     if (currentParentGroupId === nextParentGroupId) {
+      await syncHierarchyRootChildEdge(nodeId, nextParentGroupId);
       await setNodePosition(nodeId, nextPositionJson);
       return;
     }
@@ -1724,6 +1867,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     for (const edge of existingContainsEdges) {
       await networkService.edge.delete(edge.id);
     }
+
+    await syncHierarchyRootChildEdge(nodeId, nextParentGroupId);
 
     if (nextParentGroupId) {
       await networkService.edge.create({
@@ -1738,17 +1883,21 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     await openNetwork(currentNetwork.id);
   }, [
     containsParentByChild,
+    createEntryPortalAttachment,
     currentLayout,
     currentNetwork,
     edges,
     findDropTargetContainer,
+    findEntryPortalHostAtPosition,
     getLocalPlacementForContainer,
     layoutConfig,
     layoutPlugin,
+    nodeById,
     openNetwork,
     positionedNodes,
     serializePositionJson,
     setNodePosition,
+    syncHierarchyRootChildEdge,
     zoom,
   ]);
 

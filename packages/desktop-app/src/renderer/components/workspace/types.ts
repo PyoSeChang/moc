@@ -35,6 +35,7 @@ export interface RenderNode {
   isContainer?: boolean;
   isCollapsed?: boolean;
   portalChips?: PortalChip[];
+  metadata?: Record<string, unknown>;
   fileId?: string;
   filePath?: string;
   networkId?: string;
@@ -45,6 +46,8 @@ export interface RenderPoint {
   x: number;
   y: number;
 }
+
+export type RenderEdgeAnchor = 'center' | 'top' | 'right' | 'bottom' | 'left' | 'root-top' | 'root-bottom';
 
 /** Edge data for rendering */
 export interface RenderEdge {
@@ -58,6 +61,9 @@ export interface RenderEdge {
   systemContract?: string | null;
   route?: 'straight' | 'orthogonal' | 'hidden';
   routePoints?: RenderPoint[];
+  sourceAnchor?: RenderEdgeAnchor;
+  targetAnchor?: RenderEdgeAnchor;
+  orthogonalAxis?: 'horizontal' | 'vertical';
   hidden?: boolean;
   dimmed?: boolean;
 }

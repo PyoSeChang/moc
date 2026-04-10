@@ -198,6 +198,7 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
             icon={icon}
             semanticTypeLabel={semanticTypeLabel}
             systemType={systemType}
+            collapsed={collapsed}
             updatedAt={updatedAt}
             content={content}
             metadata={metadata}

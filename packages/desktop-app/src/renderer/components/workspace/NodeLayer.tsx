@@ -101,6 +101,7 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
               shape={(node.shape as import('../canvas/node-components/types').NodeShape) || 'rectangle'}
               width={node.width}
               height={node.height}
+              metadata={node.metadata}
               resizable={!!onNodeResizeStart && !timelineMode && !!node.isContainer}
               onResizeStart={onNodeResizeStart}
               collapsed={node.isCollapsed}

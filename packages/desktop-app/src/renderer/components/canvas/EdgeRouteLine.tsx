@@ -13,6 +13,7 @@ export interface EdgeRouteLineProps {
   lineStyle?: 'solid' | 'dashed' | 'dotted';
   route?: 'straight' | 'orthogonal';
   routePoints?: RenderPoint[];
+  trimEndpoints?: boolean;
   onContextMenu?: (type: 'canvas' | 'node' | 'edge', x: number, y: number, targetId?: string) => void;
   onDoubleClick?: (edgeId: string) => void;
 }
@@ -42,6 +43,7 @@ function buildPathPoints(
   target: RenderPoint,
   route: 'straight' | 'orthogonal',
   routePoints?: RenderPoint[],
+  trimEndpoints = true,
 ): RenderPoint[] {
   const middlePoints = routePoints && routePoints.length > 0
     ? routePoints
@@ -54,6 +56,7 @@ function buildPathPoints(
 
   const rawPoints = [source, ...middlePoints, target];
   if (rawPoints.length < 2) return rawPoints;
+  if (!trimEndpoints) return rawPoints;
 
   const trimmed = [...rawPoints];
   trimmed[0] = trimAlongSegment(rawPoints[0], rawPoints[1], NODE_RADIUS);
@@ -102,6 +105,7 @@ export const EdgeRouteLine: React.FC<EdgeRouteLineProps> = ({
   lineStyle,
   route = 'straight',
   routePoints,
+  trimEndpoints = true,
   onContextMenu,
   onDoubleClick,
 }) => {
@@ -130,6 +134,7 @@ export const EdgeRouteLine: React.FC<EdgeRouteLineProps> = ({
     { x: targetX, y: targetY },
     route,
     routePoints,
+    trimEndpoints,
   );
 
   if (pathPoints.length < 2) return null;

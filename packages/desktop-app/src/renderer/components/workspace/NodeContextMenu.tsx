@@ -22,6 +22,8 @@ interface NodeContextMenuProps {
   onAddConnection?: (nodeId: string) => void;
   onOpenNetwork?: (networkId: string) => void;
   onCreateNetwork?: (conceptId: string) => void;
+  onAttachNetwork?: (nodeId: string) => void;
+  onDeleteNode?: (nodeId: string) => void;
   onClose: () => void;
 }
 
@@ -40,10 +42,12 @@ export function NodeContextMenu({
   onAddConnection,
   onOpenNetwork,
   onCreateNetwork,
+  onAttachNetwork,
+  onDeleteNode,
   onClose,
 }: NodeContextMenuProps): JSX.Element {
   const { t } = useI18n();
-  const { removeNode, currentNetwork } = useNetworkStore();
+  const { currentNetwork } = useNetworkStore();
   const openProject = useProjectStore((state) => state.openProject);
   const deleteProject = useProjectStore((state) => state.deleteProject);
 
@@ -130,6 +134,11 @@ export function NodeContextMenu({
     onClose();
   }, [onCreateNetwork, conceptId, onClose]);
 
+  const handleAttachNetwork = useCallback(() => {
+    onAttachNetwork?.(nodeId);
+    onClose();
+  }, [nodeId, onAttachNetwork, onClose]);
+
   const handleAddConnection = useCallback(() => {
     onAddConnection?.(nodeId);
     onClose();
@@ -151,9 +160,9 @@ export function NodeContextMenu({
       return;
     }
 
-    await removeNode(nodeId);
+    onDeleteNode?.(nodeId);
     onClose();
-  }, [currentNetwork?.parent_network_id, currentNetwork?.scope, deleteProject, nodeId, objectTargetId, objectType, onClose, removeNode]);
+  }, [currentNetwork?.parent_network_id, currentNetwork?.scope, deleteProject, nodeId, objectTargetId, objectType, onClose, onDeleteNode]);
 
   return (
     <div
@@ -200,6 +209,16 @@ export function NodeContextMenu({
         >
           <Plus size={14} />
           {t('network.createNetwork')}
+        </button>
+      )}
+
+      {conceptId && (
+        <button
+          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+          onClick={handleAttachNetwork}
+        >
+          <Link size={14} />
+          {t('network.connectNetwork') ?? 'Connect Network'}
         </button>
       )}
 

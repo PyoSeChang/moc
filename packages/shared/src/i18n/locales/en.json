@@ -713,6 +713,9 @@
     "noModule": "No module",
     "moduleName": "Module name",
     "modulePath": "Module path",
+    "editModuleName": "Edit module name",
+    "editModulePath": "Edit module path",
+    "deleteModule": "Delete module",
     "selectModulePath": "Select module path",
     "addModule": "Add module"
   },

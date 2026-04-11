@@ -1,12 +1,9 @@
 import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
-import { useModuleStore } from '../../stores/module-store';
 import { useProjectStore } from '../../stores/project-store';
 import type { TerminalLaunchConfig } from '@netior/shared/types';
 
 function resolveTerminalCwd(): string | undefined {
-  return useModuleStore.getState().directories[0]?.dir_path
-    ?? useProjectStore.getState().currentProject?.root_dir
-    ?? undefined;
+  return useProjectStore.getState().currentProject?.root_dir ?? undefined;
 }
 
 interface OpenTerminalTabOptions {

@@ -22,9 +22,8 @@ export function ProjectHome(): JSX.Element {
 
   const handleCreate = async (name: string, rootDir: string) => {
     const project = await createProject(name, rootDir);
-    const { createModule, setActiveModule, addDirectory } = useModuleStore.getState();
-    const mod = await createModule({ project_id: project.id, name });
-    await addDirectory({ module_id: mod.id, dir_path: rootDir });
+    const { createModule, setActiveModule } = useModuleStore.getState();
+    const mod = await createModule({ project_id: project.id, name, path: rootDir });
     await setActiveModule(mod.id);
     openProject(project);
   };

@@ -34,14 +34,12 @@ function AppWorkspaceSidebar(): JSX.Element {
   const createProject = useProjectStore((s) => s.createProject);
   const currentProject = useProjectStore((s) => s.currentProject);
   const createModule = useModuleStore((s) => s.createModule);
-  const addDirectory = useModuleStore((s) => s.addDirectory);
   const openEditorTab = useEditorStore((s) => s.openTab);
   const [showCreateProject, setShowCreateProject] = useState(false);
 
   const handleCreateProject = async (name: string, rootDir: string) => {
     const project = await createProject(name, rootDir);
-    const module = await createModule({ project_id: project.id, name });
-    await addDirectory({ module_id: module.id, dir_path: rootDir });
+    const module = await createModule({ project_id: project.id, name, path: rootDir });
     await openEditorTab({ type: 'project', targetId: project.id, title: project.name });
   };
 
@@ -183,16 +181,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
             <>
               <div className="flex items-center">
                 <div className="flex-1">
-                  <ModuleSelector
-                    projectId={project.id}
-                    onAddDirectory={async () => {
-                      const { activeModuleId, addDirectory } = useModuleStore.getState();
-                      if (!activeModuleId) return;
-                      const { fsService } = await import('../../services');
-                      const dirPath = await fsService.openFolderDialog();
-                      if (dirPath) await addDirectory({ module_id: activeModuleId, dir_path: dirPath });
-                    }}
-                  />
+                  <ModuleSelector projectId={project.id} projectRootDir={project.root_dir} />
                 </div>
                 <Tooltip content={t('fileTree.refresh')} position="bottom">
                   <button

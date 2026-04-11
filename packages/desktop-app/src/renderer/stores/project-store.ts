@@ -185,14 +185,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const newPath = paths[0];
     const updated = await projectService.updateRootDir(missingPathProject.id, newPath);
 
-    // Also update module directories that pointed to the old root_dir
+    // Also update module paths that pointed to the old root_dir
     const modules = await moduleService.list(missingPathProject.id);
     for (const mod of modules) {
-      const dirs = await moduleService.dir.list(mod.id);
-      for (const dir of dirs) {
-        if (dir.dir_path === missingPathProject.root_dir) {
-          await moduleService.dir.updatePath(dir.id, newPath);
-        }
+      if (mod.path === missingPathProject.root_dir) {
+        await moduleService.update(mod.id, { path: newPath });
       }
     }
 

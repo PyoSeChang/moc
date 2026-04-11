@@ -13,6 +13,38 @@ function getModuleById(id: string): Module | undefined {
   return db.prepare('SELECT * FROM modules WHERE id = ?').get(id) as Module | undefined;
 }
 
+function listModuleDirectoryRows(moduleId: string): ModuleDirectory[] {
+  const db = getDatabase();
+  return db
+    .prepare('SELECT * FROM module_directories WHERE module_id = ? ORDER BY created_at')
+    .all(moduleId) as ModuleDirectory[];
+}
+
+function syncPrimaryModuleDirectory(moduleId: string, dirPath: string, createdAt?: string): ModuleDirectory {
+  const db = getDatabase();
+  const existing = listModuleDirectoryRows(moduleId);
+  const keep = existing[0];
+
+  if (keep) {
+    db.prepare('UPDATE module_directories SET dir_path = ? WHERE id = ?').run(dirPath, keep.id);
+    if (existing.length > 1) {
+      db.prepare(
+        `DELETE FROM module_directories
+          WHERE module_id = ?
+            AND id <> ?`,
+      ).run(moduleId, keep.id);
+    }
+    return getModuleDirectoryById(keep.id) as ModuleDirectory;
+  }
+
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO module_directories (id, module_id, dir_path, created_at) VALUES (?, ?, ?, ?)`,
+  ).run(id, moduleId, dirPath, createdAt ?? new Date().toISOString());
+
+  return getModuleDirectoryById(id) as ModuleDirectory;
+}
+
 export function createModule(data: ModuleCreate): Module {
   const db = getDatabase();
   const id = randomUUID();
@@ -21,6 +53,8 @@ export function createModule(data: ModuleCreate): Module {
   db.prepare(
     `INSERT INTO modules (id, project_id, name, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(id, data.project_id, data.name, data.path, now, now);
+
+  syncPrimaryModuleDirectory(id, data.path, now);
 
   return getModuleById(id) as Module;
 }
@@ -49,6 +83,10 @@ export function updateModule(id: string, data: ModuleUpdate): Module | undefined
     id,
   );
 
+  if (data.path !== undefined) {
+    syncPrimaryModuleDirectory(id, data.path);
+  }
+
   return getModuleById(id);
 }
 
@@ -64,28 +102,24 @@ function getModuleDirectoryById(id: string): ModuleDirectory | undefined {
 }
 
 export function addModuleDirectory(data: ModuleDirectoryCreate): ModuleDirectory {
-  const db = getDatabase();
-  const id = randomUUID();
-  const now = new Date().toISOString();
-
-  db.prepare(
-    `INSERT INTO module_directories (id, module_id, dir_path, created_at) VALUES (?, ?, ?, ?)`,
-  ).run(id, data.module_id, data.dir_path, now);
-
-  return getModuleDirectoryById(id) as ModuleDirectory;
+  updateModule(data.module_id, { path: data.dir_path });
+  return syncPrimaryModuleDirectory(data.module_id, data.dir_path);
 }
 
 export function listModuleDirectories(moduleId: string): ModuleDirectory[] {
-  const db = getDatabase();
-  return db
-    .prepare('SELECT * FROM module_directories WHERE module_id = ? ORDER BY created_at')
-    .all(moduleId) as ModuleDirectory[];
+  const module = getModuleById(moduleId);
+  if (module?.path) {
+    return [syncPrimaryModuleDirectory(moduleId, module.path)];
+  }
+  const rows = listModuleDirectoryRows(moduleId);
+  return rows.length > 0 ? [rows[0]] : [];
 }
 
 export function updateModuleDirectoryPath(id: string, dirPath: string): ModuleDirectory | undefined {
-  const db = getDatabase();
-  db.prepare('UPDATE module_directories SET dir_path = ? WHERE id = ?').run(dirPath, id);
-  return getModuleDirectoryById(id);
+  const existing = getModuleDirectoryById(id);
+  if (!existing) return undefined;
+  updateModule(existing.module_id, { path: dirPath });
+  return syncPrimaryModuleDirectory(existing.module_id, dirPath);
 }
 
 export function removeModuleDirectory(id: string): boolean {

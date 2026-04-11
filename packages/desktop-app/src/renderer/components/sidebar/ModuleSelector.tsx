@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Package, Plus, Trash2, ChevronDown, FolderPlus } from 'lucide-react';
+import { Package, Plus, Trash2, ChevronDown, Pencil, FolderOpen } from 'lucide-react';
 import { useModuleStore } from '../../stores/module-store';
 import { useI18n } from '../../hooks/useI18n';
+import { fsService } from '../../services';
 
 interface ModuleSelectorProps {
   projectId: string;
-  onAddDirectory?: () => void;
+  projectRootDir: string;
 }
 
-export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProps): JSX.Element {
+export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProps): JSX.Element {
   const { t } = useI18n();
   const { modules, activeModuleId, setActiveModule, createModule, deleteModule, updateModule } =
     useModuleStore();
@@ -57,7 +58,7 @@ export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProp
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const mod = await createModule({ project_id: projectId, name: newName.trim() });
+    const mod = await createModule({ project_id: projectId, name: newName.trim(), path: projectRootDir });
     await setActiveModule(mod.id);
     setNewName('');
     setCreating(false);
@@ -82,6 +83,19 @@ export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProp
     setRenameValue('');
   };
 
+  const startRename = (e: React.MouseEvent, id: string, currentName: string) => {
+    e.stopPropagation();
+    setRenamingId(id);
+    setRenameValue(currentName);
+  };
+
+  const changePath = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const nextPath = await fsService.openFolderDialog();
+    if (!nextPath) return;
+    await updateModule(id, { path: nextPath });
+  };
+
   return (
     <div ref={dropdownRef} className="relative flex items-center gap-0.5 px-2 py-1.5">
       {/* Module selector */}
@@ -98,17 +112,6 @@ export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProp
           className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
-      {/* Add directory */}
-      {onAddDirectory && activeModuleId && (
-        <button
-          className="shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
-          onClick={onAddDirectory}
-          title="Add directory"
-        >
-          <FolderPlus size={14} />
-        </button>
-      )}
-
       {/* Dropdown — uses fixed positioning to avoid parent overflow clipping */}
       {open && (
         <div
@@ -149,15 +152,37 @@ export function ModuleSelector({ projectId, onAddDirectory }: ModuleSelectorProp
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <span className="flex-1 truncate">{m.name}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{m.name}</div>
+                    <div className="truncate text-[11px] text-muted">
+                      {m.path || t('sidebar.selectModulePath')}
+                    </div>
+                  </div>
                 )}
                 {renamingId !== m.id && (
-                  <button
-                    className="shrink-0 rounded p-0.5 text-muted opacity-0 hover:text-status-error group-hover:opacity-100"
-                    onClick={(e) => handleDelete(e, m.id)}
-                  >
-                    <Trash2 size={10} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      className="rounded p-0.5 text-muted hover:text-default"
+                      onClick={(e) => startRename(e, m.id, m.name)}
+                      title={t('sidebar.editModuleName' as never)}
+                    >
+                      <Pencil size={10} />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted hover:text-default"
+                      onClick={(e) => changePath(e, m.id)}
+                      title={t('sidebar.editModulePath' as never)}
+                    >
+                      <FolderOpen size={10} />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted hover:text-status-error"
+                      onClick={(e) => handleDelete(e, m.id)}
+                      title={t('sidebar.deleteModule' as never)}
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

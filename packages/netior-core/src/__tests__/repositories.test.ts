@@ -25,7 +25,14 @@ import {
   setEdgeVisual, getEdgeVisuals, removeEdgeVisual,
 } from '../repositories/layout';
 import { createFileEntity, getFileEntity, getFileEntityByPath, getFileEntitiesByProject, updateFileEntity, deleteFileEntity } from '../repositories/file';
-import { createModule, listModules, updateModule, deleteModule } from '../repositories/module';
+import {
+  addModuleDirectory,
+  createModule,
+  deleteModule,
+  listModuleDirectories,
+  listModules,
+  updateModule,
+} from '../repositories/module';
 import { getEditorPrefs, upsertEditorPrefs } from '../repositories/editor-prefs';
 import { createRelationType, listRelationTypes, getRelationType, updateRelationType, deleteRelationType } from '../repositories/relation-type';
 import { createObject, getObject, getObjectByRef, deleteObject, deleteObjectByRef } from '../repositories/objects';
@@ -654,6 +661,20 @@ describe('Repositories', () => {
       const updated = updateModule(m.id, { name: 'new', path: '/tmp/mod/new' });
       expect(updated?.name).toBe('new');
       expect(updated?.path).toBe('/tmp/mod/new');
+      expect(listModuleDirectories(m.id)).toHaveLength(1);
+      expect(listModuleDirectories(m.id)[0].dir_path).toBe('/tmp/mod/new');
+    });
+
+    it('should keep only one directory path per module', () => {
+      const m = createModule({ project_id: projectId, name: 'single', path: '/tmp/mod/one' });
+      addModuleDirectory({ module_id: m.id, dir_path: '/tmp/mod/two' });
+
+      const directories = listModuleDirectories(m.id);
+      const updated = listModules(projectId).find((module) => module.id === m.id);
+
+      expect(directories).toHaveLength(1);
+      expect(directories[0].dir_path).toBe('/tmp/mod/two');
+      expect(updated?.path).toBe('/tmp/mod/two');
     });
 
     it('should delete module', () => {

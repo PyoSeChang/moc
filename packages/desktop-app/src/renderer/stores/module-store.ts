@@ -52,6 +52,10 @@ export const useModuleStore = create<ModuleStore>((set, get) => ({
     set((s) => ({
       modules: s.modules.map((m) => (m.id === id ? updated : m)),
     }));
+    if (get().activeModuleId === id) {
+      const directories = await moduleService.dir.list(id);
+      set({ directories });
+    }
   },
 
   deleteModule: async (id) => {
@@ -78,7 +82,14 @@ export const useModuleStore = create<ModuleStore>((set, get) => ({
 
   addDirectory: async (data) => {
     const dir = await moduleService.dir.add(data);
-    set((s) => ({ directories: [...s.directories, dir] }));
+    set((s) => ({
+      modules: s.modules.map((module) =>
+        module.id === dir.module_id
+          ? { ...module, path: dir.dir_path }
+          : module,
+      ),
+      directories: [dir],
+    }));
     return dir;
   },
 

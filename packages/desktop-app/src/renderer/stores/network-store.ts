@@ -229,7 +229,7 @@ async function healHierarchyOrphans(networkId: string): Promise<void> {
         network_id: networkId,
         source_node_id: directContainerId,
         target_node_id: node.id,
-        relation_type_id: null,
+        relation_type_id: undefined,
         system_contract: 'core:root_child',
       });
     }
@@ -505,7 +505,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
           network_id: networkId ?? node.network_id,
           source_node_id: outerContainerId,
           target_node_id: childId,
-          relation_type_id: null,
+          relation_type_id: undefined,
           system_contract: 'core:contains',
         });
 
@@ -527,7 +527,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
               network_id: networkId ?? node.network_id,
               source_node_id: outerContainerId,
               target_node_id: childId,
-              relation_type_id: null,
+              relation_type_id: undefined,
               system_contract: 'core:root_child',
             });
           }
@@ -554,7 +554,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
           network_id: networkId ?? node.network_id,
           source_node_id: fallbackParentId ?? fallbackHierarchyId,
           target_node_id: childId,
-          relation_type_id: null,
+          relation_type_id: undefined,
           system_contract: fallbackParentId ? 'core:tree_parent' : 'core:root_child',
         });
       }
@@ -627,7 +627,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
           network_id: edge.network_id,
           source_node_id: hierarchyContainerId,
           target_node_id: edge.target_node_id,
-          relation_type_id: null,
+          relation_type_id: undefined,
           system_contract: 'core:root_child',
         });
       }

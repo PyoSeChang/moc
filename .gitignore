@@ -45,7 +45,14 @@ coverage/
 # Claude Code local settings
 .claude/settings.local.json
 .claude/neuroplasticity/
+.claude/worktrees/
 
 # Misc
 *.local
 docs/engineering-profile-notes.md
+.tmp/
+.tmp-*/
+tmp/
+_tmp_*
+packages/narre-eval/runs/
+packages/narre-eval/scenarios/*/results/

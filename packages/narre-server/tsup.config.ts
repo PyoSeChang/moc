@@ -4,16 +4,18 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
   },
-  format: ['esm'],
+  format: ['cjs'],
   dts: true,
   splitting: false,
   sourcemap: true,
   clean: true,
-  external: [
-    '@anthropic-ai/claude-agent-sdk',
-    '@netior/shared',
-    'express',
-    'cors',
-    'zod',
-  ],
+  target: 'node22',
+  platform: 'node',
+  external: [],
+  noExternal: [/.*/],
+  outExtension() {
+    return {
+      js: '.cjs',
+    };
+  },
 });

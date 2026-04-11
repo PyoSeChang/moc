@@ -27,8 +27,15 @@ let narreLaunchSignature: string | null = null;
 
 function resolveNarreServerPath(): string | null {
   const candidates = [
+    join(process.resourcesPath ?? '', 'sidecars', 'narre-server', 'dist', 'index.cjs'),
+    join(process.resourcesPath ?? '', 'sidecars', 'narre-server', 'dist', 'index.js'),
+    join(process.resourcesPath ?? '', 'app.asar.unpacked', 'node_modules', '@netior', 'narre-server', 'dist', 'index.cjs'),
+    join(process.resourcesPath ?? '', 'app.asar.unpacked', 'node_modules', '@netior', 'narre-server', 'dist', 'index.js'),
+    join(__dirname, '../../../../narre-server/dist/index.cjs'),
     join(__dirname, '../../../../narre-server/dist/index.js'),
+    join(__dirname, '../../../narre-server/dist/index.cjs'),
     join(__dirname, '../../../narre-server/dist/index.js'),
+    join(process.cwd(), 'packages/narre-server/dist/index.cjs'),
     join(process.cwd(), 'packages/narre-server/dist/index.js'),
   ];
 
@@ -45,12 +52,26 @@ function resolveNarreServerPath(): string | null {
 
   try {
     const resolved = require.resolve('@netior/narre-server');
+    const unpacked = toUnpackedAsarPath(resolved);
+    if (unpacked && existsSync(unpacked)) {
+      console.log(`[narre-server]   require.resolve -> unpacked: ${unpacked}`);
+      return unpacked;
+    }
     console.log(`[narre-server]   require.resolve: ${resolved}`);
     return resolved;
   } catch (err) {
     console.log(`[narre-server]   require.resolve failed: ${(err as Error).message}`);
     return null;
   }
+}
+
+function toUnpackedAsarPath(resolvedPath: string): string | null {
+  const marker = `${process.platform === 'win32' ? '\\' : '/'}app.asar${process.platform === 'win32' ? '\\' : '/'}`;
+  if (!resolvedPath.includes(marker)) {
+    return null;
+  }
+
+  return resolvedPath.replace(marker, marker.replace('app.asar', 'app.asar.unpacked'));
 }
 
 function resolveRuntime(provider: NarreProviderName): {

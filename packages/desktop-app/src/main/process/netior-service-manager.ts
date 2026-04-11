@@ -12,6 +12,8 @@ let netiorServiceBaseUrl: string | null = null;
 
 function resolveNetiorServicePath(): string | null {
   const candidates = [
+    join(process.resourcesPath ?? '', 'sidecars', 'netior-service', 'dist', 'index.js'),
+    join(process.resourcesPath ?? '', 'app.asar.unpacked', 'node_modules', '@netior', 'service', 'dist', 'index.js'),
     join(__dirname, '../../../../netior-service/dist/index.js'),
     join(__dirname, '../../../netior-service/dist/index.js'),
     join(process.cwd(), 'packages/netior-service/dist/index.js'),
@@ -24,10 +26,24 @@ function resolveNetiorServicePath(): string | null {
   }
 
   try {
-    return require.resolve('@netior/service');
+    const resolved = require.resolve('@netior/service');
+    const unpacked = toUnpackedAsarPath(resolved);
+    if (unpacked && existsSync(unpacked)) {
+      return unpacked;
+    }
+    return resolved;
   } catch {
     return null;
   }
+}
+
+function toUnpackedAsarPath(resolvedPath: string): string | null {
+  const marker = `${process.platform === 'win32' ? '\\' : '/'}app.asar${process.platform === 'win32' ? '\\' : '/'}`;
+  if (!resolvedPath.includes(marker)) {
+    return null;
+  }
+
+  return resolvedPath.replace(marker, marker.replace('app.asar', 'app.asar.unpacked'));
 }
 
 export async function startNetiorService(config: {

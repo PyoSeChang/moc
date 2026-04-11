@@ -2,15 +2,18 @@
   "name": "@netior/narre-server",
   "version": "0.2.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "rimraf dist && tsup --config tsup.config.ts",
+    "dev": "rimraf dist && tsup --config tsup.config.ts --watch",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/index.cjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "latest",

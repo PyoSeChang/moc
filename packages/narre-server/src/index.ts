@@ -3,6 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import type { NarreBehaviorSettings, NarreCodexSettings, NarreMention } from '@netior/shared/types';
 import {
   normalizeNarreBehaviorSettings,
@@ -14,12 +15,15 @@ import { parseCommand } from './command-router.js';
 import { NarreRuntime } from './runtime/narre-runtime.js';
 import type { NarreProviderAdapter } from './runtime/provider-adapter.js';
 import { ClaudeProviderAdapter } from './providers/claude.js';
-import { OpenAIProviderAdapter } from './providers/openai.js';
-import { CodexProviderAdapter } from './providers/codex.js';
-import { normalizeCodexRuntimeSettings } from './providers/openai-family/codex-transport.js';
 import { initNarreLogging } from './logging.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const currentFilePath = typeof __filename === 'string'
+  ? __filename
+  : fileURLToPath(import.meta.url);
+const currentDir = typeof __dirname === 'string'
+  ? __dirname
+  : dirname(currentFilePath);
+const require = createRequire(currentFilePath);
 
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const MOC_DATA_DIR = process.env.MOC_DATA_DIR;
@@ -38,13 +42,8 @@ process.env.CLAUDE_CODE_STREAM_CLOSE_TIMEOUT = process.env.CLAUDE_CODE_STREAM_CL
 const sessionStore = new SessionStore(MOC_DATA_DIR);
 const behaviorSettings = parseBehaviorSettings();
 const codexSettings = parseCodexSettings();
-const provider = createProviderAdapter(process.env.NARRE_PROVIDER ?? 'claude');
-const runtime = new NarreRuntime({
-  behaviorSettings,
-  provider,
-  resolveMcpServerPath,
-  sessionStore,
-});
+let provider!: NarreProviderAdapter;
+let runtime!: NarreRuntime;
 const app = express();
 
 app.use(cors());
@@ -193,33 +192,72 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+async function initializeRuntime(): Promise<{ provider: NarreProviderAdapter; runtime: NarreRuntime }> {
+  const provider = await createProviderAdapter(process.env.NARRE_PROVIDER ?? 'claude');
+  const runtime = new NarreRuntime({
+  behaviorSettings,
+  provider,
+  resolveMcpServerPath,
+  sessionStore,
+});
+  return { provider, runtime };
+}
+
 function resolveMcpServerPath(): string | null {
   const candidates = [
-    join(__dirname, '../../netior-mcp/dist/index.js'),
-    join(__dirname, '../../../netior-mcp/dist/index.js'),
+    join(currentDir, '../../mcp/dist/index.js'),
+    join(currentDir, '../../netior-mcp/dist/index.js'),
+    join(currentDir, '../../../netior-mcp/dist/index.js'),
     join(process.cwd(), 'packages/netior-mcp/dist/index.js'),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
+
+  try {
+    const resolved = require.resolve('@netior/mcp');
+    const unpacked = toUnpackedAsarPath(resolved);
+    if (unpacked && existsSync(unpacked)) {
+      return unpacked;
+    }
+    if (existsSync(resolved)) {
+      return resolved;
+    }
+  } catch {
+    // Ignore and fall through to null.
+  }
+
   return null;
 }
 
-function createProviderAdapter(providerName: string): NarreProviderAdapter {
+function toUnpackedAsarPath(resolvedPath: string): string | null {
+  const marker = `${process.platform === 'win32' ? '\\' : '/'}app.asar${process.platform === 'win32' ? '\\' : '/'}`;
+  if (!resolvedPath.includes(marker)) {
+    return null;
+  }
+
+  return resolvedPath.replace(marker, marker.replace('app.asar', 'app.asar.unpacked'));
+}
+
+async function createProviderAdapter(providerName: string): Promise<NarreProviderAdapter> {
   switch (providerName) {
     case 'claude':
       return new ClaudeProviderAdapter();
-    case 'openai':
+    case 'openai': {
+      const { OpenAIProviderAdapter } = await import('./providers/openai.js');
       return new OpenAIProviderAdapter({
         dataDir: MOC_DATA_DIR!,
         model: process.env.NARRE_OPENAI_MODEL,
       });
-    case 'codex':
+    }
+    case 'codex': {
+      const { CodexProviderAdapter } = await import('./providers/codex.js');
       return new CodexProviderAdapter({
         dataDir: MOC_DATA_DIR!,
         model: process.env.NARRE_CODEX_MODEL,
         runtimeSettings: codexSettings,
       });
+    }
     default:
       throw new Error(`Unsupported Narre provider: ${providerName}`);
   }
@@ -242,21 +280,67 @@ function parseBehaviorSettings(): NarreBehaviorSettings {
 function parseCodexSettings(): NarreCodexSettings {
   const raw = process.env.NARRE_CODEX_SETTINGS_JSON;
   if (!raw) {
-    return normalizeCodexRuntimeSettings(undefined);
+    return getDefaultCodexSettings();
   }
 
   try {
-    return normalizeCodexRuntimeSettings(JSON.parse(raw));
+    return normalizeCodexSettings(JSON.parse(raw));
   } catch (error) {
     console.warn(`[narre] Failed to parse NARRE_CODEX_SETTINGS_JSON: ${(error as Error).message}`);
-    return normalizeCodexRuntimeSettings(undefined);
+    return getDefaultCodexSettings();
   }
 }
 
-app.listen(PORT, () => {
-  console.log(`Narre server listening on port ${PORT}`);
-  console.log(`Provider: ${provider.name}`);
-  console.log(`Data directory: ${MOC_DATA_DIR}`);
+function normalizeCodexSettings(value: unknown): NarreCodexSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return getDefaultCodexSettings();
+  }
+
+  const source = value as Record<string, unknown>;
+  return {
+    model: typeof source.model === 'string' ? source.model.trim() : '',
+    useProjectRootAsWorkingDirectory: source.useProjectRootAsWorkingDirectory !== false,
+    sandboxMode: source.sandboxMode === 'workspace-write' || source.sandboxMode === 'danger-full-access'
+      ? source.sandboxMode
+      : 'read-only',
+    approvalPolicy: source.approvalPolicy === 'untrusted' || source.approvalPolicy === 'never'
+      ? source.approvalPolicy
+      : 'on-request',
+    enableShellTool: source.enableShellTool === true,
+    enableMultiAgent: source.enableMultiAgent === true,
+    enableWebSearch: source.enableWebSearch === true,
+    enableViewImage: source.enableViewImage === true,
+    enableApps: source.enableApps === true,
+  };
+}
+
+function getDefaultCodexSettings(): NarreCodexSettings {
+  return {
+    model: '',
+    useProjectRootAsWorkingDirectory: true,
+    sandboxMode: 'read-only',
+    approvalPolicy: 'on-request',
+    enableShellTool: false,
+    enableMultiAgent: false,
+    enableWebSearch: false,
+    enableViewImage: false,
+    enableApps: false,
+  };
+}
+
+async function main(): Promise<void> {
+  ({ provider, runtime } = await initializeRuntime());
+
+  app.listen(PORT, () => {
+    console.log(`Narre server listening on port ${PORT}`);
+    console.log(`Provider: ${provider.name}`);
+    console.log(`Data directory: ${MOC_DATA_DIR}`);
+  });
+}
+
+void main().catch((error) => {
+  console.error('[narre] Startup failed:', error);
+  process.exit(1);
 });
 
 export type { };

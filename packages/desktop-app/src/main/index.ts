@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, Notification, nativeImage } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, Menu, Notification, nativeImage, screen } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { mkdirSync, existsSync } from 'fs';
@@ -9,10 +9,18 @@ import { startNetiorService, stopNetiorService } from './process/netior-service-
 import { agentRuntimeManager } from './agent-runtime/agent-runtime-manager';
 import { getConfiguredNarreProvider, syncNarreServerWithSettings } from './narre/narre-config';
 import { getRemoteConfig, setRemoteConfig } from './netior-service/netior-service-client';
+import { initMainLogging } from './logging';
 
 // Force userData to %APPDATA%/netior
 app.name = 'Netior';
 app.setPath('userData', join(app.getPath('appData'), 'netior'));
+const desktopMainLogFilePath = initMainLogging();
+console.log(`[desktop-main] Log file: ${desktopMainLogFilePath}`);
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 function getNotificationIcon() {
   const candidates = [
@@ -35,6 +43,30 @@ function getNotificationIcon() {
 let mainWindow: BrowserWindow | null = null;
 const detachedWindows = new Map<string, BrowserWindow>();
 
+interface StoredWindowBounds {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  isMaximized?: boolean;
+  displayId?: number;
+}
+
+function focusMainWindow(reason: string): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  console.log(`[main-window] Focusing main window (${reason})`);
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+  mainWindow.focus();
+}
+
 function sendWindowMaximizedState(win: BrowserWindow): void {
   win.webContents.send('window:maximized-changed', win.isMaximized());
 }
@@ -46,23 +78,41 @@ function attachWindowStateEvents(win: BrowserWindow): void {
   win.on('leave-full-screen', () => sendWindowMaximizedState(win));
 }
 
-async function loadWindowBounds(): Promise<{ width: number; height: number; x?: number; y?: number; isMaximized?: boolean }> {
-  const raw = await getRemoteConfig('windowBounds');
+async function loadWindowBounds(): Promise<StoredWindowBounds> {
+  const raw = await withTimeout(
+    getRemoteConfig('windowBounds'),
+    1000,
+    null,
+    'loadWindowBounds',
+  );
   if (raw) {
     try {
-      return typeof raw === 'string'
+      const parsed = typeof raw === 'string'
         ? JSON.parse(raw)
-        : raw as { width: number; height: number; x?: number; y?: number; isMaximized?: boolean };
+        : raw;
+      return resolveStoredWindowBounds(parsed);
     } catch { /* use defaults */ }
   }
-  return { width: 1200, height: 800 };
+  return resolveStoredWindowBounds(null);
 }
 
 async function saveWindowBounds(win: BrowserWindow): Promise<void> {
   const isMaximized = win.isMaximized();
-  // Save normal (non-maximized) bounds so restore works correctly
-  const bounds = isMaximized ? (win as any)._lastNormalBounds ?? win.getNormalBounds() : win.getBounds();
-  await setRemoteConfig('windowBounds', JSON.stringify({ ...bounds, isMaximized }));
+  const currentBounds = win.getBounds();
+  const activeDisplay = screen.getDisplayMatching(currentBounds);
+  // Save normal (non-maximized) bounds for restore size/position, but pair it with the
+  // actual display that was active when the window closed.
+  const bounds = isMaximized ? (win as any)._lastNormalBounds ?? win.getNormalBounds() : currentBounds;
+  await withTimeout(
+    setRemoteConfig('windowBounds', JSON.stringify({
+      ...bounds,
+      isMaximized,
+      displayId: activeDisplay.id,
+    } satisfies StoredWindowBounds)),
+    1000,
+    false,
+    'saveWindowBounds',
+  );
 }
 
 async function createWindow(): Promise<void> {
@@ -92,6 +142,21 @@ async function createWindow(): Promise<void> {
     mainWindow.maximize();
   }
 
+  let shown = false;
+  const showMainWindow = (reason: string) => {
+    if (!mainWindow || mainWindow.isDestroyed() || shown) {
+      return;
+    }
+
+    shown = true;
+    console.log(`[main-window] Showing main window (${reason})`);
+    mainWindow.show();
+    sendWindowMaximizedState(mainWindow);
+  };
+  const showTimeout = setTimeout(() => {
+    showMainWindow('startup-timeout');
+  }, 2000);
+
   // Track normal bounds for save when maximized
   mainWindow.on('resize', () => {
     if (mainWindow && !mainWindow.isMaximized()) {
@@ -109,10 +174,21 @@ async function createWindow(): Promise<void> {
       void saveWindowBounds(mainWindow);
     }
   });
+  mainWindow.on('closed', () => {
+    clearTimeout(showTimeout);
+    mainWindow = null;
+  });
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show();
-    if (mainWindow) sendWindowMaximizedState(mainWindow);
+  mainWindow.once('ready-to-show', () => showMainWindow('ready-to-show'));
+  mainWindow.webContents.once('did-finish-load', () => showMainWindow('did-finish-load'));
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[main-window] did-fail-load', { errorCode, errorDescription, validatedURL });
+  });
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[main-window] render-process-gone', details);
+  });
+  mainWindow.on('unresponsive', () => {
+    console.error('[main-window] unresponsive');
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -180,14 +256,6 @@ app.whenReady().then(async () => {
   }
   console.log('[netior-service] Startup enabled');
   registerAllIpc();
-
-  try {
-    const narreProvider = await getConfiguredNarreProvider();
-    const narreStarted = await syncNarreServerWithSettings();
-    console.log(`[narre-server] Startup ${narreStarted ? 'enabled' : 'skipped'} (provider=${narreProvider})`);
-  } catch (error) {
-    console.warn(`[narre-server] Startup skipped: ${(error as Error).message}`);
-  }
 
   // Window control IPC
   ipcMain.on('window:minimize', (event) => {
@@ -398,16 +466,131 @@ app.whenReady().then(async () => {
 
   await createWindow();
 
+  void (async () => {
+    try {
+      const narreProvider = await getConfiguredNarreProvider();
+      const narreStarted = await syncNarreServerWithSettings();
+      console.log(`[narre-server] Startup ${narreStarted ? 'enabled' : 'skipped'} (provider=${narreProvider})`);
+    } catch (error) {
+      console.warn(`[narre-server] Startup skipped: ${(error as Error).message}`);
+    }
+  })();
+
   agentRuntimeManager.start().catch((err) => {
     console.error('[AgentRuntime] Failed to start:', err);
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
       void createWindow();
+      return;
     }
+
+    focusMainWindow('activate');
   });
 });
+
+if (hasSingleInstanceLock) {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      void createWindow();
+      return;
+    }
+
+    focusMainWindow('second-instance');
+  });
+}
+
+function resolveStoredWindowBounds(raw: unknown): StoredWindowBounds {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const defaultWidth = Math.min(1200, primaryDisplay.workArea.width);
+  const defaultHeight = Math.min(800, primaryDisplay.workArea.height);
+
+  const fallback: StoredWindowBounds = centerBoundsInDisplay(primaryDisplay, {
+    width: defaultWidth,
+    height: defaultHeight,
+    isMaximized: false,
+  });
+
+  if (!raw || typeof raw !== 'object') {
+    return fallback;
+  }
+
+  const candidate = raw as Partial<StoredWindowBounds>;
+  const width = typeof candidate.width === 'number' ? candidate.width : fallback.width;
+  const height = typeof candidate.height === 'number' ? candidate.height : fallback.height;
+  const isMaximized = candidate.isMaximized === true;
+
+  const targetDisplay = typeof candidate.displayId === 'number'
+    ? screen.getAllDisplays().find((display) => display.id === candidate.displayId) ?? null
+    : null;
+
+  const display = targetDisplay ?? (
+    typeof candidate.x === 'number' && typeof candidate.y === 'number'
+      ? screen.getDisplayMatching({
+        x: candidate.x,
+        y: candidate.y,
+        width,
+        height,
+      })
+      : primaryDisplay
+  );
+
+  return clampBoundsToDisplay(display, {
+    width,
+    height,
+    x: candidate.x,
+    y: candidate.y,
+    isMaximized,
+    displayId: display.id,
+  });
+}
+
+function centerBoundsInDisplay(
+  display: Electron.Display,
+  bounds: Pick<StoredWindowBounds, 'width' | 'height' | 'isMaximized'>,
+): StoredWindowBounds {
+  const width = Math.min(Math.max(bounds.width, 800), display.workArea.width);
+  const height = Math.min(Math.max(bounds.height, 600), display.workArea.height);
+  return {
+    width,
+    height,
+    x: display.workArea.x + Math.max(0, Math.floor((display.workArea.width - width) / 2)),
+    y: display.workArea.y + Math.max(0, Math.floor((display.workArea.height - height) / 2)),
+    isMaximized: bounds.isMaximized,
+    displayId: display.id,
+  };
+}
+
+function clampBoundsToDisplay(display: Electron.Display, bounds: StoredWindowBounds): StoredWindowBounds {
+  const width = Math.min(Math.max(bounds.width, 800), display.workArea.width);
+  const height = Math.min(Math.max(bounds.height, 600), display.workArea.height);
+
+  const minX = display.workArea.x;
+  const minY = display.workArea.y;
+  const maxX = display.workArea.x + Math.max(0, display.workArea.width - width);
+  const maxY = display.workArea.y + Math.max(0, display.workArea.height - height);
+
+  const x = typeof bounds.x === 'number'
+    ? clamp(bounds.x, minX, maxX)
+    : minX + Math.max(0, Math.floor((display.workArea.width - width) / 2));
+  const y = typeof bounds.y === 'number'
+    ? clamp(bounds.y, minY, maxY)
+    : minY + Math.max(0, Math.floor((display.workArea.height - height) / 2));
+
+  return {
+    width,
+    height,
+    x,
+    y,
+    isMaximized: bounds.isMaximized,
+    displayId: display.id,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 app.on('window-all-closed', () => {
   ptyManager.killAll();
@@ -416,3 +599,31 @@ app.on('window-all-closed', () => {
   stopNetiorService();
   if (process.platform !== 'darwin') app.quit();
 });
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallbackValue: T,
+  label: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeoutHandle = setTimeout(() => {
+          console.warn(`[desktop-main] ${label} timed out after ${timeoutMs}ms; using fallback`);
+          resolve(fallbackValue);
+        }, timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    console.warn(`[desktop-main] ${label} failed; using fallback`, error);
+    return fallbackValue;
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}

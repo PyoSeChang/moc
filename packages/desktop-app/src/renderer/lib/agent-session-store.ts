@@ -139,6 +139,10 @@ function hydrateSnapshot(snapshots: AgentSessionSnapshot[]): void {
   notify();
 }
 
+export async function refreshAgentSessionStore(): Promise<void> {
+  hydrateSnapshot(await window.electron.agent.getSnapshot());
+}
+
 function handleSessionEvent(event: AgentSessionEvent): void {
   const key = getSessionKey(event.provider, event.sessionId);
 
@@ -207,7 +211,7 @@ export function initAgentSessionStore(): void {
   window.electron.agent.onStatusEvent(handleStatusEvent);
   window.electron.agent.onNameChanged(handleNameEvent);
   window.electron.agent.onTurnEvent(handleTurnEvent);
-  void window.electron.agent.getSnapshot().then(hydrateSnapshot).catch(() => {});
+  void refreshAgentSessionStore().catch(() => {});
 }
 
 export function getAgentSessionStoreVersion(): number {

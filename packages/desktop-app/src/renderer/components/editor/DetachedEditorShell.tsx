@@ -7,6 +7,7 @@ import { useEditorStore } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
 import { useDetachedShortcuts } from '../../shortcuts/useDetachedShortcuts';
 import { initDetachedBridge } from '../../lib/editor-state-bridge';
+import { refreshAgentSessionStore } from '../../lib/agent-session-store';
 import { useNetiorSync } from '../../hooks/useNetiorSync';
 import { getTabDragDataAsync, isTabDrag } from '../../hooks/useTabDrag';
 import { ToastContainer } from '../ui/Toast';
@@ -26,6 +27,7 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
       cleanup = c;
       const s = useEditorStore.getState();
       console.log(`[DetachedShell] bridge ready — hosts=${JSON.stringify(Object.keys(s.hosts))}, tabs=${s.tabs.map(t => `${t.id}@${t.hostId}`).join(', ')}`);
+      void refreshAgentSessionStore().catch(() => {});
       setReady(true);
     });
     return () => cleanup?.();
@@ -63,7 +65,10 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
 
   // Notify main that focus is on this host when window receives focus
   useEffect(() => {
-    const onFocus = () => useEditorStore.getState().setFocusedHost(hostId);
+    const onFocus = () => {
+      useEditorStore.getState().setFocusedHost(hostId);
+      void refreshAgentSessionStore().catch(() => {});
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [hostId]);

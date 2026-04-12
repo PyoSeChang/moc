@@ -8,7 +8,7 @@ import { initAgentSessionStore } from './lib/agent-session-store';
 import { initTerminalAgentNotifier } from './lib/terminal-agent-notifier';
 import { initMainBridge } from './lib/editor-state-bridge';
 import { initializeSettingsStore } from './stores/settings-store';
-import '@xterm/xterm/css/xterm.css';
+import 'xterm/css/xterm.css';
 import './styles/globals.css';
 
 const hash = window.location.hash;
@@ -51,8 +51,4 @@ if (!container) {
 
 const root = container.__netiorReactRoot ?? (container.__netiorReactRoot = ReactDOM.createRoot(container));
 
-root.render(
-  <React.StrictMode>
-    <Root />
-  </React.StrictMode>,
-);
+root.render(<Root />);

@@ -12,6 +12,7 @@ import { NarreEditor } from './NarreEditor';
 import { FileMetadataEditor } from './FileMetadataEditor';
 import { ContextEditor } from './ContextEditor';
 import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
+import { focusHyperTerminalSurface } from '../../lib/terminal/hyper-fork/term-registry';
 
 interface EditorContentProps {
   tab: EditorTab;
@@ -39,9 +40,10 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
     // Defer to let the editor render first
     const timer = requestAnimationFrame(() => {
       if (!el || el.contains(document.activeElement)) return;
-      // Terminal: xterm textarea (present only when already mounted)
-      const xtermTextarea = el.querySelector<HTMLTextAreaElement>('.xterm-helper-textarea');
-      if (xtermTextarea) { xtermTextarea.focus(); return; }
+      if (tab.type === 'terminal') {
+        focusHyperTerminalSurface(tab.targetId);
+        return;
+      }
       // CodeMirror (markdown / code editors)
       const cmContent = el.querySelector<HTMLElement>('.cm-content');
       if (cmContent) { cmContent.focus(); return; }
@@ -50,7 +52,7 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       if (focusable) { focusable.focus(); }
     });
     return () => cancelAnimationFrame(timer);
-  }, [isActive]);
+  }, [isActive, tab.targetId, tab.type]);
   let content: JSX.Element;
   switch (tab.type) {
     case 'concept':

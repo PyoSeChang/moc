@@ -3,7 +3,7 @@ import type { EditorTab } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
 import { useEditorStore } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
-import { adjustTerminalFontSize, resetTerminalFontSize } from '../../lib/terminal/terminal-services';
+import { adjustTerminalFontSize, resetTerminalFontSize } from '../../lib/terminal/hyper-fork/terminal-appearance';
 import { getTerminalEngine, type TerminalEngineInstance } from '../../lib/terminal/engine';
 import { TerminalSearchBar } from './TerminalSearchBar';
 import { TerminalTodoPanel } from './TerminalTodoPanel';
@@ -197,10 +197,11 @@ function isNearPosition(a: TerminalCursorPosition | null, b: TerminalCursorPosit
   return Math.abs(a.x - b.x) <= threshold && Math.abs(a.y - b.y) <= threshold;
 }
 
-function disableBuiltinTerminalLinks(instance: TerminalEngineInstance): boolean {
-  if (!instance.disableBuiltinLinkHandling) return false;
-  instance.disableBuiltinLinkHandling();
-  return true;
+function getXtermCellSize(xt: ReturnType<TerminalEngineInstance['getRawXterm']>): { width: number; height: number } | null {
+  const width = xt?.dimensions?.css?.cell?.width ?? xt?._core?._renderService?.dimensions?.actualCellWidth;
+  const height = xt?.dimensions?.css?.cell?.height ?? xt?._core?._renderService?.dimensions?.actualCellHeight;
+  if (!width || !height) return null;
+  return { width, height };
 }
 
 export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
@@ -400,47 +401,8 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     if (!container || !sessionId) return;
 
     let cwd = cwdRef.current;
-    let resizeObserver: ResizeObserver | null = null;
-    let scrollbarObserver: MutationObserver | null = null;
     let titleListener: { dispose(): void } | null = null;
-    const linkContributionDisposeTimers: number[] = [];
     const terminalEngine = getTerminalEngine();
-
-    const disableBuiltInLinksSoon = (instance: TerminalEngineInstance): void => {
-      disableBuiltinTerminalLinks(instance);
-      linkContributionDisposeTimers.push(window.setTimeout(() => disableBuiltinTerminalLinks(instance), 0));
-      linkContributionDisposeTimers.push(window.setTimeout(() => disableBuiltinTerminalLinks(instance), 120));
-      linkContributionDisposeTimers.push(window.setTimeout(() => disableBuiltinTerminalLinks(instance), 500));
-    };
-
-    const patchScrollbars = (): void => {
-      const vertical = container.querySelector<HTMLElement>('.xterm-scrollbar.xterm-vertical');
-      const horizontal = container.querySelector<HTMLElement>('.xterm-scrollbar.xterm-horizontal');
-      const verticalSlider = vertical?.querySelector<HTMLElement>('.xterm-slider');
-      const horizontalSlider = horizontal?.querySelector<HTMLElement>('.xterm-slider');
-
-      if (vertical) {
-        vertical.style.width = '8px';
-        vertical.style.right = '2px';
-        vertical.style.background = 'transparent';
-      }
-
-      if (horizontal) {
-        horizontal.style.height = '8px';
-        horizontal.style.bottom = '2px';
-        horizontal.style.background = 'transparent';
-      }
-
-      if (verticalSlider) {
-        verticalSlider.style.width = '8px';
-        verticalSlider.style.borderRadius = '9999px';
-      }
-
-      if (horizontalSlider) {
-        horizontalSlider.style.height = '8px';
-        horizontalSlider.style.borderRadius = '9999px';
-      }
-    };
 
     const attach = async (): Promise<void> => {
       setAttachError(null);
@@ -485,37 +447,11 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
 
       instance.attachToElement(container);
       instance.setVisible(true);
-      disableBuiltInLinksSoon(instance);
-      instance.layout({
-        width: container.clientWidth,
-        height: container.clientHeight,
-      });
-      patchScrollbars();
 
       titleListener = instance.onTitleChanged(() => {
         updateTitle(tab.id, instance.title);
       });
       updateTitle(tab.id, instance.title);
-
-      resizeObserver = new ResizeObserver(() => {
-        if (disposed) return;
-        instance.layout({
-          width: container.clientWidth,
-          height: container.clientHeight,
-        });
-        patchScrollbars();
-      });
-      resizeObserver.observe(container);
-
-      scrollbarObserver = new MutationObserver(() => {
-        patchScrollbars();
-      });
-      scrollbarObserver.observe(container, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class'],
-      });
 
       void instance.focusWhenReady();
 
@@ -542,13 +478,12 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
         const getMouseBufferCell = (): { x: number; y: number } | null => {
           const mouse = lastMousePositionRef.current;
           const screen = xt.element?.querySelector<HTMLElement>('.xterm-screen');
-          const cellWidth = xt.dimensions?.css?.cell?.width;
-          const cellHeight = xt.dimensions?.css?.cell?.height;
-          if (!mouse || !screen || !cellWidth || !cellHeight) return null;
+          const cellSize = getXtermCellSize(xt);
+          if (!mouse || !screen || !cellSize) return null;
 
           const rect = screen.getBoundingClientRect();
-          const viewportX = Math.floor((mouse.x - rect.left) / cellWidth) + 1;
-          const viewportY = Math.floor((mouse.y - rect.top) / cellHeight);
+          const viewportX = Math.floor((mouse.x - rect.left) / cellSize.width) + 1;
+          const viewportY = Math.floor((mouse.y - rect.top) / cellSize.height);
           if (viewportX < 1 || viewportY < 0) return null;
           return {
             x: viewportX,
@@ -564,10 +499,9 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
         ): void => {
           if (!modifierDownRef.current) return;
           const screen = xt.element?.querySelector<HTMLElement>('.xterm-screen');
-          const cellWidth = xt.dimensions?.css?.cell?.width;
-          const cellHeight = xt.dimensions?.css?.cell?.height;
+          const cellSize = getXtermCellSize(xt);
           const cols = xt.cols ?? 120;
-          if (!screen || !cellWidth || !cellHeight) return;
+          if (!screen || !cellSize) return;
 
           const screenRect = screen.getBoundingClientRect();
           const endInclusive = Math.max(start, endExclusive - 1);
@@ -585,9 +519,9 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
             if (endColInclusive < startCol) continue;
 
             segments.push({
-              x: screenRect.left + startCol * cellWidth,
-              y: screenRect.top + (viewportRow + 1) * cellHeight - 2,
-              width: (endColInclusive - startCol + 1) * cellWidth,
+              x: screenRect.left + startCol * cellSize.width,
+              y: screenRect.top + (viewportRow + 1) * cellSize.height - 2,
+              width: (endColInclusive - startCol + 1) * cellSize.width,
             });
           }
 
@@ -901,10 +835,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       document.removeEventListener('keydown', handleWindowModifierKeyDown, true);
       document.removeEventListener('keyup', handleKeyUp, true);
       window.removeEventListener('blur', handleWindowBlur);
-      linkContributionDisposeTimers.forEach((timer) => window.clearTimeout(timer));
       titleListener?.dispose();
-      resizeObserver?.disconnect();
-      scrollbarObserver?.disconnect();
       getMouseBufferCellRef.current = null;
       readHoveredLinkTargetRef.current = null;
       pendingModifierOverlayRef.current = null;

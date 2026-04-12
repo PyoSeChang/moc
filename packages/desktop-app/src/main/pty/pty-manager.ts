@@ -1,6 +1,6 @@
 import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
-import { BrowserWindow, type WebContents } from 'electron';
+import { BrowserWindow, app, type WebContents } from 'electron';
 import { basename } from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS } from '@netior/shared/constants';
@@ -44,9 +44,13 @@ interface TerminalSessionRecord {
   launchEnv: Record<string, string>;
   process: IPty | null;
   outputBuffer: string;
+  pendingOutput: string;
+  flushTimeout: NodeJS.Timeout | null;
 }
 
 const MAX_REPLAY_CHARS = 200_000;
+const BATCH_DURATION_MS = 16;
+const BATCH_MAX_SIZE = 200 * 1024;
 
 class TerminalBackendService {
   private sessions = new Map<string, TerminalSessionRecord>();
@@ -75,6 +79,8 @@ class TerminalBackendService {
       launchEnv: resolvedLaunchConfig.env ?? {},
       process: null,
       outputBuffer: '',
+      pendingOutput: '',
+      flushTimeout: null,
     });
     return info;
   }
@@ -97,7 +103,8 @@ class TerminalBackendService {
         ...record.launchEnv,
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
-        TERM_PROGRAM: 'netior',
+        TERM_PROGRAM: 'Hyper',
+        TERM_PROGRAM_VERSION: app.getVersion(),
         NETIOR_PTY_ID: sessionId,
         NETIOR_RUNTIME_SCOPE: getRuntimeScope(),
       } as Record<string, string>,
@@ -109,14 +116,11 @@ class TerminalBackendService {
     this.setState(record, 'starting');
 
     ptyProcess.onData((data) => {
-      record.outputBuffer = `${record.outputBuffer}${data}`;
-      if (record.outputBuffer.length > MAX_REPLAY_CHARS) {
-        record.outputBuffer = record.outputBuffer.slice(-MAX_REPLAY_CHARS);
-      }
-      this.send(IPC_CHANNELS.TERMINAL_DATA, { sessionId, data });
+      this.queueOutput(record, data);
     });
 
     ptyProcess.onExit(({ exitCode }) => {
+      this.flushOutput(record);
       record.process = null;
       record.info.exitCode = exitCode;
       agentRuntimeManager.cleanupTerminalLaunch(sessionId, 'exit', exitCode);
@@ -147,6 +151,12 @@ class TerminalBackendService {
   resize(sessionId: string, cols: number, rows: number): void {
     const record = this.sessions.get(sessionId);
     if (!record) return;
+    if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols < 2 || rows < 1) {
+      return;
+    }
+    if (record.info.cols === cols && record.info.rows === rows) {
+      return;
+    }
     record.info.cols = cols;
     record.info.rows = rows;
     record.process?.resize(cols, rows);
@@ -155,6 +165,7 @@ class TerminalBackendService {
   shutdown(sessionId: string): void {
     const record = this.sessions.get(sessionId);
     if (!record) return;
+    this.flushOutput(record);
     agentRuntimeManager.cleanupTerminalLaunch(sessionId, 'shutdown', record.info.exitCode);
     record.process?.kill();
     record.process = null;
@@ -193,6 +204,7 @@ class TerminalBackendService {
 
   private replaySession(record: TerminalSessionRecord, target?: WebContents): void {
     if (!target || target.isDestroyed()) return;
+    this.flushOutput(record);
 
     target.send(IPC_CHANNELS.TERMINAL_READY, {
       sessionId: record.info.sessionId,
@@ -215,6 +227,46 @@ class TerminalBackendService {
         data: record.outputBuffer,
       });
     }
+  }
+
+  private queueOutput(record: TerminalSessionRecord, chunk: string): void {
+    if (record.pendingOutput.length + chunk.length >= BATCH_MAX_SIZE) {
+      this.flushOutput(record);
+    }
+
+    record.pendingOutput = `${record.pendingOutput}${chunk}`;
+    if (!record.flushTimeout) {
+      record.flushTimeout = setTimeout(() => {
+        this.flushOutput(record);
+      }, BATCH_DURATION_MS);
+    }
+  }
+
+  private flushOutput(record: TerminalSessionRecord): void {
+    if (!record.pendingOutput) {
+      this.clearFlushTimeout(record);
+      return;
+    }
+
+    const data = record.pendingOutput;
+    record.pendingOutput = '';
+    this.clearFlushTimeout(record);
+
+    record.outputBuffer = `${record.outputBuffer}${data}`;
+    if (record.outputBuffer.length > MAX_REPLAY_CHARS) {
+      record.outputBuffer = record.outputBuffer.slice(-MAX_REPLAY_CHARS);
+    }
+
+    this.send(IPC_CHANNELS.TERMINAL_DATA, {
+      sessionId: record.info.sessionId,
+      data,
+    });
+  }
+
+  private clearFlushTimeout(record: TerminalSessionRecord): void {
+    if (!record.flushTimeout) return;
+    clearTimeout(record.flushTimeout);
+    record.flushTimeout = null;
   }
 }
 

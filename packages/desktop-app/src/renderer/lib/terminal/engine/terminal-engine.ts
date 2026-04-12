@@ -28,8 +28,20 @@ export interface TerminalBufferLine {
 
 export interface TerminalRawXterm {
   element?: HTMLElement;
+  textarea?: HTMLTextAreaElement | null;
   cols?: number;
+  modes?: {
+    bracketedPasteMode?: boolean;
+  };
   dimensions?: { css?: { cell?: { width?: number; height?: number } } };
+  _core?: {
+    _renderService?: {
+      dimensions?: {
+        actualCellWidth?: number;
+        actualCellHeight?: number;
+      };
+    };
+  };
   buffer: {
     active: {
       viewportY: number;
@@ -45,7 +57,7 @@ export interface TerminalLayoutDimensions {
 }
 
 export interface TerminalEngineInstance {
-  readonly kind: 'vscode' | 'hyper';
+  readonly kind: 'hyper';
   readonly title: string;
   attachToElement(element: HTMLElement): void;
   detachFromElement(): void;
@@ -61,11 +73,10 @@ export interface TerminalEngineInstance {
   getSelection(): string;
   getSearchController(): TerminalSearchController | undefined;
   getRawXterm(): TerminalRawXterm | undefined;
-  disableBuiltinLinkHandling?(): void;
 }
 
 export interface TerminalEngine {
-  readonly kind: 'vscode' | 'hyper';
+  readonly kind: 'hyper';
   getOrCreateTerminal(
     sessionId: string,
     cwd: string,

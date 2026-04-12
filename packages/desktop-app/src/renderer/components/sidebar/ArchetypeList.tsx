@@ -66,6 +66,7 @@ export function ArchetypeList(): JSX.Element {
       type: 'archetype',
       targetId: archetype.id,
       title: archetype.name,
+      isDirty: true,
     });
   };
 

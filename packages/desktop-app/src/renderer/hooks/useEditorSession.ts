@@ -81,11 +81,12 @@ export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSessi
     setIsLoading(true);
     try {
       const data = await loadRef.current();
+      const initialDirty = useEditorStore.getState().tabs.find((tab) => tab.id === tabId)?.isDirty ?? false;
       snapshotRef.current = data;
       stateRef.current = data;
       setStateRaw(data);
-      setIsDirtyLocal(false);
-      useEditorStore.getState().setDirty(tabId, false);
+      setIsDirtyLocal(initialDirty);
+      useEditorStore.getState().setDirty(tabId, initialDirty);
       draftCache.set(tabId, { draft: data, snapshot: data });
     } finally {
       setIsLoading(false);

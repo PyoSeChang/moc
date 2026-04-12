@@ -3042,6 +3042,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
               type: 'network',
               targetId: network.id,
               title: network.name,
+              isDirty: true,
             });
           }}
           onAttachNetwork={(nodeId) => {

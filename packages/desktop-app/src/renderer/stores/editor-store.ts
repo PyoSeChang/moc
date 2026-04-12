@@ -29,6 +29,7 @@ interface OpenTabParams {
   targetId: string;
   title: string;
   viewMode?: EditorViewMode;
+  isDirty?: boolean;
   draftData?: EditorTab['draftData'];
   networkId?: string;
   nodeId?: string;
@@ -46,6 +47,8 @@ interface EditorStore {
   activeTabId: string | null;
   sideLayout: SplitNode | null;
   fullLayout: SplitNode | null;
+  sideLastActiveTabId: string | null;
+  fullLastActiveTabId: string | null;
 
   // Host management
   hosts: Record<string, DetachedHostState>;
@@ -210,6 +213,13 @@ export function getActiveLeaf(): { leaf: SplitLeaf; mode: 'side' | 'full' } | nu
 export function getActiveTabFromLayout(layout: SplitNode, globalActiveTabId: string | null): string {
   if (globalActiveTabId && containsTab(layout, globalActiveTabId)) {
     return globalActiveTabId;
+  }
+  return getFirstLeaf(layout).activeTabId;
+}
+
+export function getRememberedActiveTabFromLayout(layout: SplitNode, rememberedTabId: string | null): string {
+  if (rememberedTabId && containsTab(layout, rememberedTabId)) {
+    return rememberedTabId;
   }
   return getFirstLeaf(layout).activeTabId;
 }
@@ -399,11 +409,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTabId: null,
   sideLayout: null,
   fullLayout: null,
+  sideLastActiveTabId: null,
+  fullLastActiveTabId: null,
   hosts: {},
   focusedHostId: MAIN_HOST_ID,
   pendingCloseTabId: null,
 
-  openTab: async ({ type, targetId, title, viewMode, draftData, networkId, nodeId, terminalCwd, terminalLaunchConfig, sideSplitRatio, hostId }) => {
+  openTab: async ({ type, targetId, title, viewMode, isDirty, draftData, networkId, nodeId, terminalCwd, terminalLaunchConfig, sideSplitRatio, hostId }) => {
     const { tabs } = get();
     const tabId = makeTabId(type, targetId);
     const resolvedHostId = hostId ?? MAIN_HOST_ID;
@@ -429,15 +441,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
       if (resolvedHostId === MAIN_HOST_ID) {
         const layoutUpdate: Partial<EditorStore> = {};
+        const layoutFocusUpdate: Partial<EditorStore> = {};
         const { sideLayout, fullLayout } = get();
         if (sideLayout && containsTab(sideLayout, tabId)) {
           layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+          layoutFocusUpdate.sideLastActiveTabId = tabId;
         }
         if (fullLayout && containsTab(fullLayout, tabId)) {
           layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
+          layoutFocusUpdate.fullLastActiveTabId = tabId;
         }
         set({
           ...layoutUpdate,
+          ...layoutFocusUpdate,
           activeTabId: tabId,
           tabs: tabs.map((t) => (t.id === tabId ? { ...t, ...contextPatch, isMinimized: false } : t)),
         });
@@ -501,7 +517,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       },
       isMinimized: false,
       sideSplitRatio: prefs?.side_split_ratio ?? sideSplitRatio ?? 0.5,
-      isDirty: !!draftData,
+      isDirty: isDirty ?? !!draftData,
       activeFilePath: null,
       draftData,
       networkId,
@@ -537,6 +553,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         ...setLayoutForMode(resolvedMode, layout),
         tabs: [...s.tabs, tab],
         activeTabId: tabId,
+        ...(resolvedMode === 'side' ? { sideLastActiveTabId: tabId } : {}),
+        ...(resolvedMode === 'full' ? { fullLastActiveTabId: tabId } : {}),
       }));
     } else {
       set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tabId }));
@@ -594,7 +612,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           const mainTabs = tabs.filter((t) => t.hostId === MAIN_HOST_ID);
           activeTabId = paneFallbackTabId ?? (mainTabs.length > 0 ? mainTabs[mainTabs.length - 1].id : null);
         }
-        return { ...layoutUpdate, tabs, activeTabId };
+        return {
+          ...layoutUpdate,
+          tabs,
+          activeTabId,
+          sideLastActiveTabId: s.sideLastActiveTabId === tabId ? paneFallbackTabId : s.sideLastActiveTabId,
+          fullLastActiveTabId: s.fullLastActiveTabId === tabId ? paneFallbackTabId : s.fullLastActiveTabId,
+        };
       });
     } else {
       // Remove from detached host
@@ -655,14 +679,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     if (tab.hostId === MAIN_HOST_ID) {
       const layoutUpdate: Partial<EditorStore> = {};
+      const layoutFocusUpdate: Partial<EditorStore> = {};
       const { sideLayout, fullLayout } = get();
       if (sideLayout && containsTab(sideLayout, tabId)) {
         layoutUpdate.sideLayout = setActiveInLeaf(sideLayout, tabId);
+        layoutFocusUpdate.sideLastActiveTabId = tabId;
       }
       if (fullLayout && containsTab(fullLayout, tabId)) {
         layoutUpdate.fullLayout = setActiveInLeaf(fullLayout, tabId);
+        layoutFocusUpdate.fullLastActiveTabId = tabId;
       }
-      set({ ...layoutUpdate, activeTabId: tabId });
+      set({ ...layoutUpdate, ...layoutFocusUpdate, activeTabId: tabId });
     } else {
       const host = get().hosts[tab.hostId];
       if (host) {
@@ -974,6 +1001,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         ...setLayoutForMode(mode, newLayout),
         tabs: s.tabs.map((t) => (t.id === newTabId ? { ...t, viewMode: mode, isMinimized: false, hostId: MAIN_HOST_ID } : t)),
         activeTabId: newTabId,
+        ...(mode === 'side' ? { sideLastActiveTabId: newTabId } : {}),
+        ...(mode === 'full' ? { fullLastActiveTabId: newTabId } : {}),
       }));
     }
   },
@@ -1029,6 +1058,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         ...setLayoutForMode(mode, layout!),
         tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode, isMinimized: false, hostId: MAIN_HOST_ID } : t)),
         activeTabId: tabId,
+        ...(mode === 'side' ? { sideLastActiveTabId: tabId } : {}),
+        ...(mode === 'full' ? { fullLastActiveTabId: tabId } : {}),
         hosts: hostsUpdate,
       };
     });
@@ -1244,6 +1275,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     Object.values(floatSaveTimers).forEach(clearTimeout);
     floatSaveTimers = {};
     minimizedRestoreHints.clear();
-    set({ tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: MAIN_HOST_ID });
+    set({
+      tabs: [],
+      activeTabId: null,
+      sideLayout: null,
+      fullLayout: null,
+      sideLastActiveTabId: null,
+      fullLastActiveTabId: null,
+      hosts: {},
+      focusedHostId: MAIN_HOST_ID,
+    });
   },
 }));

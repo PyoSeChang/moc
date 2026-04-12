@@ -77,6 +77,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
   });
 
   const handleAddField = async () => {
+    useEditorStore.getState().setDirty(tab.id, true);
     await createField({
       archetype_id: archetypeId,
       name: '',
@@ -87,16 +88,18 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
   const handleUpdateField = useCallback(
     (id: string, data: Parameters<typeof updateField>[2]) => {
+      useEditorStore.getState().setDirty(tab.id, true);
       updateField(id, archetypeId, data);
     },
-    [archetypeId, updateField],
+    [archetypeId, tab.id, updateField],
   );
 
   const handleDeleteField = useCallback(
     (id: string) => {
+      useEditorStore.getState().setDirty(tab.id, true);
       deleteField(id, archetypeId);
     },
-    [archetypeId, deleteField],
+    [archetypeId, tab.id, deleteField],
   );
 
   const nodeShapeOptions = [
@@ -252,6 +255,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
             {fields.map((field) => (
               <ArchetypeFieldRow
                 key={field.id}
+                tabId={tab.id}
                 field={field}
                 onUpdate={handleUpdateField}
                 onDelete={handleDeleteField}

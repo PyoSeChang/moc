@@ -72,7 +72,7 @@ describe('collectLeaves', () => {
 describe('getActiveLeaf', () => {
   beforeEach(() => {
     useEditorStore.setState({
-      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: 'main',
+      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, sideLastActiveTabId: null, fullLastActiveTabId: null, hosts: {}, focusedHostId: 'main',
     });
   });
 
@@ -111,7 +111,7 @@ describe('getActiveLeaf', () => {
 describe('closeTab fallback', () => {
   beforeEach(() => {
     useEditorStore.setState({
-      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: 'main', pendingCloseTabId: null,
+      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, sideLastActiveTabId: null, fullLastActiveTabId: null, hosts: {}, focusedHostId: 'main', pendingCloseTabId: null,
     });
   });
 
@@ -186,7 +186,7 @@ describe('closeTab fallback', () => {
 describe('setViewMode float fallback', () => {
   beforeEach(() => {
     useEditorStore.setState({
-      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, hosts: {}, focusedHostId: 'main', pendingCloseTabId: null,
+      tabs: [], activeTabId: null, sideLayout: null, fullLayout: null, sideLastActiveTabId: null, fullLastActiveTabId: null, hosts: {}, focusedHostId: 'main', pendingCloseTabId: null,
     });
   });
 

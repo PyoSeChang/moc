@@ -166,6 +166,23 @@ body,
   z-index: 1;
   border-bottom: 1px solid var(--surface-editor);
   margin-bottom: -1px;
+  box-shadow:
+    inset 1px 0 0 var(--border-default),
+    inset -1px 0 0 var(--border-default);
+}
+
+.tab-active-focused {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 1px 0 0 var(--border-default),
+    inset -1px 0 0 var(--border-default);
+}
+
+.tab-active-unfocused {
+  box-shadow:
+    inset 0 1px 0 var(--border-default),
+    inset 1px 0 0 var(--border-default),
+    inset -1px 0 0 var(--border-default);
 }
 
 /* Thin separator between inactive tabs */

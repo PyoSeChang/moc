@@ -13,7 +13,13 @@ import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
 import { CloseConfirmDialog } from '../editor/CloseConfirmDialog';
 import { ResizeHandle } from '../ui/ResizeHandle';
-import { useEditorStore, getActiveTabFromLayout, collectLeaves, MAIN_HOST_ID } from '../../stores/editor-store';
+import {
+  useEditorStore,
+  collectLeaves,
+  containsTab,
+  getRememberedActiveTabFromLayout,
+  MAIN_HOST_ID,
+} from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
 import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
@@ -81,18 +87,20 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const fullActiveTabId = useEditorStore((s) => {
-    if (!s.fullLayout) return null;
-    return getActiveTabFromLayout(s.fullLayout, s.activeTabId);
-  });
+  const fullFocusedTabId = useEditorStore((s) => (
+    s.activeTabId && s.fullLayout && containsTab(s.fullLayout, s.activeTabId) ? s.activeTabId : null
+  ));
 
-  const isFullMode = fullActiveTabId !== null
-    && tabs.some((t) => t.id === fullActiveTabId && !t.isMinimized && t.viewMode === 'full');
+  const isFullMode = tabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
   const hasSideEditor = !isFullMode && sideLayout !== null
     && tabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
 
-  // Derive the side active tab for workspace-editor split ratio
-  const sideActiveTabId = sideLayout ? getActiveTabFromLayout(sideLayout, activeTabId) : null;
+  const sideFocusedTabId = useEditorStore((s) => (
+    s.activeTabId && s.sideLayout && containsTab(s.sideLayout, s.activeTabId) ? s.activeTabId : null
+  ));
+  const sideActiveTabId = useEditorStore((s) => (
+    s.sideLayout ? getRememberedActiveTabFromLayout(s.sideLayout, s.sideLastActiveTabId) : null
+  ));
   const sideActiveTab = sideActiveTabId ? tabs.find((t) => t.id === sideActiveTabId) : null;
 
   const applyDropModeToMain = useCallback((tabId: string, mode: 'side' | 'float') => {
@@ -124,6 +132,18 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     };
     document.addEventListener('dragend', resetDragState);
     return () => document.removeEventListener('dragend', resetDragState);
+  }, []);
+
+  useEffect(() => {
+    if (!hasSideEditor) return;
+    setShowSideDropHint(false);
+    setShowFloatDropHint(false);
+  }, [hasSideEditor]);
+
+  const clearShellDropState = useCallback(() => {
+    setIsTabDragging(false);
+    setShowSideDropHint(false);
+    setShowFloatDropHint(false);
   }, []);
 
   // Side editor split drag (workspace <-> side panel)
@@ -204,7 +224,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
         .filter((t): t is EditorTab => t != null);
       const activeLeafTab = leafTabs.find((t) => t.id === leaf.activeTabId) ?? leafTabs[0];
 
-      const isActivePane = sideActiveTabId ? leaf.tabIds.includes(sideActiveTabId) : false;
+      const isActivePane = sideFocusedTabId ? leaf.tabIds.includes(sideFocusedTabId) : false;
       const isMultiPane = sideLayout ? collectLeaves(sideLayout).length > 1 : false;
 
       return (
@@ -236,7 +256,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             {activeLeafTab && <EditorContent tab={activeLeafTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
-                flushSync(() => setIsTabDragging(false));
+                flushSync(() => clearShellDropState());
                 if (result.zone === 'center') {
                   moveTabToPane(result.tabId, leaf.activeTabId, 'side');
                 } else {
@@ -247,6 +267,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                 }
               }}
               onFileDrop={(filePaths, result) => {
+                flushSync(() => clearShellDropState());
                 void openDroppedFilesInSideLeaf(filePaths, leaf, result);
               }}
               active={isTabDragging}
@@ -255,7 +276,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
         </div>
       );
     },
-    [tabs, isTabDragging, activeTabId, sideLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
+    [tabs, isTabDragging, activeTabId, sideFocusedTabId, sideLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab, clearShellDropState],
   );
 
   // Global drag tracking for drop zone activation
@@ -281,10 +302,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   }, []);
 
   const handleShellDrop = useCallback(() => {
-    setIsTabDragging(false);
-    setShowSideDropHint(false);
-    setShowFloatDropHint(false);
-  }, []);
+    clearShellDropState();
+  }, [clearShellDropState]);
 
   // Workspace area: drop -> float mode
   const handleWorkspaceDragOver = useCallback((e: React.DragEvent) => {
@@ -299,23 +318,19 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
   const handleWorkspaceDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
-    setShowSideDropHint(false);
-    setShowFloatDropHint(false);
-    setIsTabDragging(false);
+    clearShellDropState();
     const tabId = await getTabDragDataAsync(e);
     console.log(`[WorkspaceShell] float drop tabId=${tabId}, x=${e.clientX}, y=${e.clientY}`);
     if (!tabId) return;
     applyDropModeToMain(tabId, 'float');
     updateFloatRect(tabId, { x: e.clientX - 50, y: e.clientY - 20 });
-  }, [applyDropModeToMain, updateFloatRect]);
+  }, [applyDropModeToMain, clearShellDropState, updateFloatRect]);
 
   // Side drop hint: drop on right edge → side mode
   const handleSideHintDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowSideDropHint(false);
-    setShowFloatDropHint(false);
-    setIsTabDragging(false);
+    clearShellDropState();
     if (isFileOpenDrag(e)) {
       const filePaths = getFileOpenDragData(e);
       console.log(`[WorkspaceShell] side file drop count=${filePaths.length}`);
@@ -328,7 +343,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     const tabId = await getTabDragDataAsync(e);
     console.log(`[WorkspaceShell] side drop tabId=${tabId}`);
     if (tabId) applyDropModeToMain(tabId, 'side');
-  }, [applyDropModeToMain]);
+  }, [applyDropModeToMain, clearShellDropState]);
 
   return (
     <div className="relative flex h-full">

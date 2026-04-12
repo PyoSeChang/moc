@@ -8,12 +8,14 @@ import { Tooltip } from '../ui/Tooltip';
 import { ArchetypeRefPicker } from '../ui/ArchetypeRefPicker';
 import { useI18n } from '../../hooks/useI18n';
 import { useArchetypeStore } from '../../stores/archetype-store';
+import { useEditorStore } from '../../stores/editor-store';
 import {
   parseArchetypeFieldOptions,
   stringifyArchetypeFieldOptions,
 } from '../../lib/archetype-field-options';
 
 interface ArchetypeFieldRowProps {
+  tabId: string;
   field: ArchetypeField;
   onUpdate: (id: string, data: ArchetypeFieldUpdate) => void;
   onDelete: (id: string) => void;
@@ -25,7 +27,7 @@ function parseChoices(options: string | null): string {
   return parseArchetypeFieldOptions(options).choices.join(', ');
 }
 
-export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldRowProps): JSX.Element {
+export function ArchetypeFieldRow({ tabId, field, onUpdate, onDelete }: ArchetypeFieldRowProps): JSX.Element {
   const { t } = useI18n();
   const archetypes = useArchetypeStore((state) => state.archetypes);
   const showOptions = CHOICE_TYPES.has(field.field_type);
@@ -36,6 +38,9 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
   // Local state buffers to avoid breaking IME composition
   const [nameText, setNameText] = useState(field.name);
   const [optionsText, setOptionsText] = useState(() => parseChoices(field.options));
+  const markDirty = () => {
+    useEditorStore.getState().setDirty(tabId, true);
+  };
 
   // Sync from external changes
   useEffect(() => { setNameText(field.name); }, [field.name]);
@@ -43,6 +48,7 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
 
   const commitOptions = () => {
     const choices = optionsText.split(',').map((s) => s.trim()).filter(Boolean);
+    markDirty();
     onUpdate(field.id, {
       options: stringifyArchetypeFieldOptions({
         ...fieldOptions,
@@ -67,6 +73,7 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
       }
     }
 
+    markDirty();
     onUpdate(field.id, patch);
   };
 
@@ -78,27 +85,47 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
           className="flex-1 min-w-[100px]"
           value={nameText}
           placeholder={t('archetype.fieldName')}
-          onChange={(e) => setNameText(e.target.value)}
-          onBlur={() => onUpdate(field.id, { name: nameText })}
-          onKeyDown={(e) => { if (e.key === 'Enter') onUpdate(field.id, { name: nameText }); }}
+          onChange={(e) => {
+            markDirty();
+            setNameText(e.target.value);
+          }}
+          onBlur={() => {
+            markDirty();
+            onUpdate(field.id, { name: nameText });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              markDirty();
+              onUpdate(field.id, { name: nameText });
+            }
+          }}
         />
         <TypeSelector
           value={field.field_type}
-          onChange={(type) => onUpdate(field.id, {
-            field_type: type,
-            ref_archetype_id: type === 'archetype_ref' ? field.ref_archetype_id : null,
-          })}
+          onChange={(type) => {
+            markDirty();
+            onUpdate(field.id, {
+              field_type: type,
+              ref_archetype_id: type === 'archetype_ref' ? field.ref_archetype_id : null,
+            });
+          }}
         />
         <Toggle
           checked={field.required}
-          onChange={(checked) => onUpdate(field.id, { required: checked })}
+          onChange={(checked) => {
+            markDirty();
+            onUpdate(field.id, { required: checked });
+          }}
           label={t('archetype.required')}
         />
         <Tooltip content={t('archetype.deleteField')} position="top">
           <button
             type="button"
             className="p-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted hover:text-status-error"
-            onClick={() => onDelete(field.id)}
+            onClick={() => {
+              markDirty();
+              onDelete(field.id);
+            }}
           >
             <Trash2 size={14} />
           </button>
@@ -111,7 +138,10 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
             inputSize="sm"
             value={optionsText}
             placeholder={t('archetype.options')}
-            onChange={(e) => setOptionsText(e.target.value)}
+            onChange={(e) => {
+              markDirty();
+              setOptionsText(e.target.value);
+            }}
             onBlur={commitOptions}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitOptions();
@@ -137,7 +167,10 @@ export function ArchetypeFieldRow({ field, onUpdate, onDelete }: ArchetypeFieldR
             mode="archetype"
             value={field.ref_archetype_id}
             excludeArchetypeId={field.archetype_id}
-            onChange={(value) => onUpdate(field.id, { ref_archetype_id: value })}
+            onChange={(value) => {
+              markDirty();
+              onUpdate(field.id, { ref_archetype_id: value });
+            }}
           />
         </div>
       )}

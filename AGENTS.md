@@ -4,33 +4,33 @@
 
 - When a command is blocked by the Codex sandbox, describe it as "requesting approval to run outside the sandbox". Do not call it "elevated permissions" or "admin privileges" unless Windows UAC/admin is actually involved.
 - Before editing with `apply_patch`, read the exact nearby block first. Prefer small patches tied to current file text. If a patch fails, re-read the target block before retrying.
-- Treat Korean docs as encoding-sensitive. Do not rewrite whole Korean documents, and do not write Korean docs with PowerShell `Set-Content` / redirection. Prefer minimal `apply_patch` edits and re-read the changed Korean area afterward.
-- On Windows, avoid shell-generated text file rewrites for docs. For code edits, use `apply_patch`; for formatting/build artifacts, use the repo's normal tools.
-- When staging/committing in a dirty worktree, stage explicit paths only and report which tracked files were included.
+- Treat Korean docs as encoding-sensitive. Do not rewrite whole Korean documents, and do not write Korean docs with PowerShell `Set-Content` or shell redirection. Prefer minimal `apply_patch` edits and re-read the changed area afterward.
+- On Windows, avoid shell-generated text file rewrites for docs. For code edits, use `apply_patch`; for formatting or generated build artifacts, use the repo's normal tools.
+- When staging or committing in a dirty worktree, stage explicit paths only and report which tracked files were included.
 
-## What is Netior
+## What Is Netior
 
-Netior (Map of Concepts)는 캔버스 기반 개념 정리 데스크탑 앱이다. 캔버스 위에 개념(Concept)을 노드로 배치하고, 노드 간 연결로 관계를 표현한다. 인스턴스 데이터는 파일(.md, .pdf 등)로 관리한다.
+Netior (Map of Concepts) is a canvas-based desktop app for organizing concepts. Concepts are placed as nodes on a canvas and relationships are represented as edges between nodes. Instance data lives in files such as `.md` and `.pdf`.
 
-Culturium의 후속 프로젝트. 오픈소스화를 막던 세 가지 문제(백엔드 종속, SQLite 데이터 격리, culture.json 복잡도)를 해결한 구조.
+It is the successor to Culturium. The structure was redesigned to remove three blockers to open-sourcing: backend coupling, SQLite metadata isolation, and `culture.json` complexity.
 
 ## Commands
 
 ```bash
 # Development
-pnpm dev:desktop          # Electron 앱 실행 (electron-vite dev)
+pnpm dev:desktop
 
 # Build
-pnpm build                # 전체 빌드 (turbo)
-pnpm --filter @netior/shared build    # shared만 빌드 (tsup)
-pnpm --filter @netior/core build      # core만 빌드 (tsup)
-pnpm --filter @netior/mcp build       # netior-mcp만 빌드 (tsup)
-pnpm --filter @netior/narre-server build  # narre-server만 빌드 (tsup)
+pnpm build
+pnpm --filter @netior/shared build
+pnpm --filter @netior/core build
+pnpm --filter @netior/mcp build
+pnpm --filter @netior/narre-server build
 
 # Test
-pnpm test                 # 전체 테스트 (turbo → vitest)
+pnpm test
 pnpm --filter @netior/shared test
-pnpm --filter @netior/core test        # repository 테스트 (64개)
+pnpm --filter @netior/core test
 pnpm --filter @netior/desktop-app test
 
 # Typecheck
@@ -39,188 +39,237 @@ pnpm typecheck
 
 ## Architecture
 
-### Monorepo (pnpm workspaces + turbo)
+### Monorepo
 
-- **`packages/shared`** (`@netior/shared`) — 타입, 상수, i18n. tsup (ESM+CJS). Sub-path: `/types`, `/constants`, `/i18n`.
-- **`packages/netior-core`** (`@netior/core`) — DB 로직 라이브러리 (connection, repositories, migrations). 런타임 소유자는 `netior-service`.
-- **`packages/netior-mcp`** (`@netior/mcp`) — MCP 서버. `netior-service`를 통해 Netior 도구를 노출.
-- **`packages/narre-server`** (`@netior/narre-server`) — Narre AI 에이전트. provider adapters + Express + SSE. DB는 `netior-service` 경유.
-- **`packages/desktop-app`** (`@netior/desktop-app`) — Electron 앱. electron-vite. Output: `out/`.
+- **`packages/shared`** (`@netior/shared`) — shared types, constants, and i18n. Built with tsup as ESM and CJS. Subpaths: `/types`, `/constants`, `/i18n`.
+- **`packages/netior-core`** (`@netior/core`) — DB logic library: connection, repositories, migrations. The runtime owner is `netior-service`.
+- **`packages/netior-service`** (`@netior/service`) — DB/native owner process. Wraps `@netior/core` behind HTTP and is the only runtime that should directly own `better-sqlite3`.
+- **`packages/netior-mcp`** (`@netior/mcp`) — MCP server. Exposes Netior tools through `netior-service`.
+- **`packages/narre-server`** (`@netior/narre-server`) — Narre AI service. Provider adapters plus Express plus SSE. DB access goes through `netior-service`.
+- **`packages/desktop-app`** (`@netior/desktop-app`) — Electron app built with electron-vite. Output goes to `out/`.
 
 ### Desktop App Layers
 
-```
-main process          →  preload bridge       →  renderer (React)
-─────────────────     ─────────────────────    ────────────────────
+```text
+main process          -> preload bridge        -> renderer (React)
+------------------------------------------------------------------
 sidecar clients          preload/index.ts         services/*.ts
-ipc/*.ts              (contextBridge exposes   stores/*.ts (Zustand)
-process/*.ts           window.electron API)    components/**/*.tsx
-                                               hooks/
+ipc/*.ts                 contextBridge API        stores/*.ts (Zustand)
+process/*.ts                                       components/**/*.tsx
+                                                   hooks/
 ```
 
-**Data flow**: Renderer services → `window.electron.*` → preload `ipcRenderer.invoke` → main IPC handlers → `netior-service` HTTP → `@netior/core` → better-sqlite3.
+**Data flow**: renderer services -> `window.electron.*` -> preload `ipcRenderer.invoke` -> main IPC handlers -> `netior-service` HTTP -> `@netior/core` -> `better-sqlite3`.
 
-**IPC pattern**: 모든 응답은 `IpcResult<T>` (`{ success: true, data } | { success: false, error }`). 채널 상수: `@netior/shared/constants` (`IPC_CHANNELS`).
+**IPC pattern**: every response uses `IpcResult<T>` (`{ success: true, data } | { success: false, error }`). Channel constants live in `@netior/shared/constants` as `IPC_CHANNELS`.
+
+### Production Packaging
+
+- The packaged desktop app includes a bundled Node runtime under `resources/node-runtime`.
+- Production sidecars are embedded under `resources/sidecars`.
+- The sidecar set is:
+  - `netior-service`
+  - `netior-mcp`
+  - `narre-server`
+- The installer upgrade path is customized in `packages/desktop-app/build/installer.nsh`.
+- Upgrade behavior:
+  - If `Netior.exe` is not actually running, the installer pre-cleans the previous install directory and uninstall registry entries before relying on an older uninstaller.
+  - If an older uninstaller still fails later in the flow, the installer falls back to manual cleanup instead of aborting immediately.
 
 ### Two Storage Layers
 
 | Layer | Location | Contents |
-|-------|----------|----------|
-| Metadata | `%APPDATA%/netior/data/netior.db` (SQLite) | projects, concepts, canvases, nodes, edges, concept_files, relation_types, canvas_types 등 |
-| Instance Data | User's project directory | .md, .pdf, .png 등 실제 파일 |
+|---|---|---|
+| Metadata | `%APPDATA%/netior/data/netior.db` | projects, concepts, canvases, nodes, edges, concept_files, relation_types, canvas_types, and related metadata |
+| Instance Data | User project directory | `.md`, `.pdf`, `.png`, and other real files |
 
-앱은 프로젝트 디렉토리에 메타데이터를 쓰지 않는다. 캔버스가 구조를 담당하고, 파일시스템은 순수 저장소.
+The app does not write metadata into the project directory. Canvas and SQLite handle structure; the filesystem is pure instance storage.
 
 ### Data Model
 
-- **Project** — 사용자 디렉토리 참조 (name, root_dir)
-- **Concept** — 프로젝트 종속. title, color, icon, archetype_id
-- **Canvas** — Concept:Canvas = 1:N. concept_id(nullable), canvas_type_id(nullable), viewport 상태 저장
-- **CanvasNode** — 캔버스 위 배치. concept_id | file_path | dir_path 중 하나 (polymorphic)
-- **Edge** — 캔버스 종속 연결. relation_type_id, description, color/line_style/directed (개별 override 가능)
-- **ConceptFile** — 개념 ↔ 파일 연결. file_path는 프로젝트 root_dir 기준 상대경로
+- **Project** — references a user directory (`name`, `root_dir`)
+- **Concept** — belongs to a project; has `title`, `color`, `icon`, `archetype_id`
+- **Canvas** — `Concept:Canvas = 1:N`; stores `concept_id` or `canvas_type_id` plus viewport state
+- **CanvasNode** — placed on a canvas; one of `concept_id`, `file_path`, or `dir_path`
+- **Edge** — belongs to a canvas; has `relation_type_id`, `description`, and visual override fields such as `color`, `line_style`, and `directed`
+- **ConceptFile** — links a concept to a file path relative to project `root_dir`
 
-### Type System (프로젝트 레벨)
+### Type System
 
-- **Archetype** — Concept의 클래스 (name, icon, color, node_shape, file_template, fields)
-- **RelationType** — Edge의 클래스 (name, description, color, line_style, directed)
-- **CanvasType** — Canvas의 클래스 (name, description, icon, color, allowed_relation_types via junction table)
+Project-level types:
 
-새 타입 추가 시 7-layer 패턴: migration → types → constants → repository → IPC → preload → renderer (service, store, UI).
+- **Archetype** — a concept class
+- **RelationType** — an edge class
+- **CanvasType** — a canvas class with allowed relation types via a junction table
+
+When adding a new type, follow the seven-layer pattern:
+
+`migration -> types -> constants -> repository -> IPC -> preload -> renderer`
 
 ### Canvas Engine
 
-외부 캔버스 라이브러리 없음. CSS transform + SVG로 직접 구현.
-- Pan/Zoom: ConceptWorkspace에서 직접 처리 (wheel → zoom-toward-cursor, drag → pan)
-- Ctrl+wheel: 캔버스 계층 이동 (up=drillInto, down=navigateBack)
-- Node rendering: NodeCardDefault + shape layouts (8종)
-- Edge rendering: EdgeLayer + EdgeLine (SVG). color, line_style(solid/dashed/dotted), directed(arrow) 지원
-- Background: dot grid (SVG pattern)
-- Interaction modes: browse (default) / edit (노드 연결 생성, 엣지 삭제 등)
+There is no external canvas library. The canvas is implemented directly with CSS transforms and SVG.
+
+- Pan/zoom is handled in `ConceptWorkspace`
+- `Ctrl + wheel` navigates canvas hierarchy
+- Nodes are rendered by `NodeCardDefault` plus shape layouts
+- Edges are rendered by `EdgeLayer` and `EdgeLine`
+- Background uses an SVG dot grid
+- Interaction modes: `browse` and `edit`
 
 ### Edge Interaction
 
-- **생성**: edit mode → 노드 우클릭 → "연결 추가" → linking mode → 타겟 노드 클릭 → EdgeEditor 탭 열림
-- **편집**: 엣지 더블클릭 → EdgeEditor (relation type, description, visual override)
-- **삭제**: edit mode → 엣지 우클릭 → EdgeContextMenu → 삭제
-- **Visual override**: Edge 개별 color/line_style/directed 설정 가능. null이면 RelationType 기본값 사용
+- **Create** — edit mode -> right-click a node -> add connection -> click target node -> open `EdgeEditor`
+- **Edit** — double-click an edge -> open `EdgeEditor`
+- **Delete** — edit mode -> right-click an edge -> `EdgeContextMenu` -> delete
+- **Visual override** — per-edge `color`, `line_style`, and `directed`; `null` falls back to the `RelationType` default
 
 ### Editor System
 
-EditorTabType: `'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre'`
+`EditorTabType`:
 
-확장자 기반 에디터 자동 선택:
-- `.md` → MarkdownEditor
-- `.txt`, `.json`, `.yaml` 등 → PlainTextEditor
-- `.png`, `.jpg` 등 → ImageViewer
-- `.pdf` → PdfViewer
-- 기타 → UnsupportedFallback ("외부 앱으로 열기")
+`'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'canvasType' | 'canvas' | 'narre'`
 
-### Narre (AI Assistant)
+Extension-based editor routing:
 
-EditorTabType `'narre'`. ActivityBar의 Sparkles 아이콘으로 열기. 프로젝트당 하나의 탭.
+- `.md` -> `MarkdownEditor`
+- `.txt`, `.json`, `.yaml`, and similar -> `PlainTextEditor`
+- `.png`, `.jpg`, and similar -> `ImageViewer`
+- `.pdf` -> `PdfViewer`
+- anything else -> `UnsupportedFallback`
 
-**아키텍처:**
+### Narre
+
+Narre uses `EditorTabType 'narre'`. The Sparkles icon in the activity bar opens it. There is one Narre tab per project.
+
+Architecture:
+
+```text
+desktop-app (renderer) -> desktop-app (main) -> narre-server (sidecar)
+NarreChat.tsx             narre-ipc.ts          Express + SSE + provider adapters
+SSE UI events         <-  IPC forwarder      <- provider runtime
+                                                |
+                                                +-> netior-service / netior-mcp
 ```
-desktop-app (Renderer)     desktop-app (Main)      narre-server (별도 프로세스)
-NarreChat.tsx         →IPC→ narre-ipc.ts      →HTTP→ Express :3100
-  SSE stream events   ←IPC← (forward SSE)     ←SSE←  Anthropic SDK + tool loop
-                                                         │
-                                                    netior-service / netior-mcp
-```
 
-**핵심 컴포넌트:**
-- `NarreEditor` → `NarreSessionList` / `NarreChat` 전환
-- `NarreChat` — 메시지 렌더링, SSE 스트리밍, 도구 실행 로그
-- `NarreMentionInput` — ContentEditable, `@` 트리거 멘션 피커
-- `NarreToolLog` — 접을 수 있는 도구 실행 상태 표시
+Key pieces:
 
-**세션 저장:** `%APPDATA%/netior/data/narre/{projectId}/sessions.json` + `session_{uuid}.json`
+- `NarreEditor`
+- `NarreSessionList`
+- `NarreChat`
+- `NarreMentionInput`
+- `NarreToolLog`
 
-**프로세스 관리:** `narre-server-manager.ts`가 앱 시작 시 narre-server를 child process로 spawn. API 키가 설정 되어 있을 때만.
+Session storage:
 
-**DB 동기화:** 도구 실행(create/update/delete) 후 `refreshStores()` 호출 → Zustand 스토어 refetch. 향후 netior-mcp SSE로 전환 예정.
+- `%APPDATA%/netior/data/narre/{projectId}/sessions.json`
+- `%APPDATA%/netior/data/narre/{projectId}/session_{uuid}.json`
+
+Process management:
+
+- `narre-server-manager.ts` launches the packaged or dev Narre sidecar
+- `desktop-app` forwards SSE output into renderer state
 
 ### Canvas Sidebar
 
-계층 트리 표시. `getCanvasTree` API가 canvas_nodes 데이터 기반으로 서버사이드 계산.
-- 루트 캔버스 (concept_id null)
-- Concept 그룹 헤더 (해당 concept의 하위 캔버스 묶음)
-- 재귀적 계층 지원
-- 우클릭 → "에디터에서 열기" / "삭제"
+The sidebar displays a hierarchy tree. `getCanvasTree` is computed server-side from `canvas_nodes`.
 
-### Path Aliases (electron-vite)
+- Root canvas (`concept_id = null`)
+- Concept group headers
+- Recursive hierarchy support
+- Context actions such as open in editor and delete
 
-- `@main` → `src/main`
-- `@renderer` → `src/renderer`
-- `@shared` → `src/shared`
-- `@netior/core` → `../netior-core/src` (번들에 포함, externalize 제외)
-- `@netior/shared` → `../shared/src`
+### Path Aliases
 
-### netior-mcp (MCP Server)
+- `@main` -> `src/main`
+- `@renderer` -> `src/renderer`
+- `@shared` -> `src/shared`
+- `@netior/core` -> `../netior-core/src`
+- `@netior/shared` -> `../shared/src`
 
-Codex 등록:
+### netior-mcp
+
+Example Codex registration:
+
 ```jsonc
-// .Codex/settings.json
-{ "mcpServers": { "moc": { "command": "node", "args": ["packages/netior-mcp/dist/index.js"], "env": { "NETIOR_SERVICE_URL": "http://127.0.0.1:3201" } } } }
+{
+  "mcpServers": {
+    "moc": {
+      "command": "node",
+      "args": ["packages/netior-mcp/dist/index.cjs"],
+      "env": {
+        "NETIOR_SERVICE_URL": "http://127.0.0.1:3201"
+      }
+    }
+  }
+}
 ```
-
-17개 도구: archetype(4) + relationType(4) + canvasType(4) + concept(4) + project_summary(1).
 
 ## Key Constraints
 
-- **better-sqlite3 ownership** — native binding은 `netior-service`가 소유한다. 개발 시 현재 Node 런타임에 맞춰 `pnpm run rebuild:native`가 필요할 수 있다.
-- **Build order**: `@netior/shared` → `@netior/core` → `@netior/mcp`, `@netior/narre-server`, `@netior/desktop-app` (turbo `dependsOn: ["^build"]`).
-- **DB 동시 접근**: WAL 모드 + `busy_timeout(5000)`. desktop-app은 DB를 직접 열지 않고, `netior-service`가 SQLite 접근을 단일 소유한다.
-- **UI 컴포넌트는 desktop-app 내부** — shared는 순수 타입/상수만.
-- **Context menu 패턴**: document mousedown listener 대신 `onMouseDown={e => e.stopPropagation()}` 사용. 부모의 mousedown에서 메뉴 닫기.
-- **Migration 주의**: 이미 적용된 migration 파일 수정 시 새 migration 파일 추가 필요 (기존 DB에 반영 안 됨).
+- **better-sqlite3 ownership** — the native binding belongs to `netior-service`. In development you may need `pnpm run rebuild:native` for the current Node runtime.
+- **Build order** — `@netior/shared` -> `@netior/core` -> `@netior/service`, `@netior/mcp`, `@netior/narre-server`, `@netior/desktop-app`.
+- **DB concurrency** — SQLite runs in WAL mode with `busy_timeout(5000)`. `desktop-app` does not open the DB directly.
+- **Desktop packaging** — production should prefer bundled sidecars instead of deep workspace or pnpm-linked runtime trees.
+- **Installer upgrades** — keep `packages/desktop-app/build/installer.nsh` aligned with packaging changes; if payload layout changes, verify upgrade and uninstall behavior explicitly.
+- **UI components stay in desktop-app** — `shared` should stay limited to pure types, constants, and i18n.
+- **Context menu pattern** — prefer `onMouseDown={e => e.stopPropagation()}` over document-level close listeners when appropriate.
+- **Migration rule** — never edit an already-applied migration in place; add a new migration file.
 
 ## Testing
 
-Vitest v2 (Vite 5 호환).
+Vitest v2 with Vite 5 compatibility.
 
-```
-pnpm test → 85 tests
+Typical test split:
 
-shared (13)
-├── constants: IPC 채널, 기본값
-└── i18n: translate 함수, 키 검증
+- `shared`
+  - constants
+  - i18n
+- `netior-core`
+  - repositories
+  - migrations
+  - cascade and constraint behavior
+- `desktop-app`
+  - renderer stores and UI behavior
 
-moc-core (64)
-├── Project: CRUD, unique, cascade
-├── Concept: CRUD, search, cascade
-├── Canvas: CRUD, viewport, nodes, edges, 1:N, canvas_count, ancestors
-├── ConceptFile: CRUD, unique, cascade
-├── Module: CRUD, directories, cascade
-├── EditorPrefs: upsert, cascade
-├── RelationType: CRUD, cascade, boolean conversion, defaults
-├── CanvasType: CRUD, junction (allowed relations), cascade
-├── CanvasNode expansion: file_path, dir_path, validation
-└── Edge expansion: relation_type_id, get, update, SET NULL cascade
-
-desktop-app renderer (8)
-├── ProjectStore: load, create, open/close
-├── ConceptStore: load
-└── UIStore: mode, sidebar, editor dock
-```
-
-moc-core 테스트는 인메모리 SQLite 사용 (`test-db.ts`). `getDatabase()`를 mock.
+`netior-core` tests use in-memory SQLite via `test-db.ts`, with `getDatabase()` mocked where appropriate.
 
 ## UI Development
 
 ### Semantic Tokens Only
 
-하드코딩 색상 클래스 금지. semantic token만 사용:
+Do not hardcode color utility classes. Use semantic tokens:
+
 - Surface: `surface-base`, `surface-panel`, `surface-card`, `surface-hover`, `surface-modal`
 - Text: `text-default`, `text-secondary`, `text-muted`, `text-on-accent`
 - Border: `border-subtle`, `border-default`, `border-strong`
 - Accent: `accent`, `accent-hover`, `accent-muted`
 
-### Available UI Components (16)
+### Available UI Components
 
-`src/renderer/components/ui/`: Button, IconButton, Input, NumberInput, TextArea, Select, Checkbox, Toggle, Modal, ConfirmDialog, Toast, Tooltip, Badge, Divider, Spinner, ScrollArea.
+Under `src/renderer/components/ui/`:
+
+- Button
+- IconButton
+- Input
+- NumberInput
+- TextArea
+- Select
+- Checkbox
+- Toggle
+- Modal
+- ConfirmDialog
+- Toast
+- Tooltip
+- Badge
+- Divider
+- Spinner
+- ScrollArea
 
 ### Theme System
 
-3-tier: `data-concept` (12종: forest, neon, graphite...) → `data-mode` (dark/light) → Tailwind semantic tokens.
+Three-tier theme system:
+
+- `data-concept`
+- `data-mode`
+- Tailwind semantic tokens

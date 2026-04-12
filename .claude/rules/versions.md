@@ -27,9 +27,9 @@ packages:
     impact: local
     contracts: []
   desktop-app:
-    version: "1.1.19"
+    version: "1.1.23"
     type: patch
-    summary: "Package netior-mcp alongside the bundled narre-server and netior-service sidecars"
+    summary: "Pre-clean old desktop installs before upgrade when Netior is not actually running"
     impact: local
     contracts: []
   narre-eval:

@@ -1,6 +1,6 @@
 {
   "name": "@netior/desktop-app",
-  "version": "1.1.19",
+  "version": "1.1.23",
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
@@ -108,6 +108,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
       "installerIcon": "build/icons/netior-app-icon.ico",
       "uninstallerIcon": "build/icons/netior-app-icon.ico"
     }

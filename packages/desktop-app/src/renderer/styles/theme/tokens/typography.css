@@ -1,11 +1,26 @@
 :root {
     /* Font Family */
-    --font-sans: "Pretendard Variable", Pretendard, -apple-system, blinkmacsystemfont, system-ui,
+    --font-ui: "Pretendard Variable", Pretendard, "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui,
         roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR",
         "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         sans-serif;
-    --font-mono: "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        "Liberation Mono", "Courier New", monospace;
+    --font-body: "Pretendard Variable", Pretendard, "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui,
+        roboto, "Helvetica Neue", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    --font-code: "Fira Code", "JetBrains Mono", "Cascadia Mono", "Cascadia Code", ui-monospace,
+        SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-terminal: var(--font-code);
+    --font-sans: var(--font-ui);
+    --font-mono: var(--font-code);
+
+    --font-ui-size: 16px;
+    --font-ui-line-height: 1.5;
+    --font-ui-letter-spacing: 0px;
+    --font-body-size: 15px;
+    --font-body-line-height: 1.7;
+    --font-body-letter-spacing: 0px;
+    --font-code-size: 13px;
+    --font-code-line-height: 1.6;
+    --font-code-letter-spacing: 0px;
 
     /* Font Size */
     --text-xs: 0.75rem;

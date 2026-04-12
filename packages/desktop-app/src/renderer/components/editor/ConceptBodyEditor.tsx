@@ -12,7 +12,13 @@ export function ConceptBodyEditor({ content, onChange }: ConceptBodyEditorProps)
       value={content}
       onChange={onChange}
       placeholder="Write something..."
-      className="min-h-[120px] text-sm text-default leading-relaxed"
+      className="min-h-[120px] text-default"
+      style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 'var(--font-body-size)',
+        lineHeight: 'var(--font-body-line-height)',
+        letterSpacing: 'var(--font-body-letter-spacing)',
+      }}
     />
   );
 }

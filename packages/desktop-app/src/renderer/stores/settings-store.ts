@@ -37,6 +37,20 @@ export type ThemeFamily = ThemeFamilyDefinition['id'];
 export type ResolvedThemeMode = 'dark' | 'light';
 export type PrimaryPresetId = string;
 export type TerminalPresetId = 'hyper' | 'netior' | 'codex' | 'claude' | 'powershell';
+export type AppFontRole = 'ui' | 'body' | 'code';
+
+export interface FontRoleConfig {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  letterSpacing: number;
+}
+
+export interface TypographyConfig {
+  ui: FontRoleConfig;
+  body: FontRoleConfig;
+  code: FontRoleConfig;
+}
 
 interface TerminalPresetDefinition {
   id: TerminalPresetId;
@@ -81,11 +95,166 @@ interface SettingsSyncState {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  typography: TypographyConfig;
   terminalPresetId: TerminalPresetId;
   terminalAppearance: TerminalAppearanceConfig;
 }
 
 const DEFAULT_TERMINAL_PRESET_ID: TerminalPresetId = 'hyper';
+
+const CSS_GENERIC_FONT_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'system-ui',
+  'ui-sans-serif',
+  'ui-serif',
+  'ui-monospace',
+  'emoji',
+  'math',
+  'fangsong',
+  'cursive',
+  'fantasy',
+  '-apple-system',
+  'blinkmacsystemfont',
+  'sfmono-regular',
+]);
+
+const UI_FONT_FALLBACKS = [
+  'Pretendard Variable',
+  'Pretendard',
+  'Segoe UI',
+  '-apple-system',
+  'BlinkMacSystemFont',
+  'system-ui',
+  'Roboto',
+  'Helvetica Neue',
+  'Apple SD Gothic Neo',
+  'Noto Sans KR',
+  'Malgun Gothic',
+  'Apple Color Emoji',
+  'Segoe UI Emoji',
+  'Segoe UI Symbol',
+  'sans-serif',
+] as const;
+
+const BODY_FONT_FALLBACKS = [
+  'Pretendard Variable',
+  'Pretendard',
+  'Segoe UI',
+  '-apple-system',
+  'BlinkMacSystemFont',
+  'system-ui',
+  'Roboto',
+  'Helvetica Neue',
+  'Apple SD Gothic Neo',
+  'Noto Sans KR',
+  'Malgun Gothic',
+  'sans-serif',
+] as const;
+
+const CODE_FONT_FALLBACKS = [
+  'Fira Code',
+  'JetBrains Mono',
+  'Cascadia Mono',
+  'Cascadia Code',
+  'ui-monospace',
+  'SFMono-Regular',
+  'Menlo',
+  'Monaco',
+  'Consolas',
+  'Liberation Mono',
+  'Courier New',
+  'monospace',
+] as const;
+
+const FONT_ROLE_LIMITS: Record<AppFontRole, { minSize: number; maxSize: number }> = {
+  ui: { minSize: 14, maxSize: 18 },
+  body: { minSize: 12, maxSize: 24 },
+  code: { minSize: 11, maxSize: 24 },
+};
+
+function getRendererPlatform(): 'win32' | 'darwin' | 'linux' {
+  if (typeof navigator === 'undefined') return 'win32';
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const source = `${nav.userAgentData?.platform ?? ''} ${navigator.platform ?? ''}`.toLowerCase();
+  if (source.includes('mac')) return 'darwin';
+  if (source.includes('win')) return 'win32';
+  return 'linux';
+}
+
+function normalizeFontFamilyName(value: string): string {
+  return value.trim().replace(/^['"]|['"]$/g, '');
+}
+
+function quoteCssFontFamily(value: string): string {
+  const normalized = normalizeFontFamilyName(value);
+  if (normalized.length === 0) return '';
+  if (CSS_GENERIC_FONT_FAMILIES.has(normalized.toLowerCase())) return normalized;
+  return /\s/.test(normalized) ? `"${normalized}"` : normalized;
+}
+
+function buildFontFamilyStack(primary: string, fallbacks: readonly string[]): string {
+  const values = [primary, ...fallbacks]
+    .map(normalizeFontFamilyName)
+    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index)
+    .map(quoteCssFontFamily)
+    .filter((value) => value.length > 0);
+  return values.join(', ');
+}
+
+export function getPrimaryFontFamily(fontFamily: string): string {
+  return fontFamily
+    .split(',')
+    .map(normalizeFontFamilyName)
+    .find((part) => part.length > 0) ?? '';
+}
+
+function getDefaultPrimaryFontFamily(role: AppFontRole | 'terminal'): string {
+  const platform = getRendererPlatform();
+  if (role === 'ui' || role === 'body') {
+    if (platform === 'darwin') return 'Helvetica Neue';
+    if (platform === 'linux') return 'Noto Sans';
+    return 'Segoe UI';
+  }
+
+  if (platform === 'darwin') return 'Menlo';
+  if (platform === 'linux') return 'DejaVu Sans Mono';
+  return 'Consolas';
+}
+
+export function buildRoleFontFamily(role: AppFontRole | 'terminal', primaryFontFamily: string): string {
+  const normalizedPrimary = normalizeFontFamilyName(primaryFontFamily) || getDefaultPrimaryFontFamily(role);
+  const fallbacks = role === 'ui'
+    ? UI_FONT_FALLBACKS
+    : role === 'body'
+      ? BODY_FONT_FALLBACKS
+      : CODE_FONT_FALLBACKS;
+  return buildFontFamilyStack(normalizedPrimary, fallbacks);
+}
+
+function getDefaultTypographyConfig(): TypographyConfig {
+  return {
+    ui: {
+      fontFamily: buildRoleFontFamily('ui', getDefaultPrimaryFontFamily('ui')),
+      fontSize: 16,
+      lineHeight: 1.5,
+      letterSpacing: 0,
+    },
+    body: {
+      fontFamily: buildRoleFontFamily('body', getDefaultPrimaryFontFamily('body')),
+      fontSize: 15,
+      lineHeight: 1.7,
+      letterSpacing: 0,
+    },
+    code: {
+      fontFamily: buildRoleFontFamily('code', getDefaultPrimaryFontFamily('code')),
+      fontSize: 13,
+      lineHeight: 1.6,
+      letterSpacing: 0,
+    },
+  };
+}
 
 const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
   {
@@ -93,7 +262,7 @@ const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
     labelKey: 'settings.terminalPresets.hyper.label',
     descriptionKey: 'settings.terminalPresets.hyper.description',
     preview: ['#000000', '#ffffff', '#58a6ff'],
-    fontFamily: `Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace`,
+    fontFamily: buildRoleFontFamily('terminal', getDefaultPrimaryFontFamily('terminal')),
     fontSize: 12,
     lineHeight: 1,
     letterSpacing: 0,
@@ -107,7 +276,7 @@ const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
     labelKey: 'settings.terminalPresets.netior.label',
     descriptionKey: 'settings.terminalPresets.netior.description',
     preview: ['#181818', '#d4d4d4', '#0d99ff'],
-    fontFamily: `Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace`,
+    fontFamily: buildRoleFontFamily('terminal', getDefaultPrimaryFontFamily('terminal')),
     fontSize: 12,
     lineHeight: 1,
     letterSpacing: 0,
@@ -121,7 +290,7 @@ const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
     labelKey: 'settings.terminalPresets.codex.label',
     descriptionKey: 'settings.terminalPresets.codex.description',
     preview: ['#0b1220', '#dce6ff', '#6fb1ff'],
-    fontFamily: `"Cascadia Mono", "Cascadia Code", Menlo, Consolas, monospace`,
+    fontFamily: buildRoleFontFamily('terminal', 'Cascadia Mono'),
     fontSize: 12,
     lineHeight: 1.05,
     letterSpacing: 0,
@@ -135,7 +304,7 @@ const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
     labelKey: 'settings.terminalPresets.claude.label',
     descriptionKey: 'settings.terminalPresets.claude.description',
     preview: ['#171311', '#f3e8dc', '#d0a36f'],
-    fontFamily: `"Iosevka Term", "Cascadia Mono", Menlo, Consolas, monospace`,
+    fontFamily: buildRoleFontFamily('terminal', 'Iosevka Term'),
     fontSize: 12,
     lineHeight: 1.08,
     letterSpacing: 0,
@@ -149,7 +318,7 @@ const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
     labelKey: 'settings.terminalPresets.powershell.label',
     descriptionKey: 'settings.terminalPresets.powershell.description',
     preview: ['#012456', '#f0f6fc', '#00bcf2'],
-    fontFamily: `"Cascadia Mono", "Cascadia Code", Consolas, "Lucida Console", monospace`,
+    fontFamily: buildRoleFontFamily('terminal', 'Cascadia Mono'),
     fontSize: 13,
     lineHeight: 1.05,
     letterSpacing: 0,
@@ -466,13 +635,30 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
   },
 ] as const;
 
-const SETTINGS_STORAGE_KEY = 'netior:settings:v3';
+const SETTINGS_STORAGE_KEY = 'netior:settings:v4';
 const PRIMARY_SCALE_KEYS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
 const PRIMARY_VAR_NAMES = PRIMARY_SCALE_KEYS.map((key) => `--palette-primary-${key}`);
 const VARIANT_VAR_NAMES = Array.from(
   new Set(THEME_FAMILIES.flatMap((family) => family.variants.flatMap((variant) => Object.keys(variant.overrides)))),
 );
-const MANAGED_THEME_VARS = [...PRIMARY_VAR_NAMES, ...VARIANT_VAR_NAMES];
+const TYPOGRAPHY_VAR_NAMES = [
+  '--font-ui',
+  '--font-body',
+  '--font-code',
+  '--font-terminal',
+  '--font-sans',
+  '--font-mono',
+  '--font-ui-size',
+  '--font-ui-line-height',
+  '--font-ui-letter-spacing',
+  '--font-body-size',
+  '--font-body-line-height',
+  '--font-body-letter-spacing',
+  '--font-code-size',
+  '--font-code-line-height',
+  '--font-code-letter-spacing',
+] as const;
+const MANAGED_THEME_VARS = [...PRIMARY_VAR_NAMES, ...VARIANT_VAR_NAMES, ...TYPOGRAPHY_VAR_NAMES];
 
 export const AVAILABLE_THEME_FAMILIES = THEME_FAMILIES;
 export const AVAILABLE_PRIMARY_PRESETS = PRIMARY_PRESETS;
@@ -495,6 +681,40 @@ function findTerminalPreset(presetId: TerminalPresetId | undefined): TerminalPre
   return TERMINAL_PRESETS.find((preset) => preset.id === presetId) ?? TERMINAL_PRESETS[0];
 }
 
+function normalizeFontRoleConfig(
+  role: AppFontRole,
+  config: Partial<FontRoleConfig> | undefined,
+  fallback: FontRoleConfig,
+): FontRoleConfig {
+  const limits = FONT_ROLE_LIMITS[role];
+  const fontSize = config?.fontSize;
+  const lineHeight = config?.lineHeight;
+  const letterSpacing = config?.letterSpacing;
+  return {
+    fontFamily: typeof config?.fontFamily === 'string' && config.fontFamily.trim().length > 0
+      ? config.fontFamily
+      : fallback.fontFamily,
+    fontSize: Number.isFinite(fontSize)
+      ? Math.max(limits.minSize, Math.min(limits.maxSize, Number(fontSize)))
+      : fallback.fontSize,
+    lineHeight: Number.isFinite(lineHeight)
+      ? Math.max(1, Math.min(2.2, Number(lineHeight)))
+      : fallback.lineHeight,
+    letterSpacing: Number.isFinite(letterSpacing)
+      ? Math.max(-1, Math.min(4, Number(letterSpacing)))
+      : fallback.letterSpacing,
+  };
+}
+
+function normalizeTypographyConfig(config: Partial<TypographyConfig> | undefined): TypographyConfig {
+  const fallback = getDefaultTypographyConfig();
+  return {
+    ui: normalizeFontRoleConfig('ui', config?.ui, fallback.ui),
+    body: normalizeFontRoleConfig('body', config?.body, fallback.body),
+    code: normalizeFontRoleConfig('code', config?.code, fallback.code),
+  };
+}
+
 function getTerminalAppearanceFromPreset(presetId: TerminalPresetId | undefined): TerminalAppearanceConfig {
   const preset = findTerminalPreset(presetId);
   return {
@@ -514,15 +734,20 @@ function normalizeTerminalAppearanceConfig(
   fallbackPresetId: TerminalPresetId = DEFAULT_TERMINAL_PRESET_ID,
 ): TerminalAppearanceConfig {
   const fallback = getTerminalAppearanceFromPreset(fallbackPresetId);
+  const fontSize = config?.fontSize;
+  const lineHeight = config?.lineHeight;
+  const letterSpacing = config?.letterSpacing;
+  const paddingX = config?.paddingX;
+  const paddingY = config?.paddingY;
   return {
     fontFamily: typeof config?.fontFamily === 'string' && config.fontFamily.trim().length > 0
       ? config.fontFamily
       : fallback.fontFamily,
-    fontSize: Number.isFinite(config?.fontSize) ? Math.max(8, Math.min(28, Number(config.fontSize))) : fallback.fontSize,
-    lineHeight: Number.isFinite(config?.lineHeight) ? Math.max(0.8, Math.min(2, Number(config.lineHeight))) : fallback.lineHeight,
-    letterSpacing: Number.isFinite(config?.letterSpacing) ? Math.max(-2, Math.min(8, Number(config.letterSpacing))) : fallback.letterSpacing,
-    paddingX: Number.isFinite(config?.paddingX) ? Math.max(0, Math.min(48, Number(config.paddingX))) : fallback.paddingX,
-    paddingY: Number.isFinite(config?.paddingY) ? Math.max(0, Math.min(48, Number(config.paddingY))) : fallback.paddingY,
+    fontSize: Number.isFinite(fontSize) ? Math.max(8, Math.min(28, Number(fontSize))) : fallback.fontSize,
+    lineHeight: Number.isFinite(lineHeight) ? Math.max(0.8, Math.min(2, Number(lineHeight))) : fallback.lineHeight,
+    letterSpacing: Number.isFinite(letterSpacing) ? Math.max(-2, Math.min(8, Number(letterSpacing))) : fallback.letterSpacing,
+    paddingX: Number.isFinite(paddingX) ? Math.max(0, Math.min(48, Number(paddingX))) : fallback.paddingX,
+    paddingY: Number.isFinite(paddingY) ? Math.max(0, Math.min(48, Number(paddingY))) : fallback.paddingY,
     cursorBlink: typeof config?.cursorBlink === 'boolean' ? config.cursorBlink : fallback.cursorBlink,
     webGLRenderer: typeof config?.webGLRenderer === 'boolean' ? config.webGLRenderer : fallback.webGLRenderer,
   };
@@ -543,6 +768,26 @@ export function getTerminalPresets(): readonly TerminalPresetDefinition[] {
 
 export function getTerminalPreset(presetId: TerminalPresetId | undefined): TerminalPresetDefinition {
   return findTerminalPreset(presetId ?? DEFAULT_TERMINAL_PRESET_ID);
+}
+
+function getTypographyVars(typography: TypographyConfig, terminalAppearance: TerminalAppearanceConfig): CssVariableMap {
+  return {
+    '--font-ui': typography.ui.fontFamily,
+    '--font-body': typography.body.fontFamily,
+    '--font-code': typography.code.fontFamily,
+    '--font-terminal': terminalAppearance.fontFamily,
+    '--font-sans': typography.ui.fontFamily,
+    '--font-mono': typography.code.fontFamily,
+    '--font-ui-size': `${typography.ui.fontSize}px`,
+    '--font-ui-line-height': String(typography.ui.lineHeight),
+    '--font-ui-letter-spacing': `${typography.ui.letterSpacing}px`,
+    '--font-body-size': `${typography.body.fontSize}px`,
+    '--font-body-line-height': String(typography.body.lineHeight),
+    '--font-body-letter-spacing': `${typography.body.letterSpacing}px`,
+    '--font-code-size': `${typography.code.fontSize}px`,
+    '--font-code-line-height': String(typography.code.lineHeight),
+    '--font-code-letter-spacing': `${typography.code.letterSpacing}px`,
+  };
 }
 
 function normalizeHexColor(value: string | undefined, fallback: string): string {
@@ -640,6 +885,8 @@ function applyThemeToDocument(state: {
   appearanceMode: AppearanceMode;
   lightTheme: ThemeSlotConfig;
   darkTheme: ThemeSlotConfig;
+  typography: TypographyConfig;
+  terminalAppearance: TerminalAppearanceConfig;
 }): ResolvedThemeMode {
   if (typeof document === 'undefined') return resolveMode(state.appearanceMode);
 
@@ -652,7 +899,14 @@ function applyThemeToDocument(state: {
     ? normalizeHexColor(activeTheme.primaryCustomColor, preset.color)
     : preset.color;
   const primaryVars = buildPrimaryPalette(primarySeed);
-  const themeVars = { ...variant.overrides, ...primaryVars };
+  const themeVars = {
+    ...variant.overrides,
+    ...primaryVars,
+    ...getTypographyVars(
+      normalizeTypographyConfig(state.typography),
+      normalizeTerminalAppearanceConfig(state.terminalAppearance),
+    ),
+  };
 
   root.setAttribute('data-mode', resolvedThemeMode);
   root.setAttribute('data-concept', activeTheme.family);
@@ -687,6 +941,7 @@ export interface SettingsStore {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  typography: TypographyConfig;
   terminalPresetId: TerminalPresetId;
   terminalAppearance: TerminalAppearanceConfig;
 
@@ -701,17 +956,20 @@ export interface SettingsStore {
   setNativeAgentNotificationsEnabled: (enabled: boolean) => void;
   setAgentNotificationSoundEnabled: (enabled: boolean) => void;
   setFieldComplexityLevel: (level: FieldComplexityLevel) => void;
+  updateTypography: (role: AppFontRole, patch: Partial<FontRoleConfig>) => void;
   setTerminalPresetId: (presetId: TerminalPresetId) => void;
   updateTerminalAppearance: (patch: Partial<TerminalAppearanceConfig>) => void;
 }
 
 function applyCurrentThemeSnapshot(
-  partial: Pick<SettingsStore, 'appearanceMode' | 'lightTheme' | 'darkTheme'>,
+  partial: Pick<SettingsStore, 'appearanceMode' | 'lightTheme' | 'darkTheme' | 'typography' | 'terminalAppearance'>,
 ): ResolvedThemeMode {
   return applyThemeToDocument({
     appearanceMode: partial.appearanceMode,
     lightTheme: normalizeThemeSlot(partial.lightTheme),
     darkTheme: normalizeThemeSlot(partial.darkTheme),
+    typography: normalizeTypographyConfig(partial.typography),
+    terminalAppearance: normalizeTerminalAppearanceConfig(partial.terminalAppearance),
   });
 }
 
@@ -726,6 +984,7 @@ function getSettingsSyncState(state: Pick<
   | 'agentNotificationSoundEnabled'
 > & {
   fieldComplexityLevel?: FieldComplexityLevel;
+  typography?: Partial<TypographyConfig>;
   terminalPresetId?: TerminalPresetId;
   terminalAppearance?: Partial<TerminalAppearanceConfig>;
 }): SettingsSyncState {
@@ -739,6 +998,7 @@ function getSettingsSyncState(state: Pick<
     nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
     fieldComplexityLevel: state.fieldComplexityLevel ?? 'standard',
+    typography: normalizeTypographyConfig(state.typography),
     terminalPresetId,
     terminalAppearance: normalizeTerminalAppearanceConfig(state.terminalAppearance, terminalPresetId),
   };
@@ -772,6 +1032,7 @@ export const useSettingsStore = create<SettingsStore>()(
       nativeAgentNotificationsEnabled: true,
       agentNotificationSoundEnabled: true,
       fieldComplexityLevel: 'standard',
+      typography: getDefaultTypographyConfig(),
       terminalPresetId: DEFAULT_TERMINAL_PRESET_ID,
       terminalAppearance: getTerminalAppearanceFromPreset(DEFAULT_TERMINAL_PRESET_ID),
 
@@ -873,12 +1134,27 @@ export const useSettingsStore = create<SettingsStore>()(
       setNativeAgentNotificationsEnabled: (nativeAgentNotificationsEnabled) => set({ nativeAgentNotificationsEnabled }),
       setAgentNotificationSoundEnabled: (agentNotificationSoundEnabled) => set({ agentNotificationSoundEnabled }),
       setFieldComplexityLevel: (fieldComplexityLevel) => set({ fieldComplexityLevel }),
+      updateTypography: (role, patch) => {
+        set((state) => ({
+          typography: normalizeTypographyConfig({
+            ...state.typography,
+            [role]: {
+              ...state.typography[role],
+              ...patch,
+            },
+          }),
+        }));
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
+      },
       setTerminalPresetId: (terminalPresetId) => {
         const normalizedPresetId = findTerminalPreset(terminalPresetId).id;
         set({
           terminalPresetId: normalizedPresetId,
           terminalAppearance: getTerminalAppearanceFromPreset(normalizedPresetId),
         });
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
       },
       updateTerminalAppearance: (patch) => {
         set((state) => ({
@@ -887,6 +1163,8 @@ export const useSettingsStore = create<SettingsStore>()(
             ...patch,
           }, state.terminalPresetId),
         }));
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
       },
     }),
     {
@@ -901,6 +1179,7 @@ export const useSettingsStore = create<SettingsStore>()(
         nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
         agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
         fieldComplexityLevel: state.fieldComplexityLevel,
+        typography: state.typography,
         terminalPresetId: state.terminalPresetId,
         terminalAppearance: state.terminalAppearance,
       }),
@@ -910,13 +1189,19 @@ export const useSettingsStore = create<SettingsStore>()(
           appearanceMode: state.appearanceMode,
           lightTheme: normalizeThemeSlot(state.lightTheme),
           darkTheme: normalizeThemeSlot(state.darkTheme),
+          typography: normalizeTypographyConfig(state.typography),
+          terminalAppearance: normalizeTerminalAppearanceConfig(
+            state.terminalAppearance,
+            findTerminalPreset(state.terminalPresetId ?? DEFAULT_TERMINAL_PRESET_ID).id,
+          ),
         };
         const resolvedThemeMode = applyThemeToDocument(normalizedState);
         state.lightTheme = normalizedState.lightTheme;
         state.darkTheme = normalizedState.darkTheme;
+        state.typography = normalizedState.typography;
         state.resolvedThemeMode = resolvedThemeMode;
         state.terminalPresetId = findTerminalPreset(state.terminalPresetId ?? DEFAULT_TERMINAL_PRESET_ID).id;
-        state.terminalAppearance = normalizeTerminalAppearanceConfig(state.terminalAppearance, state.terminalPresetId);
+        state.terminalAppearance = normalizedState.terminalAppearance;
         state.themeRevision += 1;
       },
     },
@@ -972,6 +1257,7 @@ export function initializeSettingsStore(): void {
         nextState.nativeAgentNotificationsEnabled === prevState.nativeAgentNotificationsEnabled &&
         nextState.agentNotificationSoundEnabled === prevState.agentNotificationSoundEnabled &&
         nextState.fieldComplexityLevel === prevState.fieldComplexityLevel &&
+        nextState.typography === prevState.typography &&
         nextState.terminalPresetId === prevState.terminalPresetId &&
         nextState.terminalAppearance === prevState.terminalAppearance
       ) {

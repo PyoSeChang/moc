@@ -73,7 +73,7 @@ export const TimelineBackground: React.FC<LayoutLayerProps> = ({
               fill="var(--text-default)"
               fontSize={11}
               fontWeight={600}
-              fontFamily="system-ui, sans-serif"
+              style={{ fontFamily: 'var(--font-ui)' }}
             >
               {cell.label}
             </text>
@@ -92,7 +92,7 @@ export const TimelineBackground: React.FC<LayoutLayerProps> = ({
                 dominantBaseline="middle"
                 fill="var(--text-secondary)"
                 fontSize={10}
-                fontFamily="system-ui, sans-serif"
+                style={{ fontFamily: 'var(--font-ui)' }}
               >
                 {cell.label}
               </text>

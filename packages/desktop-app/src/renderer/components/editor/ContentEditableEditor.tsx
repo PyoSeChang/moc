@@ -5,6 +5,7 @@ interface ContentEditableEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  style?: React.CSSProperties;
   singleLine?: boolean;
 }
 
@@ -15,6 +16,7 @@ export function ContentEditableEditor({
   onChange,
   placeholder,
   className = '',
+  style,
   singleLine = false,
 }: ContentEditableEditorProps): JSX.Element {
   const divRef = useRef<HTMLDivElement>(null);
@@ -88,6 +90,7 @@ export function ContentEditableEditor({
       suppressContentEditableWarning
       data-placeholder={placeholder}
       className={`outline-none whitespace-pre-wrap break-words ${className}`}
+      style={style}
       onInput={handleInput}
       onPaste={handlePaste}
       onKeyDown={handleKeyDown}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { useAnchoredDropdown } from '../../hooks/useAnchoredDropdown';
 
 export interface SelectOption {
@@ -16,6 +16,9 @@ export interface SelectProps {
   id?: string;
   disabled?: boolean;
   selectSize?: 'default' | 'sm';
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -26,11 +29,16 @@ export const Select: React.FC<SelectProps> = ({
   id,
   disabled,
   selectSize = 'default',
+  searchable = false,
+  searchPlaceholder = 'Search',
+  emptyMessage = 'No results',
 }) => {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownPos = useAnchoredDropdown(open, buttonRef, {
     estimatedHeight: 220,
   }, dropdownRef);
@@ -48,7 +56,29 @@ export const Select: React.FC<SelectProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+      return;
+    }
+
+    if (!searchable) return;
+
+    const handle = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [open, searchable]);
+
   const selectedOption = options.find((o) => o.value === value);
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const filteredOptions = searchable && normalizedSearch.length > 0
+    ? options.filter((opt) => (
+      opt.label.toLowerCase().includes(normalizedSearch) ||
+      opt.value.toLowerCase().includes(normalizedSearch)
+    ))
+    : options;
 
   const handleOpen = () => {
     if (disabled) return;
@@ -76,6 +106,7 @@ export const Select: React.FC<SelectProps> = ({
   const itemSizeStyle = selectSize === 'sm'
     ? 'px-3 py-1.5 text-sm'
     : 'px-3 py-2 text-sm';
+  const searchAreaHeight = searchable ? 52 : 0;
 
   return (
     <div className="relative block w-full" ref={ref}>
@@ -101,7 +132,7 @@ export const Select: React.FC<SelectProps> = ({
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-surface-panel border border-default rounded-lg overflow-y-auto max-h-[200px] py-1"
+            className="fixed overflow-hidden rounded-lg border border-default bg-surface-panel"
             style={{
               top: dropdownPos.top,
               left: dropdownPos.left,
@@ -114,19 +145,50 @@ export const Select: React.FC<SelectProps> = ({
             role="listbox"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={opt.value === value}
-                className={`block w-full ${itemSizeStyle} text-left cursor-pointer transition-colors duration-fast hover:bg-surface-hover ${opt.value === value ? 'text-accent bg-accent-muted' : 'text-default'
-                  }`}
-                onClick={() => handleSelect(opt.value)}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {searchable && (
+              <div className="border-b border-subtle px-2 py-2">
+                <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-base px-2.5 py-1.5">
+                  <Search size={14} className="shrink-0 text-muted" />
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="w-full bg-transparent text-sm text-default outline-none placeholder:text-muted"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setOpen(false);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            <div
+              className="overflow-y-auto py-1"
+              style={{
+                maxHeight: Math.max(72, dropdownPos.maxHeight - searchAreaHeight),
+              }}
+            >
+              {filteredOptions.length > 0 ? filteredOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={opt.value === value}
+                  className={`block w-full ${itemSizeStyle} text-left cursor-pointer transition-colors duration-fast hover:bg-surface-hover ${opt.value === value ? 'text-accent bg-accent-muted' : 'text-default'
+                    }`}
+                  onClick={() => handleSelect(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              )) : (
+                <div className={`px-3 py-2 text-sm text-muted ${itemSizeStyle}`}>
+                  {emptyMessage}
+                </div>
+              )}
+            </div>
           </div>,
           document.body,
         )}

@@ -409,6 +409,9 @@ const electronAPI = {
       return () => { ipcRenderer.removeListener('settings:syncState', handler); };
     },
   },
+  fonts: {
+    listSystem: () => ipcRenderer.invoke('fonts:listSystem') as Promise<string[]>,
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronAPI);

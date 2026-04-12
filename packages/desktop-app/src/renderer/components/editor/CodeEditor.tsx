@@ -27,6 +27,7 @@ export function CodeEditor({ tabId, content, language, onChange }: CodeEditorPro
   const viewStateRef = useRef(viewState);
   const resolvedThemeMode = useSettingsStore((s) => s.resolvedThemeMode);
   const themeRevision = useSettingsStore((s) => s.themeRevision);
+  const codeTypography = useSettingsStore((s) => s.typography.code);
 
   const handleMount: OnMount = useCallback((editor) => {
     editorRef.current = editor;
@@ -108,7 +109,10 @@ export function CodeEditor({ tabId, content, language, onChange }: CodeEditorPro
       onMount={handleMount}
       options={{
         minimap: { enabled: false },
-        fontSize: 13,
+        fontFamily: codeTypography.fontFamily,
+        fontSize: codeTypography.fontSize,
+        lineHeight: Math.round(codeTypography.fontSize * codeTypography.lineHeight),
+        letterSpacing: codeTypography.letterSpacing,
         lineNumbers: 'on',
         scrollBeyondLastLine: false,
         wordWrap: 'on',

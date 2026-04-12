@@ -21,6 +21,7 @@ import {
   registerDesktopRuntimeInstance,
   unregisterDesktopRuntimeInstance,
 } from './runtime/runtime-coordination';
+import { listSystemFonts } from './system-fonts';
 
 // Force userData to %APPDATA%/netior
 app.name = 'Netior';
@@ -464,6 +465,10 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('settings:getState', () => {
     return cachedSettingsState;
+  });
+
+  ipcMain.handle('fonts:listSystem', async () => {
+    return listSystemFonts();
   });
 
   ipcMain.on('settings:pushState', (event, state: unknown) => {

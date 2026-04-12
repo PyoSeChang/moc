@@ -1,11 +1,23 @@
 /* Base Styles using Tokens */
+html {
+    font-size: var(--font-ui-size);
+}
+
 body {
-    font-family: var(--font-sans);
+    font-family: var(--font-ui);
     background-color: var(--surface-base);
     background-image: var(--theme-background-image, none);
     background-attachment: fixed;
     color: var(--text-default);
-    font-size: var(--text-base);
+    line-height: var(--font-ui-line-height);
+    letter-spacing: var(--font-ui-letter-spacing);
+}
+
+code,
+pre,
+kbd,
+samp {
+    font-family: var(--font-code);
 }
 
 /* Selection */

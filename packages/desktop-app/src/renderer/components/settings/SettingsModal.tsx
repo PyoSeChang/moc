@@ -3,20 +3,25 @@ import { createPortal } from 'react-dom';
 import { X, Search, Palette, Globe, Bell, Boxes, Sparkles } from 'lucide-react';
 import type { NarreBehaviorSettings, NarreCodexSettings } from '@netior/shared/types';
 import {
+  buildRoleFontFamily,
+  getPrimaryFontFamily,
   useSettingsStore,
   getPrimaryPresets,
   getTerminalPresets,
+  type AppFontRole,
+  type FontRoleConfig,
   type ResolvedThemeMode,
   type TerminalAppearanceConfig,
   type TerminalPresetId,
   type ThemeSlotConfig,
+  type TypographyConfig,
 } from '../../stores/settings-store';
 import { useI18n } from '../../hooks/useI18n';
 import { unwrapIpc } from '../../services/ipc';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { NumberInput } from '../ui/NumberInput';
-import { Select } from '../ui/Select';
+import { Select, type SelectOption } from '../ui/Select';
 import { Spinner } from '../ui/Spinner';
 import { TextArea } from '../ui/TextArea';
 import { Toggle } from '../ui/Toggle';
@@ -226,55 +231,218 @@ function TerminalPresetPanel({
 
 interface TerminalAppearancePanelProps {
   terminalAppearance: TerminalAppearanceConfig;
+  fontOptions: SelectOption[];
+  fontsLoading: boolean;
+  fontError: string | null;
   t: ReturnType<typeof useI18n>['t'];
   onUpdate: (patch: Partial<TerminalAppearanceConfig>) => void;
 }
 
-const TERMINAL_FONT_OPTIONS = [
-  { value: 'Cascadia Mono', label: 'Cascadia Mono' },
-  { value: 'Cascadia Code', label: 'Cascadia Code' },
-  { value: 'Iosevka Term', label: 'Iosevka Term' },
-  { value: 'JetBrains Mono', label: 'JetBrains Mono' },
-  { value: 'Fira Code', label: 'Fira Code' },
-  { value: 'Menlo', label: 'Menlo' },
-  { value: 'Consolas', label: 'Consolas' },
-  { value: 'DejaVu Sans Mono', label: 'DejaVu Sans Mono' },
-  { value: 'Lucida Console', label: 'Lucida Console' },
-] as const;
-
-function quoteFontFamily(value: string): string {
-  return /\s/.test(value) ? `"${value}"` : value;
+interface TypographyPanelProps {
+  typography: TypographyConfig;
+  fontOptions: SelectOption[];
+  fontsLoading: boolean;
+  fontError: string | null;
+  t: ReturnType<typeof useI18n>['t'];
+  onUpdate: (role: AppFontRole, patch: Partial<FontRoleConfig>) => void;
 }
 
-function parseFontStack(fontFamily: string): [string, string, string] {
-  const normalized = fontFamily
-    .split(',')
-    .map((part) => part.trim().replace(/^['"]|['"]$/g, ''))
-    .filter((part) => part.length > 0 && part.toLowerCase() !== 'monospace');
+const FONT_SIZE_LIMITS = {
+  ui: { min: 14, max: 18 },
+  body: { min: 12, max: 24 },
+  code: { min: 11, max: 24 },
+  terminal: { min: 8, max: 28 },
+} as const;
 
-  return [
-    normalized[0] ?? 'Menlo',
-    normalized[1] ?? '',
-    normalized[2] ?? '',
-  ];
+function withCurrentFontOption(
+  options: SelectOption[],
+  fontFamily: string,
+  t: ReturnType<typeof useI18n>['t'],
+): SelectOption[] {
+  const current = getPrimaryFontFamily(fontFamily);
+  if (!current || options.some((option) => option.value === current)) {
+    return options;
+  }
+
+  return [{ value: current, label: `${current} · ${t('settings.currentSelection')}` }, ...options];
 }
 
-function buildFontStack(primary: string, secondary: string, tertiary: string): string {
-  const values = [primary, secondary, tertiary]
-    .map((value) => value.trim())
-    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index)
-    .map(quoteFontFamily);
-  values.push('monospace');
-  return values.join(', ');
+function FontSourceHint({
+  fontError,
+  t,
+}: {
+  fontError: string | null;
+  t: ReturnType<typeof useI18n>['t'];
+}): JSX.Element {
+  if (fontError) {
+    return <div className="mt-2 text-xs text-status-error">{fontError}</div>;
+  }
+
+  return <div className="mt-2 text-xs text-muted">{t('settings.installedFontsHint')}</div>;
+}
+
+function FontRoleCard({
+  role,
+  title,
+  description,
+  sampleText,
+  config,
+  fontOptions,
+  fontsLoading,
+  fontError,
+  t,
+  onUpdate,
+}: {
+  role: AppFontRole;
+  title: string;
+  description: string;
+  sampleText: string;
+  config: FontRoleConfig;
+  fontOptions: SelectOption[];
+  fontsLoading: boolean;
+  fontError: string | null;
+  t: ReturnType<typeof useI18n>['t'];
+  onUpdate: (role: AppFontRole, patch: Partial<FontRoleConfig>) => void;
+}): JSX.Element {
+  const primaryFont = getPrimaryFontFamily(config.fontFamily);
+  const selectableFonts = withCurrentFontOption(fontOptions, config.fontFamily, t);
+  const sizeLimits = FONT_SIZE_LIMITS[role];
+
+  return (
+    <div className="rounded-xl border border-subtle bg-surface-card p-4">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-default">{title}</div>
+        <div className="mt-1 text-xs leading-5 text-muted">{description}</div>
+      </div>
+
+      <div
+        className="mb-4 rounded-lg border border-subtle bg-surface-base px-3 py-3 text-default"
+        style={{
+          fontFamily: config.fontFamily,
+          fontSize: `${config.fontSize}px`,
+          lineHeight: String(config.lineHeight),
+          letterSpacing: `${config.letterSpacing}px`,
+        }}
+      >
+        {sampleText}
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2 text-sm font-medium text-default">{t('settings.fontFamily')}</div>
+        <Select
+          value={primaryFont}
+          onChange={(e) => onUpdate(role, { fontFamily: buildRoleFontFamily(role, e.target.value) })}
+          options={selectableFonts}
+          disabled={fontsLoading || selectableFonts.length === 0}
+          searchable
+          searchPlaceholder={t('common.search')}
+          emptyMessage={t('common.noResults')}
+          placeholder={fontsLoading ? t('common.loading') : t('settings.fontListUnavailable')}
+        />
+        <FontSourceHint fontError={fontError} t={t} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.fontSize')}</div>
+          <NumberInput
+            value={config.fontSize}
+            onChange={(value) => onUpdate(role, { fontSize: value })}
+            min={sizeLimits.min}
+            max={sizeLimits.max}
+            step={1}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.lineHeight')}</div>
+          <NumberInput
+            value={config.lineHeight}
+            onChange={(value) => onUpdate(role, { lineHeight: value })}
+            min={1}
+            max={2.2}
+            step={0.01}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.letterSpacing')}</div>
+          <NumberInput
+            value={config.letterSpacing}
+            onChange={(value) => onUpdate(role, { letterSpacing: value })}
+            min={-1}
+            max={4}
+            step={0.1}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TypographyPanel({
+  typography,
+  fontOptions,
+  fontsLoading,
+  fontError,
+  t,
+  onUpdate,
+}: TypographyPanelProps): JSX.Element {
+  return (
+    <section data-section="typography" className="mb-10">
+      <h3 className="text-base font-semibold text-default">{t('settings.typography')}</h3>
+      <p className="mb-4 mt-1 text-sm text-secondary">{t('settings.typographyDesc')}</p>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <FontRoleCard
+          role="ui"
+          title={t('settings.interfaceFont')}
+          description={t('settings.interfaceFontDesc')}
+          sampleText={t('settings.interfaceFontSample')}
+          config={typography.ui}
+          fontOptions={fontOptions}
+          fontsLoading={fontsLoading}
+          fontError={fontError}
+          t={t}
+          onUpdate={onUpdate}
+        />
+        <FontRoleCard
+          role="body"
+          title={t('settings.bodyFont')}
+          description={t('settings.bodyFontDesc')}
+          sampleText={t('settings.bodyFontSample')}
+          config={typography.body}
+          fontOptions={fontOptions}
+          fontsLoading={fontsLoading}
+          fontError={fontError}
+          t={t}
+          onUpdate={onUpdate}
+        />
+        <FontRoleCard
+          role="code"
+          title={t('settings.codeFont')}
+          description={t('settings.codeFontDesc')}
+          sampleText={t('settings.codeFontSample')}
+          config={typography.code}
+          fontOptions={fontOptions}
+          fontsLoading={fontsLoading}
+          fontError={fontError}
+          t={t}
+          onUpdate={onUpdate}
+        />
+      </div>
+    </section>
+  );
 }
 
 function TerminalAppearancePanel({
   terminalAppearance,
+  fontOptions,
+  fontsLoading,
+  fontError,
   t,
   onUpdate,
 }: TerminalAppearancePanelProps): JSX.Element {
-  const [primaryFont, secondaryFont, tertiaryFont] = parseFontStack(terminalAppearance.fontFamily);
-  const fallbackOptions = [{ value: '', label: t('settings.terminalFontFallbackNone') }, ...TERMINAL_FONT_OPTIONS];
+  const primaryFont = getPrimaryFontFamily(terminalAppearance.fontFamily);
+  const selectableFonts = withCurrentFontOption(fontOptions, terminalAppearance.fontFamily, t);
 
   return (
     <section data-section="terminal-appearance" className="mb-10">
@@ -283,54 +451,51 @@ function TerminalAppearancePanel({
 
       <div className="mb-4">
         <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalFontFamily')}</div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
           <div>
-            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontPrimary')}</div>
             <Select
               value={primaryFont}
-              onChange={(e) => onUpdate({
-                fontFamily: buildFontStack(e.target.value, secondaryFont, tertiaryFont),
-              })}
-              options={[...TERMINAL_FONT_OPTIONS]}
+              onChange={(e) => onUpdate({ fontFamily: buildRoleFontFamily('terminal', e.target.value) })}
+              options={selectableFonts}
+              disabled={fontsLoading || selectableFonts.length === 0}
+              searchable
+              searchPlaceholder={t('common.search')}
+              emptyMessage={t('common.noResults')}
+              placeholder={fontsLoading ? t('common.loading') : t('settings.fontListUnavailable')}
             />
+            <FontSourceHint fontError={fontError} t={t} />
           </div>
-          <div>
-            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontSecondary')}</div>
-            <Select
-              value={secondaryFont}
-              onChange={(e) => onUpdate({
-                fontFamily: buildFontStack(primaryFont, e.target.value, tertiaryFont),
-              })}
-              options={fallbackOptions}
-            />
-          </div>
-          <div>
-            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontTertiary')}</div>
-            <Select
-              value={tertiaryFont}
-              onChange={(e) => onUpdate({
-                fontFamily: buildFontStack(primaryFont, secondaryFont, e.target.value),
-              })}
-              options={fallbackOptions}
-            />
+          <div
+            className="rounded-lg border border-subtle bg-[var(--surface-editor)] px-3 py-3 text-default"
+            style={{
+              fontFamily: terminalAppearance.fontFamily,
+              fontSize: `${terminalAppearance.fontSize}px`,
+              lineHeight: String(terminalAppearance.lineHeight),
+              letterSpacing: `${terminalAppearance.letterSpacing}px`,
+            }}
+          >
+            <div className="text-xs opacity-70">PS C:\\project&gt;</div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="font-medium">prompt</span>
+              <span className="opacity-70">{t('settings.terminalFontSample')}</span>
+            </div>
           </div>
         </div>
-        <div className="mt-2 text-xs text-muted">{t('settings.terminalFontFallbackHint')}</div>
       </div>
 
       <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalFontSize')}</div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.fontSize')}</div>
           <NumberInput
             value={terminalAppearance.fontSize}
             onChange={(value) => onUpdate({ fontSize: value })}
-            min={8}
-            max={28}
+            min={FONT_SIZE_LIMITS.terminal.min}
+            max={FONT_SIZE_LIMITS.terminal.max}
             step={1}
           />
         </div>
         <div>
-          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalLineHeight')}</div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.lineHeight')}</div>
           <NumberInput
             value={terminalAppearance.lineHeight}
             onChange={(value) => onUpdate({ lineHeight: value })}
@@ -340,7 +505,7 @@ function TerminalAppearancePanel({
           />
         </div>
         <div>
-          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalLetterSpacing')}</div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.letterSpacing')}</div>
           <NumberInput
             value={terminalAppearance.letterSpacing}
             onChange={(value) => onUpdate({ letterSpacing: value })}
@@ -908,6 +1073,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled,
     fieldComplexityLevel,
+    typography,
     terminalPresetId,
     terminalAppearance,
     setAppearanceMode,
@@ -919,6 +1085,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     setNativeAgentNotificationsEnabled,
     setAgentNotificationSoundEnabled,
     setFieldComplexityLevel,
+    updateTypography,
     setTerminalPresetId,
     updateTerminalAppearance,
   } = useSettingsStore();
@@ -926,6 +1093,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
 
   const [activeCategory, setActiveCategory] = useState('appearance');
   const [searchQuery, setSearchQuery] = useState('');
+  const [fontOptions, setFontOptions] = useState<SelectOption[]>([]);
+  const [fontsLoading, setFontsLoading] = useState(false);
+  const [fontError, setFontError] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -934,7 +1104,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
       key: 'appearance',
       icon: Palette,
       label: t('settings.categoryAppearance'),
-      anchors: [t('settings.appearanceMode'), t('settings.primaryPalette'), t('settings.terminalPreset'), t('settings.terminalAppearance')],
+      anchors: [
+        t('settings.appearanceMode'),
+        t('settings.primaryPalette'),
+        t('settings.typography'),
+        t('settings.terminalPreset'),
+        t('settings.terminalAppearance'),
+      ],
     },
     {
       key: 'language',
@@ -986,6 +1162,33 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     return () => document.removeEventListener('keydown', handleEsc);
   }, [handleEsc, open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+    setFontsLoading(true);
+    setFontError(null);
+
+    void window.electron.fonts.listSystem()
+      .then((fonts) => {
+        if (cancelled) return;
+        setFontOptions(fonts.map((font) => ({ value: font, label: font })));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFontOptions([]);
+        setFontError(t('settings.fontListUnavailable'));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setFontsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, t]);
+
   const scrollToSection = (sectionId: string) => {
     const el = contentRef.current?.querySelector(`[data-section="${sectionId}"]`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1009,14 +1212,19 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     t('settings.categoryAppearance'),
     t('settings.appearanceMode'),
     t('settings.primaryPalette'),
+    t('settings.typography'),
+    t('settings.typographyDesc'),
+    t('settings.interfaceFont'),
+    t('settings.bodyFont'),
+    t('settings.codeFont'),
     t('settings.terminalPreset'),
     t('settings.terminalPresetDesc'),
     t('settings.terminalAppearance'),
     t('settings.terminalAppearanceDesc'),
     t('settings.terminalFontFamily'),
-    t('settings.terminalFontSize'),
-    t('settings.terminalLineHeight'),
-    t('settings.terminalLetterSpacing'),
+    t('settings.fontSize'),
+    t('settings.lineHeight'),
+    t('settings.letterSpacing'),
     t('settings.terminalPaddingX'),
     t('settings.terminalPaddingY'),
     t('settings.terminalCursorBlink'),
@@ -1163,6 +1371,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                   onSetPrimaryCustomColor={setThemePrimaryCustomColor}
                 />
 
+                <TypographyPanel
+                  typography={typography}
+                  fontOptions={fontOptions}
+                  fontsLoading={fontsLoading}
+                  fontError={fontError}
+                  t={t}
+                  onUpdate={updateTypography}
+                />
+
                 <TerminalPresetPanel
                   terminalPresetId={terminalPresetId}
                   t={t}
@@ -1171,6 +1388,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
 
                 <TerminalAppearancePanel
                   terminalAppearance={terminalAppearance}
+                  fontOptions={fontOptions}
+                  fontsLoading={fontsLoading}
+                  fontError={fontError}
                   t={t}
                   onUpdate={updateTerminalAppearance}
                 />

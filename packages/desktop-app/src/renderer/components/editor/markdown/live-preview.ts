@@ -553,7 +553,7 @@ export const livePreviewTheme = EditorView.theme({
   '.md-italic': { fontStyle: 'italic' },
   '.md-strikethrough': { textDecoration: 'line-through', opacity: '0.5' },
   '.md-inline-code': {
-    fontFamily: '"SF Mono", Monaco, "Cascadia Code", Consolas, monospace',
+    fontFamily: 'var(--font-code)',
     fontSize: '0.9em', backgroundColor: 'var(--surface-base)', borderRadius: '3px', padding: '1px 4px',
   },
 
@@ -564,7 +564,7 @@ export const livePreviewTheme = EditorView.theme({
 
   '.md-code-line': {
     backgroundColor: 'var(--surface-base)',
-    fontFamily: '"SF Mono", Monaco, "Cascadia Code", Consolas, monospace',
+    fontFamily: 'var(--font-code)',
     fontSize: '0.9em',
   },
 

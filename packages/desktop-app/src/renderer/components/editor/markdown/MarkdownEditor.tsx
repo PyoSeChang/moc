@@ -157,9 +157,10 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
     return EditorView.theme({
       '&': { backgroundColor: bg, color: fg, height: '100%' },
       '.cm-scroller': {
-        fontFamily: 'inherit',
-        fontSize: '13px',
-        lineHeight: '1.7',
+        fontFamily: 'var(--font-body)',
+        fontSize: 'var(--font-body-size)',
+        lineHeight: 'var(--font-body-line-height)',
+        letterSpacing: 'var(--font-body-letter-spacing)',
         overflow: 'auto',
       },
       '.cm-content': {

@@ -132,8 +132,7 @@ export const TimelineOverlay: React.FC<LayoutLayerProps> = ({
                 fill={isHovered ? 'var(--text-default)' : 'var(--text-secondary)'}
                 fontWeight={isHovered ? 600 : 400}
                 fontSize={11}
-                fontFamily="system-ui, sans-serif"
-                style={{ pointerEvents: 'none' }}
+                style={{ pointerEvents: 'none', fontFamily: 'var(--font-ui)' }}
               >
                 {band.screenWidth > 30 ? band.label : ''}
               </text>

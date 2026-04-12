@@ -310,6 +310,47 @@
     "themeFamily": "Family",
     "themeVariant": "Variant",
     "primaryPalette": "Primary Palette",
+    "terminalPreset": "Terminal Preset",
+    "terminalPresetDesc": "Switch fonts, spacing, and the base palette as a preset. Start with a small set of curated combinations instead of a free-form plugin system.",
+    "terminalAppearance": "Terminal Details",
+    "terminalAppearanceDesc": "Apply a preset, then tune the font, size, spacing, and padding directly. The background still follows the app's editor surface.",
+    "terminalFontFamily": "Font family",
+    "terminalFontPrimary": "Primary font",
+    "terminalFontSecondary": "Secondary fallback",
+    "terminalFontTertiary": "Tertiary fallback",
+    "terminalFontFallbackNone": "None",
+    "terminalFontFallbackHint": "A final system monospace fallback is always appended automatically.",
+    "terminalFontSize": "Base font size",
+    "terminalLineHeight": "Line height",
+    "terminalLetterSpacing": "Letter spacing",
+    "terminalPaddingX": "Horizontal padding",
+    "terminalPaddingY": "Vertical padding",
+    "terminalCursorBlink": "Cursor blink",
+    "terminalCursorBlinkDesc": "Choose whether the block cursor should blink.",
+    "terminalWebglRenderer": "WebGL renderer",
+    "terminalWebglRendererDesc": "Use the WebGL renderer when available. Turn it off if rendering becomes unstable.",
+    "terminalPresets": {
+      "hyper": {
+        "label": "Hyper Default",
+        "description": "A dark preset tuned to stay close to Hyper's default feel."
+      },
+      "netior": {
+        "label": "Netior Default",
+        "description": "The default font and spacing mix that stays closest to Netior's editor surface."
+      },
+      "codex": {
+        "label": "Cascade Blue",
+        "description": "A cooler preset built around a Cascadia-first font stack and tighter spacing."
+      },
+      "claude": {
+        "label": "Warm Contrast",
+        "description": "A warmer preset with an Iosevka-first stack and slightly looser line spacing."
+      },
+      "powershell": {
+        "label": "Classic Console",
+        "description": "A denser console preset with a slightly larger default size."
+      }
+    },
     "primaryRecommended": "Recommended",
     "primaryCustom": "Custom",
     "customColor": "Custom Color",

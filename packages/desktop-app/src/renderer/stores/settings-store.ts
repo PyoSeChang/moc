@@ -36,6 +36,33 @@ export type FieldComplexityLevel = 'basic' | 'standard' | 'advanced';
 export type ThemeFamily = ThemeFamilyDefinition['id'];
 export type ResolvedThemeMode = 'dark' | 'light';
 export type PrimaryPresetId = string;
+export type TerminalPresetId = 'hyper' | 'netior' | 'codex' | 'claude' | 'powershell';
+
+interface TerminalPresetDefinition {
+  id: TerminalPresetId;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
+  preview: [string, string, string];
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  letterSpacing: number;
+  paddingX: number;
+  paddingY: number;
+  cursorBlink: boolean;
+  webGLRenderer: boolean;
+}
+
+export interface TerminalAppearanceConfig {
+  fontFamily: string;
+  fontSize: number;
+  lineHeight: number;
+  letterSpacing: number;
+  paddingX: number;
+  paddingY: number;
+  cursorBlink: boolean;
+  webGLRenderer: boolean;
+}
 
 export interface ThemeSlotConfig {
   family: ThemeFamily;
@@ -54,7 +81,84 @@ interface SettingsSyncState {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  terminalPresetId: TerminalPresetId;
+  terminalAppearance: TerminalAppearanceConfig;
 }
+
+const DEFAULT_TERMINAL_PRESET_ID: TerminalPresetId = 'hyper';
+
+const TERMINAL_PRESETS: readonly TerminalPresetDefinition[] = [
+  {
+    id: 'hyper',
+    labelKey: 'settings.terminalPresets.hyper.label',
+    descriptionKey: 'settings.terminalPresets.hyper.description',
+    preview: ['#000000', '#ffffff', '#58a6ff'],
+    fontFamily: `Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace`,
+    fontSize: 12,
+    lineHeight: 1,
+    letterSpacing: 0,
+    paddingX: 14,
+    paddingY: 12,
+    cursorBlink: false,
+    webGLRenderer: false,
+  },
+  {
+    id: 'netior',
+    labelKey: 'settings.terminalPresets.netior.label',
+    descriptionKey: 'settings.terminalPresets.netior.description',
+    preview: ['#181818', '#d4d4d4', '#0d99ff'],
+    fontFamily: `Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace`,
+    fontSize: 12,
+    lineHeight: 1,
+    letterSpacing: 0,
+    paddingX: 14,
+    paddingY: 12,
+    cursorBlink: false,
+    webGLRenderer: false,
+  },
+  {
+    id: 'codex',
+    labelKey: 'settings.terminalPresets.codex.label',
+    descriptionKey: 'settings.terminalPresets.codex.description',
+    preview: ['#0b1220', '#dce6ff', '#6fb1ff'],
+    fontFamily: `"Cascadia Mono", "Cascadia Code", Menlo, Consolas, monospace`,
+    fontSize: 12,
+    lineHeight: 1.05,
+    letterSpacing: 0,
+    paddingX: 14,
+    paddingY: 12,
+    cursorBlink: false,
+    webGLRenderer: false,
+  },
+  {
+    id: 'claude',
+    labelKey: 'settings.terminalPresets.claude.label',
+    descriptionKey: 'settings.terminalPresets.claude.description',
+    preview: ['#171311', '#f3e8dc', '#d0a36f'],
+    fontFamily: `"Iosevka Term", "Cascadia Mono", Menlo, Consolas, monospace`,
+    fontSize: 12,
+    lineHeight: 1.08,
+    letterSpacing: 0,
+    paddingX: 14,
+    paddingY: 12,
+    cursorBlink: false,
+    webGLRenderer: false,
+  },
+  {
+    id: 'powershell',
+    labelKey: 'settings.terminalPresets.powershell.label',
+    descriptionKey: 'settings.terminalPresets.powershell.description',
+    preview: ['#012456', '#f0f6fc', '#00bcf2'],
+    fontFamily: `"Cascadia Mono", "Cascadia Code", Consolas, "Lucida Console", monospace`,
+    fontSize: 13,
+    lineHeight: 1.05,
+    letterSpacing: 0,
+    paddingX: 12,
+    paddingY: 10,
+    cursorBlink: false,
+    webGLRenderer: false,
+  },
+] as const;
 
 const PRIMARY_PRESETS: readonly PrimaryPresetDefinition[] = [
   { id: 'gray', labelKey: 'settings.primaryPresets.gray.label', descriptionKey: 'settings.primaryPresets.gray.description', color: '#7a7a7a' },
@@ -372,6 +476,7 @@ const MANAGED_THEME_VARS = [...PRIMARY_VAR_NAMES, ...VARIANT_VAR_NAMES];
 
 export const AVAILABLE_THEME_FAMILIES = THEME_FAMILIES;
 export const AVAILABLE_PRIMARY_PRESETS = PRIMARY_PRESETS;
+export const AVAILABLE_TERMINAL_PRESETS = TERMINAL_PRESETS;
 
 function findFamily(familyId: ThemeFamily): ThemeFamilyDefinition {
   return THEME_FAMILIES.find((family) => family.id === familyId) ?? THEME_FAMILIES[0];
@@ -386,6 +491,43 @@ function findPrimaryPreset(presetId: string): PrimaryPresetDefinition {
   return PRIMARY_PRESETS.find((preset) => preset.id === presetId) ?? PRIMARY_PRESETS[0];
 }
 
+function findTerminalPreset(presetId: TerminalPresetId | undefined): TerminalPresetDefinition {
+  return TERMINAL_PRESETS.find((preset) => preset.id === presetId) ?? TERMINAL_PRESETS[0];
+}
+
+function getTerminalAppearanceFromPreset(presetId: TerminalPresetId | undefined): TerminalAppearanceConfig {
+  const preset = findTerminalPreset(presetId);
+  return {
+    fontFamily: preset.fontFamily,
+    fontSize: preset.fontSize,
+    lineHeight: preset.lineHeight,
+    letterSpacing: preset.letterSpacing,
+    paddingX: preset.paddingX,
+    paddingY: preset.paddingY,
+    cursorBlink: preset.cursorBlink,
+    webGLRenderer: preset.webGLRenderer,
+  };
+}
+
+function normalizeTerminalAppearanceConfig(
+  config: Partial<TerminalAppearanceConfig> | undefined,
+  fallbackPresetId: TerminalPresetId = DEFAULT_TERMINAL_PRESET_ID,
+): TerminalAppearanceConfig {
+  const fallback = getTerminalAppearanceFromPreset(fallbackPresetId);
+  return {
+    fontFamily: typeof config?.fontFamily === 'string' && config.fontFamily.trim().length > 0
+      ? config.fontFamily
+      : fallback.fontFamily,
+    fontSize: Number.isFinite(config?.fontSize) ? Math.max(8, Math.min(28, Number(config.fontSize))) : fallback.fontSize,
+    lineHeight: Number.isFinite(config?.lineHeight) ? Math.max(0.8, Math.min(2, Number(config.lineHeight))) : fallback.lineHeight,
+    letterSpacing: Number.isFinite(config?.letterSpacing) ? Math.max(-2, Math.min(8, Number(config.letterSpacing))) : fallback.letterSpacing,
+    paddingX: Number.isFinite(config?.paddingX) ? Math.max(0, Math.min(48, Number(config.paddingX))) : fallback.paddingX,
+    paddingY: Number.isFinite(config?.paddingY) ? Math.max(0, Math.min(48, Number(config.paddingY))) : fallback.paddingY,
+    cursorBlink: typeof config?.cursorBlink === 'boolean' ? config.cursorBlink : fallback.cursorBlink,
+    webGLRenderer: typeof config?.webGLRenderer === 'boolean' ? config.webGLRenderer : fallback.webGLRenderer,
+  };
+}
+
 export function getThemeVariants(familyId: ThemeFamily): readonly ThemeVariantDefinition[] {
   return findFamily(familyId).variants;
 }
@@ -393,6 +535,14 @@ export function getThemeVariants(familyId: ThemeFamily): readonly ThemeVariantDe
 export function getPrimaryPresets(ids?: readonly string[]): readonly PrimaryPresetDefinition[] {
   if (!ids || ids.length === 0) return PRIMARY_PRESETS;
   return ids.map(findPrimaryPreset);
+}
+
+export function getTerminalPresets(): readonly TerminalPresetDefinition[] {
+  return TERMINAL_PRESETS;
+}
+
+export function getTerminalPreset(presetId: TerminalPresetId | undefined): TerminalPresetDefinition {
+  return findTerminalPreset(presetId ?? DEFAULT_TERMINAL_PRESET_ID);
 }
 
 function normalizeHexColor(value: string | undefined, fallback: string): string {
@@ -537,6 +687,8 @@ export interface SettingsStore {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  terminalPresetId: TerminalPresetId;
+  terminalAppearance: TerminalAppearanceConfig;
 
   setAppearanceMode: (mode: AppearanceMode) => void;
   setThemeFamily: (mode: ResolvedThemeMode, family: ThemeFamily) => void;
@@ -549,6 +701,8 @@ export interface SettingsStore {
   setNativeAgentNotificationsEnabled: (enabled: boolean) => void;
   setAgentNotificationSoundEnabled: (enabled: boolean) => void;
   setFieldComplexityLevel: (level: FieldComplexityLevel) => void;
+  setTerminalPresetId: (presetId: TerminalPresetId) => void;
+  updateTerminalAppearance: (patch: Partial<TerminalAppearanceConfig>) => void;
 }
 
 function applyCurrentThemeSnapshot(
@@ -570,7 +724,12 @@ function getSettingsSyncState(state: Pick<
   | 'detachedAgentToastMode'
   | 'nativeAgentNotificationsEnabled'
   | 'agentNotificationSoundEnabled'
-> & { fieldComplexityLevel?: FieldComplexityLevel }): SettingsSyncState {
+> & {
+  fieldComplexityLevel?: FieldComplexityLevel;
+  terminalPresetId?: TerminalPresetId;
+  terminalAppearance?: Partial<TerminalAppearanceConfig>;
+}): SettingsSyncState {
+  const terminalPresetId = findTerminalPreset(state.terminalPresetId ?? DEFAULT_TERMINAL_PRESET_ID).id;
   return {
     appearanceMode: state.appearanceMode,
     lightTheme: normalizeThemeSlot(state.lightTheme),
@@ -580,6 +739,8 @@ function getSettingsSyncState(state: Pick<
     nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
     fieldComplexityLevel: state.fieldComplexityLevel ?? 'standard',
+    terminalPresetId,
+    terminalAppearance: normalizeTerminalAppearanceConfig(state.terminalAppearance, terminalPresetId),
   };
 }
 
@@ -611,6 +772,8 @@ export const useSettingsStore = create<SettingsStore>()(
       nativeAgentNotificationsEnabled: true,
       agentNotificationSoundEnabled: true,
       fieldComplexityLevel: 'standard',
+      terminalPresetId: DEFAULT_TERMINAL_PRESET_ID,
+      terminalAppearance: getTerminalAppearanceFromPreset(DEFAULT_TERMINAL_PRESET_ID),
 
       setAppearanceMode: (appearanceMode) => {
         set({ appearanceMode });
@@ -710,6 +873,21 @@ export const useSettingsStore = create<SettingsStore>()(
       setNativeAgentNotificationsEnabled: (nativeAgentNotificationsEnabled) => set({ nativeAgentNotificationsEnabled }),
       setAgentNotificationSoundEnabled: (agentNotificationSoundEnabled) => set({ agentNotificationSoundEnabled }),
       setFieldComplexityLevel: (fieldComplexityLevel) => set({ fieldComplexityLevel }),
+      setTerminalPresetId: (terminalPresetId) => {
+        const normalizedPresetId = findTerminalPreset(terminalPresetId).id;
+        set({
+          terminalPresetId: normalizedPresetId,
+          terminalAppearance: getTerminalAppearanceFromPreset(normalizedPresetId),
+        });
+      },
+      updateTerminalAppearance: (patch) => {
+        set((state) => ({
+          terminalAppearance: normalizeTerminalAppearanceConfig({
+            ...state.terminalAppearance,
+            ...patch,
+          }, state.terminalPresetId),
+        }));
+      },
     }),
     {
       name: SETTINGS_STORAGE_KEY,
@@ -723,6 +901,8 @@ export const useSettingsStore = create<SettingsStore>()(
         nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
         agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
         fieldComplexityLevel: state.fieldComplexityLevel,
+        terminalPresetId: state.terminalPresetId,
+        terminalAppearance: state.terminalAppearance,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -735,6 +915,8 @@ export const useSettingsStore = create<SettingsStore>()(
         state.lightTheme = normalizedState.lightTheme;
         state.darkTheme = normalizedState.darkTheme;
         state.resolvedThemeMode = resolvedThemeMode;
+        state.terminalPresetId = findTerminalPreset(state.terminalPresetId ?? DEFAULT_TERMINAL_PRESET_ID).id;
+        state.terminalAppearance = normalizeTerminalAppearanceConfig(state.terminalAppearance, state.terminalPresetId);
         state.themeRevision += 1;
       },
     },
@@ -789,7 +971,9 @@ export function initializeSettingsStore(): void {
         nextState.detachedAgentToastMode === prevState.detachedAgentToastMode &&
         nextState.nativeAgentNotificationsEnabled === prevState.nativeAgentNotificationsEnabled &&
         nextState.agentNotificationSoundEnabled === prevState.agentNotificationSoundEnabled &&
-        nextState.fieldComplexityLevel === prevState.fieldComplexityLevel
+        nextState.fieldComplexityLevel === prevState.fieldComplexityLevel &&
+        nextState.terminalPresetId === prevState.terminalPresetId &&
+        nextState.terminalAppearance === prevState.terminalAppearance
       ) {
         return;
       }

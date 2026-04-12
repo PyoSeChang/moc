@@ -85,7 +85,7 @@ export class ForkedHyperTerms extends React.PureComponent<ForkedHyperTermsProps>
         style={{
           position: 'absolute',
           inset: 0,
-          color: '#fff',
+          color: this.props.appearance.colors.foreground,
         }}
       >
         <div

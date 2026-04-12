@@ -310,6 +310,47 @@
     "themeFamily": "패밀리",
     "themeVariant": "변형",
     "primaryPalette": "프라이머리 팔레트",
+    "terminalPreset": "터미널 프리셋",
+    "terminalPresetDesc": "폰트, 여백, 기본 팔레트를 프리셋 단위로 바꿉니다. 자유 플러그인 대신 검증된 조합만 먼저 제공합니다.",
+    "terminalAppearance": "터미널 세부 설정",
+    "terminalAppearanceDesc": "프리셋을 적용한 뒤 글꼴, 크기, 간격, 패딩 같은 값을 직접 조정합니다. 배경색은 앱 에디터 배경을 그대로 사용합니다.",
+    "terminalFontFamily": "글꼴 패밀리",
+    "terminalFontPrimary": "주 글꼴",
+    "terminalFontSecondary": "보조 fallback",
+    "terminalFontTertiary": "3차 fallback",
+    "terminalFontFallbackNone": "없음",
+    "terminalFontFallbackHint": "마지막에는 항상 시스템 monospace fallback이 자동으로 붙습니다.",
+    "terminalFontSize": "기본 글꼴 크기",
+    "terminalLineHeight": "줄 간격",
+    "terminalLetterSpacing": "자간",
+    "terminalPaddingX": "좌우 패딩",
+    "terminalPaddingY": "상하 패딩",
+    "terminalCursorBlink": "커서 깜빡임",
+    "terminalCursorBlinkDesc": "블록 커서가 주기적으로 깜빡이도록 할지 정합니다.",
+    "terminalWebglRenderer": "WebGL 렌더러",
+    "terminalWebglRendererDesc": "가능하면 WebGL 렌더러를 사용합니다. 렌더링 문제가 있으면 끄세요.",
+    "terminalPresets": {
+      "hyper": {
+        "label": "Hyper Default",
+        "description": "Hyper 쪽 기본 감각에 가깝게 맞춘 어두운 프리셋입니다."
+      },
+      "netior": {
+        "label": "Netior Default",
+        "description": "현재 앱의 에디터 배경과 가장 자연스럽게 맞는 기본 서체/간격 조합입니다."
+      },
+      "codex": {
+        "label": "Cascade Blue",
+        "description": "Cascadia 계열 폰트와 단정한 간격으로 구성한 차가운 인상의 프리셋입니다."
+      },
+      "claude": {
+        "label": "Warm Contrast",
+        "description": "Iosevka 계열 폰트와 조금 더 느슨한 줄간격으로 읽기 편하게 맞춘 프리셋입니다."
+      },
+      "powershell": {
+        "label": "Classic Console",
+        "description": "조금 더 큰 기본 글자와 촘촘한 콘솔 감각을 주는 프리셋입니다."
+      }
+    },
     "primaryRecommended": "추천",
     "primaryCustom": "커스텀",
     "customColor": "커스텀 색상",

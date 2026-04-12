@@ -5,13 +5,17 @@ import type { NarreBehaviorSettings, NarreCodexSettings } from '@netior/shared/t
 import {
   useSettingsStore,
   getPrimaryPresets,
+  getTerminalPresets,
   type ResolvedThemeMode,
+  type TerminalAppearanceConfig,
+  type TerminalPresetId,
   type ThemeSlotConfig,
 } from '../../stores/settings-store';
 import { useI18n } from '../../hooks/useI18n';
 import { unwrapIpc } from '../../services/ipc';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { NumberInput } from '../ui/NumberInput';
 import { Select } from '../ui/Select';
 import { Spinner } from '../ui/Spinner';
 import { TextArea } from '../ui/TextArea';
@@ -146,6 +150,250 @@ function PrimaryColorPanel({
               }
             }}
             placeholder="#0d99ff"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+interface TerminalPresetPanelProps {
+  terminalPresetId: TerminalPresetId;
+  t: ReturnType<typeof useI18n>['t'];
+  onSelect: (presetId: TerminalPresetId) => void;
+}
+
+function TerminalPresetPanel({
+  terminalPresetId,
+  t,
+  onSelect,
+}: TerminalPresetPanelProps): JSX.Element {
+  const presets = getTerminalPresets();
+
+  return (
+    <section data-section="terminal-preset" className="mb-10">
+      <h3 className="text-base font-semibold text-default">{t('settings.terminalPreset')}</h3>
+      <p className="mb-4 mt-1 text-sm text-secondary">{t('settings.terminalPresetDesc')}</p>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {presets.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className={`rounded-xl border p-4 text-left transition-all ${
+              terminalPresetId === preset.id
+                ? 'border-accent bg-interactive-selected text-accent shadow-sm'
+                : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+            }`}
+            onClick={() => onSelect(preset.id)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">{t(preset.labelKey)}</div>
+                <div className="mt-1 text-xs leading-5 text-muted">
+                  {t(preset.descriptionKey)}
+                </div>
+              </div>
+              <div
+                className="mt-1 h-3 w-3 shrink-0 rounded-full border border-subtle"
+                style={{ background: preset.preview[2] }}
+              />
+            </div>
+
+            <div
+              className="mt-4 rounded-lg border border-subtle px-3 py-2"
+              style={{
+                background: 'var(--surface-editor)',
+                color: 'var(--text-default)',
+                fontFamily: preset.fontFamily,
+                fontSize: `${preset.fontSize}px`,
+                lineHeight: String(preset.lineHeight),
+                letterSpacing: `${preset.letterSpacing}px`,
+              }}
+            >
+              <div className="text-xs opacity-70">PS C:\\project&gt;</div>
+              <div className="mt-1 flex items-center gap-2 text-sm">
+                <span className="font-medium">prompt</span>
+                <span className="opacity-70">sample text</span>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+interface TerminalAppearancePanelProps {
+  terminalAppearance: TerminalAppearanceConfig;
+  t: ReturnType<typeof useI18n>['t'];
+  onUpdate: (patch: Partial<TerminalAppearanceConfig>) => void;
+}
+
+const TERMINAL_FONT_OPTIONS = [
+  { value: 'Cascadia Mono', label: 'Cascadia Mono' },
+  { value: 'Cascadia Code', label: 'Cascadia Code' },
+  { value: 'Iosevka Term', label: 'Iosevka Term' },
+  { value: 'JetBrains Mono', label: 'JetBrains Mono' },
+  { value: 'Fira Code', label: 'Fira Code' },
+  { value: 'Menlo', label: 'Menlo' },
+  { value: 'Consolas', label: 'Consolas' },
+  { value: 'DejaVu Sans Mono', label: 'DejaVu Sans Mono' },
+  { value: 'Lucida Console', label: 'Lucida Console' },
+] as const;
+
+function quoteFontFamily(value: string): string {
+  return /\s/.test(value) ? `"${value}"` : value;
+}
+
+function parseFontStack(fontFamily: string): [string, string, string] {
+  const normalized = fontFamily
+    .split(',')
+    .map((part) => part.trim().replace(/^['"]|['"]$/g, ''))
+    .filter((part) => part.length > 0 && part.toLowerCase() !== 'monospace');
+
+  return [
+    normalized[0] ?? 'Menlo',
+    normalized[1] ?? '',
+    normalized[2] ?? '',
+  ];
+}
+
+function buildFontStack(primary: string, secondary: string, tertiary: string): string {
+  const values = [primary, secondary, tertiary]
+    .map((value) => value.trim())
+    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index)
+    .map(quoteFontFamily);
+  values.push('monospace');
+  return values.join(', ');
+}
+
+function TerminalAppearancePanel({
+  terminalAppearance,
+  t,
+  onUpdate,
+}: TerminalAppearancePanelProps): JSX.Element {
+  const [primaryFont, secondaryFont, tertiaryFont] = parseFontStack(terminalAppearance.fontFamily);
+  const fallbackOptions = [{ value: '', label: t('settings.terminalFontFallbackNone') }, ...TERMINAL_FONT_OPTIONS];
+
+  return (
+    <section data-section="terminal-appearance" className="mb-10">
+      <h3 className="text-base font-semibold text-default">{t('settings.terminalAppearance')}</h3>
+      <p className="mb-4 mt-1 text-sm text-secondary">{t('settings.terminalAppearanceDesc')}</p>
+
+      <div className="mb-4">
+        <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalFontFamily')}</div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontPrimary')}</div>
+            <Select
+              value={primaryFont}
+              onChange={(e) => onUpdate({
+                fontFamily: buildFontStack(e.target.value, secondaryFont, tertiaryFont),
+              })}
+              options={[...TERMINAL_FONT_OPTIONS]}
+            />
+          </div>
+          <div>
+            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontSecondary')}</div>
+            <Select
+              value={secondaryFont}
+              onChange={(e) => onUpdate({
+                fontFamily: buildFontStack(primaryFont, e.target.value, tertiaryFont),
+              })}
+              options={fallbackOptions}
+            />
+          </div>
+          <div>
+            <div className="mb-2 text-xs text-muted">{t('settings.terminalFontTertiary')}</div>
+            <Select
+              value={tertiaryFont}
+              onChange={(e) => onUpdate({
+                fontFamily: buildFontStack(primaryFont, secondaryFont, e.target.value),
+              })}
+              options={fallbackOptions}
+            />
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-muted">{t('settings.terminalFontFallbackHint')}</div>
+      </div>
+
+      <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalFontSize')}</div>
+          <NumberInput
+            value={terminalAppearance.fontSize}
+            onChange={(value) => onUpdate({ fontSize: value })}
+            min={8}
+            max={28}
+            step={1}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalLineHeight')}</div>
+          <NumberInput
+            value={terminalAppearance.lineHeight}
+            onChange={(value) => onUpdate({ lineHeight: value })}
+            min={0.8}
+            max={2}
+            step={0.01}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalLetterSpacing')}</div>
+          <NumberInput
+            value={terminalAppearance.letterSpacing}
+            onChange={(value) => onUpdate({ letterSpacing: value })}
+            min={-2}
+            max={8}
+            step={0.1}
+          />
+        </div>
+      </div>
+
+      <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalPaddingX')}</div>
+          <NumberInput
+            value={terminalAppearance.paddingX}
+            onChange={(value) => onUpdate({ paddingX: value })}
+            min={0}
+            max={48}
+            step={1}
+          />
+        </div>
+        <div>
+          <div className="mb-2 text-sm font-medium text-default">{t('settings.terminalPaddingY')}</div>
+          <NumberInput
+            value={terminalAppearance.paddingY}
+            onChange={(value) => onUpdate({ paddingY: value })}
+            min={0}
+            max={48}
+            step={1}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex items-center justify-between rounded-lg border border-subtle px-3 py-2">
+          <div>
+            <div className="text-sm font-medium text-default">{t('settings.terminalCursorBlink')}</div>
+            <div className="mt-1 text-xs text-muted">{t('settings.terminalCursorBlinkDesc')}</div>
+          </div>
+          <Toggle
+            checked={terminalAppearance.cursorBlink}
+            onChange={(checked) => onUpdate({ cursorBlink: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-subtle px-3 py-2">
+          <div>
+            <div className="text-sm font-medium text-default">{t('settings.terminalWebglRenderer')}</div>
+            <div className="mt-1 text-xs text-muted">{t('settings.terminalWebglRendererDesc')}</div>
+          </div>
+          <Toggle
+            checked={terminalAppearance.webGLRenderer}
+            onChange={(checked) => onUpdate({ webGLRenderer: checked })}
           />
         </div>
       </div>
@@ -660,6 +908,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled,
     fieldComplexityLevel,
+    terminalPresetId,
+    terminalAppearance,
     setAppearanceMode,
     setThemePrimaryMode,
     setThemePrimaryPreset,
@@ -669,7 +919,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     setNativeAgentNotificationsEnabled,
     setAgentNotificationSoundEnabled,
     setFieldComplexityLevel,
+    setTerminalPresetId,
+    updateTerminalAppearance,
   } = useSettingsStore();
+  const terminalPresets = getTerminalPresets();
 
   const [activeCategory, setActiveCategory] = useState('appearance');
   const [searchQuery, setSearchQuery] = useState('');
@@ -681,7 +934,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
       key: 'appearance',
       icon: Palette,
       label: t('settings.categoryAppearance'),
-      anchors: [t('settings.appearanceMode'), t('settings.primaryPalette')],
+      anchors: [t('settings.appearanceMode'), t('settings.primaryPalette'), t('settings.terminalPreset'), t('settings.terminalAppearance')],
     },
     {
       key: 'language',
@@ -756,6 +1009,19 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     t('settings.categoryAppearance'),
     t('settings.appearanceMode'),
     t('settings.primaryPalette'),
+    t('settings.terminalPreset'),
+    t('settings.terminalPresetDesc'),
+    t('settings.terminalAppearance'),
+    t('settings.terminalAppearanceDesc'),
+    t('settings.terminalFontFamily'),
+    t('settings.terminalFontSize'),
+    t('settings.terminalLineHeight'),
+    t('settings.terminalLetterSpacing'),
+    t('settings.terminalPaddingX'),
+    t('settings.terminalPaddingY'),
+    t('settings.terminalCursorBlink'),
+    t('settings.terminalWebglRenderer'),
+    ...terminalPresets.flatMap((preset) => [t(preset.labelKey), t(preset.descriptionKey)]),
   ].some(matchesSearch);
   const showLanguage = [
     t('settings.categoryLanguage'),
@@ -895,6 +1161,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                   onSetPrimaryMode={setThemePrimaryMode}
                   onSetPrimaryPreset={setThemePrimaryPreset}
                   onSetPrimaryCustomColor={setThemePrimaryCustomColor}
+                />
+
+                <TerminalPresetPanel
+                  terminalPresetId={terminalPresetId}
+                  t={t}
+                  onSelect={setTerminalPresetId}
+                />
+
+                <TerminalAppearancePanel
+                  terminalAppearance={terminalAppearance}
+                  t={t}
+                  onUpdate={updateTerminalAppearance}
                 />
               </div>
             )}

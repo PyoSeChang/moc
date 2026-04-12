@@ -458,17 +458,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
 
       if (!ignoreTerminalTitleChanges) {
         titleListener = instance.onTitleChanged(() => {
-          console.log('[TerminalEditor] terminalTitleChanged', {
-            tabId: tab.id,
-            sessionId,
-            title: instance.title,
-          });
           updateTitle(tab.id, instance.title);
-        });
-        console.log('[TerminalEditor] initialTerminalTitle', {
-          tabId: tab.id,
-          sessionId,
-          title: instance.title,
         });
         updateTitle(tab.id, instance.title);
       }

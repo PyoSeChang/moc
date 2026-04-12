@@ -1,3 +1,39 @@
+import { useSettingsStore } from '../../../stores/settings-store';
+
+interface TerminalColorPalette {
+  background: string;
+  foreground: string;
+  muted: string;
+  border: string;
+  accent: string;
+  accentHover: string;
+  selection: string;
+  inactiveSelection: string;
+  scrollbar: string;
+  scrollbarHover: string;
+  scrollbarActive: string;
+  findMatchBackground: string;
+  findMatchHighlightBackground: string;
+  findMatchBorder: string;
+  findMatchHighlightBorder: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+}
+
 export interface TerminalAppearanceSnapshot {
   fontFamily: string;
   fontSize: number;
@@ -7,39 +43,23 @@ export interface TerminalAppearanceSnapshot {
   minimumContrastRatio: number;
   cursorBlink: boolean;
   webGLRenderer: boolean;
-  colors: {
-    background: string;
-    foreground: string;
-    muted: string;
-    border: string;
-    accent: string;
-    accentHover: string;
-    selection: string;
-    inactiveSelection: string;
-    scrollbar: string;
-    scrollbarHover: string;
-    scrollbarActive: string;
-    findMatchBackground: string;
-    findMatchHighlightBackground: string;
-    findMatchBorder: string;
-    findMatchHighlightBorder: string;
-  };
+  colors: TerminalColorPalette;
 }
 
 const terminalAppearanceListeners = new Set<(snapshot: TerminalAppearanceSnapshot) => void>();
 
-const DEFAULT_FONT_SIZE = 12;
 const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 28;
-const TERMINAL_FONT_FAMILY = `Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace`;
-const TERMINAL_LINE_HEIGHT = 1;
-const TERMINAL_LETTER_SPACING = 0;
-const TERMINAL_PADDING = '12px 14px';
 const TERMINAL_MINIMUM_CONTRAST_RATIO = 1;
 
-let currentFontSize = DEFAULT_FONT_SIZE;
+let currentFontSizeOffset = 0;
 let themeObserver: MutationObserver | null = null;
+let settingsObserverCleanup: (() => void) | null = null;
 let cachedAppearanceSnapshot: TerminalAppearanceSnapshot | null = null;
+
+function clampFontSize(value: number): number {
+  return Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, value));
+}
 
 function getCssColorAsHex(property: string, fallback: string): string {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(property).trim();
@@ -63,46 +83,95 @@ function withAlpha(hex: string, alphaHex: string): string {
   return `${hex}${alphaHex}`;
 }
 
-function buildTerminalAppearanceSnapshot(): TerminalAppearanceSnapshot {
-  const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
+function buildTerminalColorPalette(
+  base: {
+  background: string;
+  foreground: string;
+  muted: string;
+  border: string;
+  accent: string;
+  accentHover: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+},
+  isDarkBackground: boolean,
+): TerminalColorPalette {
+  return {
+    ...base,
+    selection: withAlpha(base.accent, isDarkBackground ? '33' : '22'),
+    inactiveSelection: withAlpha(base.muted, isDarkBackground ? '2e' : '1f'),
+    scrollbar: withAlpha(base.border, isDarkBackground ? '44' : '33'),
+    scrollbarHover: withAlpha(base.muted, isDarkBackground ? '66' : '55'),
+    scrollbarActive: withAlpha(base.accentHover, isDarkBackground ? '88' : '77'),
+    findMatchBackground: withAlpha(base.accent, isDarkBackground ? '44' : '33'),
+    findMatchHighlightBackground: withAlpha(base.accent, isDarkBackground ? '22' : '18'),
+    findMatchBorder: base.accent,
+    findMatchHighlightBorder: withAlpha(base.accent, isDarkBackground ? '66' : '44'),
+  };
+}
+
+function resolveAdaptivePalette(isDark: boolean): TerminalColorPalette {
   const background = getCssColorAsHex('--surface-editor', isDark ? '#242424' : '#f5f5f5');
   const foreground = getCssColorAsHex('--text-default', isDark ? '#d4d4d4' : '#1f2328');
   const muted = getCssColorAsHex('--text-muted', isDark ? '#8b949e' : '#6b7280');
   const border = getCssColorAsHex('--border-default', isDark ? '#30363d' : '#d0d7de');
   const accent = getCssColorAsHex('--accent', isDark ? '#2f81f7' : '#0969da');
   const accentHover = getCssColorAsHex('--accent-hover', accent);
-  const selection = withAlpha(accent, isDark ? '33' : '22');
-  const inactiveSelection = withAlpha(muted, isDark ? '2e' : '1f');
-  const scrollbar = withAlpha(border, isDark ? '44' : '33');
-  const scrollbarHover = withAlpha(muted, isDark ? '66' : '55');
-  const scrollbarActive = withAlpha(accentHover, isDark ? '88' : '77');
+
+  return buildTerminalColorPalette({
+    background,
+    foreground,
+    muted,
+    border,
+    accent,
+    accentHover,
+    black: isDark ? '#484f58' : '#24292f',
+    red: isDark ? '#ff7b72' : '#cf222e',
+    green: isDark ? '#3fb950' : '#1a7f37',
+    yellow: isDark ? '#d29922' : '#9a6700',
+    blue: isDark ? '#79c0ff' : '#0969da',
+    magenta: isDark ? '#bc8cff' : '#8250df',
+    cyan: isDark ? '#39c5cf' : '#1b7c83',
+    white: isDark ? '#c9d1d9' : '#6e7781',
+    brightBlack: isDark ? '#6e7681' : '#57606a',
+    brightRed: isDark ? '#ffa198' : '#ff8182',
+    brightGreen: isDark ? '#56d364' : '#4ac26b',
+    brightYellow: isDark ? '#e3b341' : '#bf8700',
+    brightBlue: isDark ? '#a5d6ff' : '#218bff',
+    brightMagenta: isDark ? '#d2a8ff' : '#a475f9',
+    brightCyan: isDark ? '#56d4dd' : '#3192aa',
+    brightWhite: isDark ? '#f0f6fc' : '#24292f',
+  }, isDark);
+}
+
+function buildTerminalAppearanceSnapshot(): TerminalAppearanceSnapshot {
+  const { terminalAppearance } = useSettingsStore.getState();
+  const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
 
   return {
-    fontFamily: TERMINAL_FONT_FAMILY,
-    fontSize: currentFontSize,
-    lineHeight: TERMINAL_LINE_HEIGHT,
-    letterSpacing: TERMINAL_LETTER_SPACING,
-    padding: TERMINAL_PADDING,
+    fontFamily: terminalAppearance.fontFamily,
+    fontSize: clampFontSize(terminalAppearance.fontSize + currentFontSizeOffset),
+    lineHeight: terminalAppearance.lineHeight,
+    letterSpacing: terminalAppearance.letterSpacing,
+    padding: `${terminalAppearance.paddingY}px ${terminalAppearance.paddingX}px`,
     minimumContrastRatio: TERMINAL_MINIMUM_CONTRAST_RATIO,
-    cursorBlink: false,
-    webGLRenderer: false,
-    colors: {
-      background,
-      foreground,
-      muted,
-      border,
-      accent,
-      accentHover,
-      selection,
-      inactiveSelection,
-      scrollbar,
-      scrollbarHover,
-      scrollbarActive,
-      findMatchBackground: withAlpha(accent, isDark ? '44' : '33'),
-      findMatchHighlightBackground: withAlpha(accent, isDark ? '22' : '18'),
-      findMatchBorder: accent,
-      findMatchHighlightBorder: withAlpha(accent, isDark ? '66' : '44'),
-    },
+    cursorBlink: terminalAppearance.cursorBlink,
+    webGLRenderer: terminalAppearance.webGLRenderer,
+    colors: resolveAdaptivePalette(isDark),
   };
 }
 
@@ -113,22 +182,35 @@ function emitAppearanceChanged(): void {
   }
 }
 
-function ensureTerminalThemeObserver(): void {
-  if (themeObserver || typeof document === 'undefined') return;
+function ensureTerminalAppearanceObservers(): void {
+  if (!themeObserver && typeof document !== 'undefined') {
+    themeObserver = new MutationObserver(() => {
+      cachedAppearanceSnapshot = null;
+      emitAppearanceChanged();
+    });
 
-  themeObserver = new MutationObserver(() => {
-    cachedAppearanceSnapshot = null;
-    emitAppearanceChanged();
-  });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-mode', 'data-concept', 'data-theme-variant', 'style'],
+    });
+  }
 
-  themeObserver.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['data-mode', 'data-concept', 'data-theme-variant', 'style'],
-  });
+  if (!settingsObserverCleanup) {
+    settingsObserverCleanup = useSettingsStore.subscribe((nextState, prevState) => {
+      if (
+        nextState.terminalPresetId === prevState.terminalPresetId
+        && nextState.terminalAppearance === prevState.terminalAppearance
+      ) {
+        return;
+      }
+      cachedAppearanceSnapshot = null;
+      emitAppearanceChanged();
+    });
+  }
 }
 
 export function getTerminalAppearanceSnapshot(): TerminalAppearanceSnapshot {
-  ensureTerminalThemeObserver();
+  ensureTerminalAppearanceObservers();
   cachedAppearanceSnapshot ??= buildTerminalAppearanceSnapshot();
   return cachedAppearanceSnapshot;
 }
@@ -136,7 +218,7 @@ export function getTerminalAppearanceSnapshot(): TerminalAppearanceSnapshot {
 export function onTerminalAppearanceChanged(
   listener: (snapshot: TerminalAppearanceSnapshot) => void,
 ): { dispose(): void } {
-  ensureTerminalThemeObserver();
+  ensureTerminalAppearanceObservers();
   terminalAppearanceListeners.add(listener);
   return {
     dispose(): void {
@@ -146,13 +228,15 @@ export function onTerminalAppearanceChanged(
 }
 
 export function adjustTerminalFontSize(delta: number): void {
-  currentFontSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, currentFontSize + delta));
+  const { terminalAppearance } = useSettingsStore.getState();
+  const nextFontSize = clampFontSize(terminalAppearance.fontSize + currentFontSizeOffset + delta);
+  currentFontSizeOffset = nextFontSize - terminalAppearance.fontSize;
   cachedAppearanceSnapshot = null;
   emitAppearanceChanged();
 }
 
 export function resetTerminalFontSize(): void {
-  currentFontSize = DEFAULT_FONT_SIZE;
+  currentFontSizeOffset = 0;
   cachedAppearanceSnapshot = null;
   emitAppearanceChanged();
 }

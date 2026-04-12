@@ -55,6 +55,58 @@ function buildLaunchConfig(
   };
 }
 
+function getPathBasename(value: string): string {
+  const normalized = value.replace(/[\\/]+$/, '');
+  const parts = normalized.split(/[\\/]/);
+  return parts[parts.length - 1] ?? normalized;
+}
+
+function prettifyExecutableName(name: string): string {
+  const lower = name.toLowerCase();
+  switch (lower) {
+    case 'powershell':
+    case 'powershell.exe':
+      return 'PowerShell';
+    case 'pwsh':
+    case 'pwsh.exe':
+      return 'PowerShell';
+    case 'cmd':
+    case 'cmd.exe':
+      return 'Command Prompt';
+    case 'bash':
+    case 'bash.exe':
+      return 'Bash';
+    case 'zsh':
+    case 'zsh.exe':
+      return 'Zsh';
+    case 'python':
+    case 'python.exe':
+      return 'Python';
+    case 'node':
+    case 'node.exe':
+      return 'Node.js';
+    default:
+      return name.replace(/\.(exe|cmd|bat|ps1)$/i, '');
+  }
+}
+
+function formatTerminalTitle(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return title;
+  }
+
+  if (/[\\/]/.test(trimmed)) {
+    return prettifyExecutableName(getPathBasename(trimmed));
+  }
+
+  if (/^[^ ]+\.(exe|cmd|bat|ps1)$/i.test(trimmed)) {
+    return prettifyExecutableName(trimmed);
+  }
+
+  return trimmed;
+}
+
 export class HyperTerminalSurface implements TerminalEngineInstance {
   readonly kind = 'hyper' as const;
 
@@ -83,7 +135,7 @@ export class HyperTerminalSurface implements TerminalEngineInstance {
     private readonly launchConfig?: TerminalEngineLaunchConfig,
     private readonly onDidExit?: () => void,
   ) {
-    this.currentTitle = initialTitle;
+    this.currentTitle = formatTerminalTitle(initialTitle);
     this.readyPromise = new Promise<void>((resolve) => {
       this.resolveReady = resolve;
     });
@@ -279,8 +331,9 @@ export class HyperTerminalSurface implements TerminalEngineInstance {
   }
 
   private setTitle(title: string): void {
-    if (!title || title === this.currentTitle) return;
-    this.currentTitle = title;
+    const nextTitle = formatTerminalTitle(title);
+    if (!nextTitle || nextTitle === this.currentTitle) return;
+    this.currentTitle = nextTitle;
     for (const listener of this.titleListeners) {
       listener();
     }

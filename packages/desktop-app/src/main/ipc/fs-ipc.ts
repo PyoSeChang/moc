@@ -1,9 +1,13 @@
 import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron';
+import { execFile } from 'child_process';
 import { readdir, readFile, writeFile, stat, rename, rm, mkdir, copyFile, cp } from 'fs/promises';
 import { join, resolve, extname, basename, dirname } from 'path';
 import { existsSync, watch, type FSWatcher } from 'fs';
+import { promisify } from 'util';
 import type { IpcResult, FileTreeNode } from '@netior/shared/types';
 import { getRuntimeUndoTrashDir } from '../runtime/runtime-paths';
+
+const execFileAsync = promisify(execFile);
 
 function normalizeFsPath(targetPath: string): string {
   return resolve(targetPath).replace(/\\/g, '/').toLowerCase();
@@ -17,6 +21,24 @@ function isSameOrNestedPath(sourcePath: string, destPath: string): boolean {
 
 function getUndoTrashDir(): string {
   return getRuntimeUndoTrashDir();
+}
+
+function parseClipboardFileBuffer(buf: Buffer): string[] {
+  if (buf.length === 0) return [];
+  return buf
+    .toString('utf16le')
+    .split('\0')
+    .filter(Boolean)
+    .filter((filePath) => existsSync(filePath));
+}
+
+function toPowerShellSingleQuoted(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+async function writeWindowsFileClipboard(paths: string[]): Promise<void> {
+  const command = `Set-Clipboard -Path @(${paths.map(toPowerShellSingleQuoted).join(', ')})`;
+  await execFileAsync('powershell.exe', ['-NoProfile', '-Command', command], { windowsHide: true });
 }
 
 async function buildFileTree(dirPath: string): Promise<FileTreeNode[]> {
@@ -162,6 +184,29 @@ export function registerFsIpc(): void {
       return { success: true, data: content };
     } catch (err) {
       return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('fs:stat', async (_e, targetPath: string): Promise<IpcResult<unknown>> => {
+    try {
+      const stats = await stat(targetPath);
+      return {
+        success: true,
+        data: {
+          exists: true,
+          mtimeMs: stats.mtimeMs,
+          size: stats.size,
+        },
+      };
+    } catch {
+      return {
+        success: true,
+        data: {
+          exists: false,
+          mtimeMs: null,
+          size: null,
+        },
+      };
     }
   });
 
@@ -366,17 +411,41 @@ export function registerFsIpc(): void {
     return { success: true, data: !image.isEmpty() };
   });
 
+  ipcMain.handle('fs:writeClipboardFiles', async (_e, paths: string[], action: 'copy' | 'cut'): Promise<IpcResult<boolean>> => {
+    try {
+      const normalizedPaths = [...new Set(paths.map((targetPath) => resolve(targetPath)).filter((targetPath) => existsSync(targetPath)))];
+      if (normalizedPaths.length === 0) {
+        return { success: false, error: 'No existing files were available to place on the clipboard' };
+      }
+
+      await writeWindowsFileClipboard(normalizedPaths);
+
+      const preferredDropEffect = Buffer.alloc(4);
+      preferredDropEffect.writeUInt32LE(action === 'cut' ? 2 : 1, 0);
+      clipboard.writeBuffer('Preferred DropEffect', preferredDropEffect);
+
+      const writtenPaths = parseClipboardFileBuffer(clipboard.readBuffer('FileNameW'));
+      const expected = normalizedPaths.map(normalizeFsPath);
+      const actual = writtenPaths.map(normalizeFsPath);
+      const matches = expected.length === actual.length && expected.every((targetPath, index) => targetPath === actual[index]);
+      if (!matches) {
+        console.error('[fs:writeClipboardFiles] verification failed', { expected: normalizedPaths, actual: writtenPaths, action });
+        return { success: false, error: 'Windows did not accept the selected files onto the clipboard' };
+      }
+
+      return { success: true, data: true };
+    } catch (err) {
+      console.error('[fs:writeClipboardFiles] failed', { paths, action, error: err });
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
   // Read file paths from system clipboard (Windows: FileNameW format)
   ipcMain.handle('fs:readClipboardFiles', (): IpcResult<string[]> => {
     try {
       const buf = clipboard.readBuffer('FileNameW');
       if (buf.length === 0) return { success: true, data: [] };
-      // FileNameW is null-terminated UTF-16LE
-      const raw = buf.toString('utf16le');
-      const filePaths = raw
-        .split('\0')
-        .filter(Boolean)
-        .filter((filePath) => existsSync(filePath));
+      const filePaths = parseClipboardFileBuffer(buf);
       return { success: true, data: filePaths };
     } catch {
       return { success: true, data: [] };

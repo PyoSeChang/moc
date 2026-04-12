@@ -221,6 +221,7 @@ const electronAPI = {
     readDir: (dirPath: string) => ipcRenderer.invoke('fs:readDir', dirPath),
     readDirShallow: (dirPath: string, depth?: number) => ipcRenderer.invoke('fs:readDirShallow', dirPath, depth),
     readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
+    stat: (targetPath: string) => ipcRenderer.invoke('fs:stat', targetPath),
     readBinaryFile: (filePath: string) => ipcRenderer.invoke('fs:readBinaryFile', filePath),
     writeFile: (filePath: string, content: string) =>
       ipcRenderer.invoke('fs:writeFile', filePath, content),
@@ -241,6 +242,7 @@ const electronAPI = {
     unwatchDirs: () => ipcRenderer.invoke('fs:unwatchDirs'),
     hasClipboardFiles: () => ipcRenderer.invoke('fs:hasClipboardFiles'),
     hasClipboardImage: () => ipcRenderer.invoke('fs:hasClipboardImage'),
+    writeClipboardFiles: (paths: string[], action: 'copy' | 'cut') => ipcRenderer.invoke('fs:writeClipboardFiles', paths, action),
     readClipboardFiles: () => ipcRenderer.invoke('fs:readClipboardFiles'),
     saveClipboardImage: (filePath: string) => ipcRenderer.invoke('fs:saveClipboardImage', filePath),
     onDirChanged: (callback: () => void) => {

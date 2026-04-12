@@ -628,6 +628,7 @@ export interface EditorTab {
   isMinimized: boolean;
   sideSplitRatio: number;
   isDirty: boolean;
+  isStale?: boolean;
   /** Active sub-file within a concept editor */
   activeFilePath: string | null;
   /** Override editor type for file tabs (when user switches via context menu) */

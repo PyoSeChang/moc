@@ -11,6 +11,7 @@ import { useDetachedShortcuts } from '../../shortcuts/useDetachedShortcuts';
 import { initDetachedBridge } from '../../lib/editor-state-bridge';
 import { refreshAgentSessionStore } from '../../lib/agent-session-store';
 import { useNetiorSync } from '../../hooks/useNetiorSync';
+import { useFileTabStaleWatcher } from '../../hooks/useFileTabStaleWatcher';
 import { getTabDragDataAsync, isTabDrag } from '../../hooks/useTabDrag';
 import { ToastContainer } from '../ui/Toast';
 
@@ -19,6 +20,8 @@ interface DetachedEditorShellProps {
 }
 
 export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.Element {
+  useFileTabStaleWatcher();
+
   const [ready, setReady] = useState(false);
 
   // Bootstrap: fetch state from main window via IPC before rendering

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react';
-import { X, Terminal, Shapes, Link, Layout, Sparkles, Box, FileText, FolderOpen } from 'lucide-react';
+import { X, Terminal, Shapes, Link, Layout, Sparkles, Box, FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import type { EditorTab } from '@netior/shared/types';
-import { setTabDragData, isTabDrag, getTabDragDataAsync, clearTabDragData } from '../../hooks/useTabDrag';
+import { setTabDragData, isTabDrag, getTabDragDataAsync, clearTabDragData, flushTabDragData } from '../../hooks/useTabDrag';
 import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
 import { ContextMenu } from '../ui/ContextMenu';
 import type { ContextMenuEntry } from '../ui/ContextMenu';
@@ -9,12 +9,18 @@ import { ClaudeIcon, CodexIcon, getAgentProviderAccentColor } from '../ui/AgentP
 import { buildTabContextMenu, buildStripContextMenu } from './tab-context-menu';
 import { useEditorStore } from '../../stores/editor-store';
 import { FileIcon } from '../sidebar/FileIcon';
+import { Tooltip } from '../ui/Tooltip';
 import {
   getAgentSessionStateByTerminal,
   getAgentSessionStoreVersion,
   subscribeAgentSessionStore,
   type AgentSessionState,
 } from '../../lib/agent-session-store';
+import { getFileEditorReloadHandler } from '../../lib/file-editor-reload-registry';
+import { fsService } from '../../services';
+import { replaceDraftCache } from '../../hooks/useEditorSession';
+import { setKnownFileTabSignature } from '../../lib/file-tab-stale-registry';
+import { useI18n } from '../../hooks/useI18n';
 
 interface EditorTabStripProps {
   tabs: EditorTab[];
@@ -31,6 +37,12 @@ interface EditorTabStripProps {
 }
 
 const ICON_SIZE = 15;
+
+function toFileSignature(fileStat: Awaited<ReturnType<typeof fsService.statItem>>): string {
+  return fileStat.exists
+    ? `${fileStat.mtimeMs ?? 0}:${fileStat.size ?? 0}`
+    : 'missing';
+}
 
 function useAgentState(targetId: string) {
   useSyncExternalStore(subscribeAgentSessionStore, getAgentSessionStoreVersion);
@@ -73,7 +85,7 @@ function TabIcon({ tab }: { tab: EditorTab }): JSX.Element {
   }
 }
 
-function TabStatus({ tab, agentState }: { tab: EditorTab; agentState: AgentSessionState | null }): JSX.Element {
+function TabStatusDot({ tab, agentState }: { tab: EditorTab; agentState: AgentSessionState | null }): JSX.Element | null {
   if (tab.type === 'terminal' && agentState) {
     const dotColor = agentState.uxState === 'error'
       ? 'var(--status-error)'
@@ -88,22 +100,18 @@ function TabStatus({ tab, agentState }: { tab: EditorTab; agentState: AgentSessi
       '--agent-breathe-color': dotColor,
     } as React.CSSProperties;
     return (
-      <span className="flex w-2.5 shrink-0 justify-center">
-        <span
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${shouldAnimate ? 'animate-agent-breathe' : ''}`}
-          style={dotStyle}
-        />
-      </span>
+      <span
+        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-opacity group-hover:opacity-0 ${shouldAnimate ? 'animate-agent-breathe' : ''}`}
+        style={dotStyle}
+      />
     );
   }
-  if (tab.type !== 'terminal') {
-    return (
-      <span className="flex w-2.5 shrink-0 justify-center">
-        {tab.isDirty ? <span className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
-      </span>
-    );
+
+  if (tab.type !== 'terminal' && tab.isDirty) {
+    return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent transition-opacity group-hover:opacity-0" />;
   }
-  return <span className="w-2.5 shrink-0" />;
+
+  return null;
 }
 
 interface TabItemProps {
@@ -120,8 +128,35 @@ interface TabItemProps {
 }
 
 function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose, onContextMenu, onRenameSubmit, onRenameCancel, activeRef }: TabItemProps): JSX.Element {
+  const { t } = useI18n();
   const agentState = useAgentState(tab.targetId);
   const label = tab.type === 'terminal' && agentState?.name ? agentState.name : tab.title;
+  const statusDot = <TabStatusDot tab={tab} agentState={agentState} />;
+  const showRefresh = tab.type === 'file' && Boolean(tab.isStale);
+  const handleRefreshClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const reload = getFileEditorReloadHandler(tab.id);
+    if (reload) {
+      reload();
+      return;
+    }
+    if (!tab.isDirty && (tab.editorType === 'code' || tab.editorType === 'markdown')) {
+      void (async () => {
+        const content = await fsService.readFile(tab.targetId).catch(() => '');
+        replaceDraftCache(tab.id, content);
+        const signature = toFileSignature(await fsService.statItem(tab.targetId));
+        setKnownFileTabSignature(tab.id, signature);
+        const store = useEditorStore.getState();
+        store.setDirty(tab.id, false);
+        store.setStale(tab.id, false);
+      })();
+      return;
+    }
+    onActivate(tab.id);
+    requestAnimationFrame(() => {
+      getFileEditorReloadHandler(tab.id)?.();
+    });
+  };
 
   return (
     <div
@@ -150,13 +185,25 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
       ) : (
         <span className={isActive ? 'whitespace-nowrap' : 'max-w-[120px] truncate'}>{label}</span>
       )}
-      <TabStatus tab={tab} agentState={agentState} />
-      <button
-        className="ml-0.5 rounded p-0.5 text-muted opacity-0 hover:text-default group-hover:opacity-100"
-        onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
-      >
-        <X size={10} />
-      </button>
+      {showRefresh && (
+        <Tooltip content={t('fileEditor.reloadFromDisk')} position="bottom">
+          <button
+            className="rounded p-0.5 text-muted hover:text-default"
+            onClick={handleRefreshClick}
+          >
+            <RefreshCw size={10} />
+          </button>
+        </Tooltip>
+      )}
+      <span className="relative ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+        {statusDot ? <span className="absolute inset-0 flex items-center justify-center">{statusDot}</span> : null}
+        <button
+          className="absolute inset-0 rounded p-0.5 text-muted opacity-0 hover:text-default group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
+        >
+          <X size={10} />
+        </button>
+      </span>
     </div>
   );
 }
@@ -280,6 +327,7 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
     }
     if (!onTabDrop) return;
     const tabId = await getTabDragDataAsync(e);
+    flushTabDragData();
     console.log(`[EditorTabStrip] drop host=${hostId ?? 'main'}, tabId=${tabId}`);
     if (tabId) {
       onTabDrop(tabId);

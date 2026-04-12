@@ -1,6 +1,12 @@
 import type { FileTreeNode } from '@netior/shared/types';
 import { unwrapIpc } from './ipc';
 
+export interface FileStatSnapshot {
+  exists: boolean;
+  mtimeMs: number | null;
+  size: number | null;
+}
+
 export async function readDir(dirPath: string): Promise<FileTreeNode[]> {
   return unwrapIpc(await window.electron.fs.readDir(dirPath));
 }
@@ -11,6 +17,10 @@ export async function readDirShallow(dirPath: string, depth?: number): Promise<F
 
 export async function readFile(filePath: string): Promise<string> {
   return unwrapIpc(await window.electron.fs.readFile(filePath));
+}
+
+export async function statItem(targetPath: string): Promise<FileStatSnapshot> {
+  return unwrapIpc(await window.electron.fs.stat(targetPath));
 }
 
 export async function readBinaryFile(filePath: string): Promise<ArrayBuffer> {
@@ -100,6 +110,10 @@ export async function hasClipboardImage(): Promise<boolean> {
   return unwrapIpc(await window.electron.fs.hasClipboardImage());
 }
 
+export async function writeClipboardFiles(paths: string[], action: 'copy' | 'cut'): Promise<boolean> {
+  return unwrapIpc(await window.electron.fs.writeClipboardFiles(paths, action));
+}
+
 export async function readClipboardFiles(): Promise<string[]> {
   return unwrapIpc(await window.electron.fs.readClipboardFiles());
 }
@@ -109,7 +123,8 @@ export async function saveClipboardImage(filePath: string): Promise<boolean> {
 }
 
 export const fsService = {
-  readDir, readDirShallow, readFile, readBinaryFile, writeFile, openFolderDialog, openFileDialog,
+  readDir, readDirShallow, readFile, statItem, readBinaryFile, writeFile, openFolderDialog, openFileDialog,
   renameItem, deleteItem, stashDeleteItem, restoreDeletedItem, createFile, createDir, copyItem, moveItem,
-  showInExplorer, existsItem, watchDirs, unwatchDirs, onDirChanged, hasClipboardFiles, hasClipboardImage, readClipboardFiles, saveClipboardImage,
+  showInExplorer, existsItem, watchDirs, unwatchDirs, onDirChanged, hasClipboardFiles, hasClipboardImage,
+  writeClipboardFiles, readClipboardFiles, saveClipboardImage,
 };

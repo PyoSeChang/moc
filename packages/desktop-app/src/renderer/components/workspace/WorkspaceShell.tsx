@@ -21,10 +21,11 @@ import {
   MAIN_HOST_ID,
 } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
-import { isTabDrag, getTabDragDataAsync } from '../../hooks/useTabDrag';
+import { isTabDrag, getTabDragDataAsync, flushTabDragData } from '../../hooks/useTabDrag';
 import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
 import { openFileBesideTab, openFileInPane, openFileTab } from '../../lib/open-file-tab';
 import type { DropResult } from '../editor/DropZoneOverlay';
+import { useFileTabStaleWatcher } from '../../hooks/useFileTabStaleWatcher';
 
 interface WorkspaceShellProps {
   project: Project | null;
@@ -51,6 +52,8 @@ async function openDroppedFilesInSideLeaf(
 }
 
 export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
+  useFileTabStaleWatcher();
+
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const tabs = useEditorStore((s) => s.tabs.filter((t) => t.hostId === MAIN_HOST_ID));
   const sideLayout = useEditorStore((s) => s.sideLayout);
@@ -318,8 +321,9 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
   const handleWorkspaceDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
-    clearShellDropState();
     const tabId = await getTabDragDataAsync(e);
+    clearShellDropState();
+    flushTabDragData();
     console.log(`[WorkspaceShell] float drop tabId=${tabId}, x=${e.clientX}, y=${e.clientY}`);
     if (!tabId) return;
     applyDropModeToMain(tabId, 'float');
@@ -330,8 +334,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const handleSideHintDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    clearShellDropState();
     if (isFileOpenDrag(e)) {
+      clearShellDropState();
       const filePaths = getFileOpenDragData(e);
       console.log(`[WorkspaceShell] side file drop count=${filePaths.length}`);
       for (const filePath of filePaths) {
@@ -341,6 +345,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     }
 
     const tabId = await getTabDragDataAsync(e);
+    clearShellDropState();
+    flushTabDragData();
     console.log(`[WorkspaceShell] side drop tabId=${tabId}`);
     if (tabId) applyDropModeToMain(tabId, 'side');
   }, [applyDropModeToMain, clearShellDropState]);

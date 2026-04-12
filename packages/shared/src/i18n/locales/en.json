@@ -786,9 +786,17 @@
     "alreadyExists": "'{name}' already exists",
     "renameFailed": "Rename failed",
     "createFailed": "Creation failed",
+    "clipboardFailed": "Failed to copy files to the clipboard",
     "deleteFailed": "Delete failed",
     "pasteFailed": "Paste failed",
     "refresh": "Refresh"
+  },
+  "fileEditor": {
+    "externalChangeDetected": "File changed externally",
+    "reloadFromDisk": "Reload from disk",
+    "reloadConfirmTitle": "Reload from disk",
+    "reloadConfirmMessage": "This editor has unsaved changes. Reloading from disk will discard your current edits.",
+    "reloadConfirmAction": "Reload"
   },
   "terminal": {
     "runningProcess": "Running Process",

@@ -72,6 +72,7 @@ interface EditorStore {
 
   setActiveFile: (tabId: string, filePath: string | null) => void;
   setDirty: (tabId: string, dirty: boolean) => void;
+  setStale: (tabId: string, stale: boolean) => void;
   setEditorType: (tabId: string, editorType: string) => void;
 
   // Close confirmation
@@ -518,6 +519,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       isMinimized: false,
       sideSplitRatio: prefs?.side_split_ratio ?? sideSplitRatio ?? 0.5,
       isDirty: isDirty ?? !!draftData,
+      isStale: false,
       activeFilePath: null,
       draftData,
       networkId,
@@ -927,6 +929,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => ({
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isDirty: dirty } : t)),
     }));
+  },
+
+  setStale: (tabId, stale) => {
+    set((s) => {
+      let changed = false;
+      const tabs = s.tabs.map((t) => {
+        if (t.id !== tabId) return t;
+        if (Boolean(t.isStale) === stale) return t;
+        changed = true;
+        return { ...t, isStale: stale };
+      });
+      return changed ? { tabs } : s;
+    });
   },
 
   setEditorType: (tabId, editorType) => {

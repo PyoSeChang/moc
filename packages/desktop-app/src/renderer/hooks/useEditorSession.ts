@@ -21,7 +21,7 @@ export interface EditorSession<T> {
   save: () => Promise<void>;
   revert: () => void;
   isLoading: boolean;
-  reload: () => Promise<void>;
+  reload: (forceFresh?: boolean) => Promise<void>;
 }
 
 function defaultIsEqual<T>(a: T, b: T): boolean {
@@ -35,6 +35,10 @@ const draftCache = new Map<string, { draft: unknown; snapshot: unknown }>();
 
 export function clearDraftCache(tabId: string): void {
   draftCache.delete(tabId);
+}
+
+export function replaceDraftCache<T>(tabId: string, data: T): void {
+  draftCache.set(tabId, { draft: data, snapshot: data });
 }
 
 export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSession<T> {
@@ -64,10 +68,10 @@ export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSessi
     useEditorStore.getState().setDirty(tabId, dirty);
   }, [tabId]);
 
-  const doLoad = useCallback(async () => {
+  const doLoad = useCallback(async (forceFresh = false) => {
     // If we have a cached draft, use it instead of reloading from disk
     const existing = draftCache.get(tabId) as { draft: T; snapshot: T } | undefined;
-    if (existing) {
+    if (existing && !forceFresh) {
       snapshotRef.current = existing.snapshot;
       stateRef.current = existing.draft;
       setStateRaw(existing.draft);
@@ -81,7 +85,9 @@ export function useEditorSession<T>(config: EditorSessionConfig<T>): EditorSessi
     setIsLoading(true);
     try {
       const data = await loadRef.current();
-      const initialDirty = useEditorStore.getState().tabs.find((tab) => tab.id === tabId)?.isDirty ?? false;
+      const initialDirty = forceFresh
+        ? false
+        : (useEditorStore.getState().tabs.find((tab) => tab.id === tabId)?.isDirty ?? false);
       snapshotRef.current = data;
       stateRef.current = data;
       setStateRaw(data);

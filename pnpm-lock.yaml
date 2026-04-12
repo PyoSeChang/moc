@@ -98,6 +98,9 @@ importers:
       '@xterm/addon-fit':
         specifier: 0.12.0-beta.191
         version: 0.12.0-beta.191(@xterm/xterm@6.1.0-beta.191)
+      '@xterm/addon-search':
+        specifier: 0.17.0-beta.191
+        version: 0.17.0-beta.191(@xterm/xterm@6.1.0-beta.191)
       '@xterm/addon-web-links':
         specifier: 0.13.0-beta.191
         version: 0.13.0-beta.191(@xterm/xterm@6.1.0-beta.191)
@@ -3366,6 +3369,14 @@ packages:
     resolution: {integrity: sha512-C4Z5YoTDKK4pBoXF8UkkWyAAZ4UAAI8L1lZhInDfwfkZ5jGX8LslOpiSG4fKO6h9pcf+sQglyF2IKQEyh8UvmA==}
     peerDependencies:
       '@xterm/xterm': ^6.1.0-beta.168
+    dependencies:
+      '@xterm/xterm': 6.1.0-beta.191
+    dev: false
+
+  /@xterm/addon-search@0.17.0-beta.191(@xterm/xterm@6.1.0-beta.191):
+    resolution: {integrity: sha512-fv+TQkhDXYxAeJ31Mi4C4BPFLcffFOHl/vDceMlzaqHB+XHTBo6BDRcXAWBAgA0rvChZrYYTQ/JCPq9R506JSw==}
+    peerDependencies:
+      '@xterm/xterm': ^6.1.0-beta.191
     dependencies:
       '@xterm/xterm': 6.1.0-beta.191
     dev: false

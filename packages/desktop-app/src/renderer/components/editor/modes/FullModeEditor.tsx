@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { SplitLeaf, EditorTab } from '@netior/shared/types';
-import { useEditorStore, collectLeaves, getActiveTabFromLayout } from '../../../stores/editor-store';
+import { useEditorStore, collectLeaves, containsTab } from '../../../stores/editor-store';
 import { EditorViewModeSwitch } from '../EditorViewModeSwitch';
 import { EditorContent } from '../EditorContent';
 import { EditorTabStrip } from '../EditorTabStrip';
@@ -39,8 +39,8 @@ export function FullModeEditor(): JSX.Element | null {
     updateSplitRatio, splitTab, moveTabToPane,
   } = useEditorStore();
   const layoutActiveTabId = useEditorStore((s) => {
-    if (!s.fullLayout) return null;
-    return getActiveTabFromLayout(s.fullLayout, s.activeTabId);
+    if (!s.activeTabId || !s.fullLayout) return null;
+    return containsTab(s.fullLayout, s.activeTabId) ? s.activeTabId : null;
   });
   const [isDragging, setIsDragging] = useState(false);
 
@@ -99,6 +99,7 @@ export function FullModeEditor(): JSX.Element | null {
                 }
               }}
               onFileDrop={(filePaths, result) => {
+                flushSync(() => setIsDragging(false));
                 void openDroppedFilesInFullLeaf(filePaths, leaf, result);
               }}
               active={isDragging}

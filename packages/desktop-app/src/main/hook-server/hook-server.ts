@@ -2,8 +2,8 @@ import http from 'http';
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { app } from 'electron';
 import type { AgentTurnEvent, ClaudeNameEvent, ClaudeSessionEvent, ClaudeStatusEvent } from '@netior/shared/types';
+import { getHookRuntimeDir, getHookRuntimePortFilePath } from '../runtime/runtime-paths';
 
 interface SessionStartPayload {
   netior_pty_id: string;
@@ -107,9 +107,9 @@ class HookServer {
   /** Write the current port to a file so hook scripts can read it dynamically */
   writePortFile(): void {
     if (!this.port) return;
-    const hooksDir = join(app.getPath('userData'), 'data', 'hooks');
+    const hooksDir = getHookRuntimeDir();
     mkdirSync(hooksDir, { recursive: true });
-    const portFile = join(hooksDir, 'port');
+    const portFile = getHookRuntimePortFilePath();
     writeFileSync(portFile, String(this.port), 'utf-8');
     console.log(`[HookServer] port file written: ${portFile} → ${this.port}`);
   }

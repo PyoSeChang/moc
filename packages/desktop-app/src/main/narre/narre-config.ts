@@ -1,8 +1,7 @@
-import { app } from 'electron';
-import { join } from 'path';
 import type { NarreBehaviorSettings, NarreCodexSettings } from '@netior/shared/types';
 import { getRemoteConfig, setRemoteConfig } from '../netior-service/netior-service-client';
 import { startNarreServer, stopNarreServer, type NarreProviderName } from '../process/narre-server-manager';
+import { getRuntimeDataDir } from '../runtime/runtime-paths';
 
 const NARRE_MANAGED_SETTING_KEYS = new Set([
   'narre.provider',
@@ -113,7 +112,7 @@ export async function syncNarreServerWithSettings(): Promise<boolean> {
   const behaviorSettings = await getConfiguredNarreBehaviorSettings();
   const codexSettings = await getConfiguredCodexSettings();
 
-  const dbDir = join(app.getPath('userData'), 'data');
+  const dbDir = getRuntimeDataDir();
 
   if (provider === 'openai' && !apiKey) {
     stopNarreServer();

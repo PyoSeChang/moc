@@ -1,5 +1,5 @@
 import type { EditorTab, EditorTabType, SplitDirection, SplitLeaf, SplitNode } from '@netior/shared/types';
-import { useEditorStore, collectLeaves, containsTab, getActiveTabFromLayout } from '../stores/editor-store';
+import { useEditorStore, collectLeaves, containsTab, getRememberedActiveTabFromLayout } from '../stores/editor-store';
 
 export type FileOpenPlacement = 'smart' | 'current' | 'right' | 'below' | 'float';
 
@@ -65,7 +65,7 @@ function getSourceTab(sourceTabId?: string): EditorTab | null {
 
 async function openFileTabRaw(filePath: string, title: string, viewMode?: 'side' | 'full' | 'float'): Promise<void> {
   const state = useEditorStore.getState();
-  const sideActiveTabId = state.sideLayout ? getActiveTabFromLayout(state.sideLayout, state.activeTabId) : null;
+  const sideActiveTabId = state.sideLayout ? getRememberedActiveTabFromLayout(state.sideLayout, state.sideLastActiveTabId) : null;
   const sideActiveTab = sideActiveTabId ? state.tabs.find((tab) => tab.id === sideActiveTabId) : null;
 
   await useEditorStore.getState().openTab({

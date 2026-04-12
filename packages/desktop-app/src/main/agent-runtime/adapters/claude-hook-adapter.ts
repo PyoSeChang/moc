@@ -40,7 +40,7 @@ export class ClaudeHookAdapter implements AgentRuntimeAdapter {
     const port = hookServer.getPort();
     if (port) {
       hookServer.writePortFile();
-      setupHookScript(port);
+      setupHookScript();
       setupClaudeSettings();
     }
   }

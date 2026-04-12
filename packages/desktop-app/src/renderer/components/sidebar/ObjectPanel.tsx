@@ -679,23 +679,23 @@ export function ObjectPanel(): JSX.Element {
         });
         await loadNetworkTree(currentProject.id);
         await openNetwork(created.id);
-        await useEditorStore.getState().openTab({ type: 'network', targetId: created.id, title: created.name });
+        await useEditorStore.getState().openTab({ type: 'network', targetId: created.id, title: created.name, isDirty: true });
         break;
       }
       case 'archetype': {
         const created = await createArchetype({ project_id: currentProject.id, name: tk('archetype.newDefault') });
-        await useEditorStore.getState().openTab({ type: 'archetype', targetId: created.id, title: created.name });
+        await useEditorStore.getState().openTab({ type: 'archetype', targetId: created.id, title: created.name, isDirty: true });
         break;
       }
       case 'relation_type': {
         const created = await createRelationType({ project_id: currentProject.id, name: t('relationType.newDefault') });
-        await useEditorStore.getState().openTab({ type: 'relationType', targetId: created.id, title: created.name });
+        await useEditorStore.getState().openTab({ type: 'relationType', targetId: created.id, title: created.name, isDirty: true });
         break;
       }
       case 'context': {
         if (!currentNetwork) return;
         const created = await createContext({ network_id: currentNetwork.id, name: t('context.newDefault') });
-        await useEditorStore.getState().openTab({ type: 'context', targetId: created.id, title: created.name });
+        await useEditorStore.getState().openTab({ type: 'context', targetId: created.id, title: created.name, isDirty: true });
         break;
       }
     }
@@ -992,11 +992,11 @@ export function ObjectPanel(): JSX.Element {
             if (!currentProject) return;
             if (activeRow.item.objectType === 'archetype') {
               const created = await createArchetype({ project_id: currentProject.id, group_id: activeRow.item.id, name: tk('archetype.newDefault') });
-              await useEditorStore.getState().openTab({ type: 'archetype', targetId: created.id, title: created.name });
+              await useEditorStore.getState().openTab({ type: 'archetype', targetId: created.id, title: created.name, isDirty: true });
               return;
             }
             const created = await createRelationType({ project_id: currentProject.id, group_id: activeRow.item.id, name: t('relationType.newDefault') });
-            await useEditorStore.getState().openTab({ type: 'relationType', targetId: created.id, title: created.name });
+            await useEditorStore.getState().openTab({ type: 'relationType', targetId: created.id, title: created.name, isDirty: true });
           },
         },
         { label: tk('typeGroup.createSubgroup'), icon: <FolderPlus size={14} />, onClick: () => handleCreateGroup(groupItem.objectType, groupItem.id) },

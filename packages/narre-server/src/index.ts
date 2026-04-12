@@ -24,6 +24,7 @@ const currentDir = typeof __dirname === 'string'
   ? __dirname
   : dirname(currentFilePath);
 const require = createRequire(currentFilePath);
+const electronResourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
 
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const MOC_DATA_DIR = process.env.MOC_DATA_DIR;
@@ -205,9 +206,15 @@ async function initializeRuntime(): Promise<{ provider: NarreProviderAdapter; ru
 
 function resolveMcpServerPath(): string | null {
   const candidates = [
+    join(electronResourcesPath ?? '', 'sidecars', 'netior-mcp', 'dist', 'index.cjs'),
+    join(electronResourcesPath ?? '', 'sidecars', 'netior-mcp', 'dist', 'index.js'),
+    join(currentDir, '../../mcp/dist/index.cjs'),
     join(currentDir, '../../mcp/dist/index.js'),
+    join(currentDir, '../../netior-mcp/dist/index.cjs'),
     join(currentDir, '../../netior-mcp/dist/index.js'),
+    join(currentDir, '../../../netior-mcp/dist/index.cjs'),
     join(currentDir, '../../../netior-mcp/dist/index.js'),
+    join(process.cwd(), 'packages/netior-mcp/dist/index.cjs'),
     join(process.cwd(), 'packages/netior-mcp/dist/index.js'),
   ];
   for (const p of candidates) {

@@ -10,6 +10,7 @@ import type {
   AgentRuntimeSink,
   TerminalCleanupReason,
 } from '../agent-runtime-manager';
+import { getRuntimeAgentRuntimeDir } from '../../runtime/runtime-paths';
 
 type JsonRpcId = number | string;
 
@@ -780,7 +781,7 @@ exec codex "$@"
 }
 
 function ensureCodexWrapperDirectory(terminalSessionId: string): { wrapperDir: string; wrapperLogPath: string } {
-  const wrapperDir = join(app.getPath('userData'), 'agent-runtime', 'codex-wrapper', terminalSessionId);
+  const wrapperDir = join(getRuntimeAgentRuntimeDir(), 'codex-wrapper', terminalSessionId);
   mkdirSync(wrapperDir, { recursive: true });
   const wrapperLogPath = join(wrapperDir, 'wrapper.log');
   const shellWrapperPath = join(wrapperDir, 'codex');

@@ -65,6 +65,7 @@ export function RelationTypeList(): JSX.Element {
       type: 'relationType',
       targetId: relationType.id,
       title: relationType.name,
+      isDirty: true,
     });
   };
 

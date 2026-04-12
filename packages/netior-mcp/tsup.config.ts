@@ -4,19 +4,18 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
   },
-  format: ['esm'],
+  format: ['cjs'],
   dts: true,
   splitting: false,
   sourcemap: true,
   clean: true,
-  external: [
-    '@netior/shared',
-    '@modelcontextprotocol/sdk',
-    /^@modelcontextprotocol\/sdk\//,
-    'zod',
-    'fast-glob',
-  ],
-  banner: {
-    js: '#!/usr/bin/env node',
+  target: 'node22',
+  platform: 'node',
+  external: [],
+  noExternal: [/.*/],
+  outExtension() {
+    return {
+      js: '.cjs',
+    };
   },
 });

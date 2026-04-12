@@ -74,7 +74,7 @@ function TabIcon({ tab }: { tab: EditorTab }): JSX.Element {
   }
 }
 
-function TabStatus({ tab, agentState }: { tab: EditorTab; agentState: AgentSessionState | null }): JSX.Element | null {
+function TabStatus({ tab, agentState }: { tab: EditorTab; agentState: AgentSessionState | null }): JSX.Element {
   if (tab.type === 'terminal' && agentState) {
     const dotColor = agentState.uxState === 'error'
       ? 'var(--status-error)'
@@ -89,16 +89,22 @@ function TabStatus({ tab, agentState }: { tab: EditorTab; agentState: AgentSessi
       '--agent-breathe-color': dotColor,
     } as React.CSSProperties;
     return (
-      <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full ${shouldAnimate ? 'animate-agent-breathe' : ''}`}
-        style={dotStyle}
-      />
+      <span className="flex w-2.5 shrink-0 justify-center">
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${shouldAnimate ? 'animate-agent-breathe' : ''}`}
+          style={dotStyle}
+        />
+      </span>
     );
   }
   if (tab.type !== 'terminal') {
-    return tab.isDirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" /> : null;
+    return (
+      <span className="flex w-2.5 shrink-0 justify-center">
+        {tab.isDirty ? <span className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
+      </span>
+    );
   }
-  return null;
+  return <span className="w-2.5 shrink-0" />;
 }
 
 interface TabItemProps {
@@ -126,8 +132,8 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
       onDragEnd={() => clearTabDragData()}
       className={`group flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
         isActive
-          ? `tab-active bg-[var(--surface-editor)] text-default border-l border-r border-default ${
-              isFocusedPane ? 'border-t-2 border-t-accent' : 'border-t border-t-default'
+          ? `tab-active bg-[var(--surface-editor)] text-default ${
+              isFocusedPane ? 'tab-active-focused' : 'tab-active-unfocused'
             }`
           : 'relative text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'
       }`}
@@ -194,13 +200,32 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
-  // Auto-scroll active tab into view
+  // Keep the active tab fully visible inside the horizontal scroll viewport.
   useEffect(() => {
-    if (activeRef.current && scrollRef.current) {
-      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-    }
-  }, [activeTabId]);
+    const scrollEl = scrollRef.current;
+    const activeEl = activeRef.current;
+    if (!scrollEl || !activeEl) return;
+
+    const frame = requestAnimationFrame(() => {
+      const containerRect = scrollEl.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const padding = 8;
+
+      if (activeRect.left < containerRect.left) {
+        const nextScrollLeft = Math.max(0, scrollEl.scrollLeft - (containerRect.left - activeRect.left) - padding);
+        scrollEl.scrollTo({ left: nextScrollLeft, behavior: 'smooth' });
+        return;
+      }
+
+      if (activeRect.right > containerRect.right) {
+        const nextScrollLeft = scrollEl.scrollLeft + (activeRect.right - containerRect.right) + padding;
+        scrollEl.scrollTo({ left: nextScrollLeft, behavior: 'smooth' });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeTabId, activeTab?.isDirty]);
 
   // Wheel → horizontal scroll
   useEffect(() => {

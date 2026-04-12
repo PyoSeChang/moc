@@ -160,6 +160,7 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
           type: 'network',
           targetId: child.id,
           title: child.name,
+          isDirty: true,
         });
       },
     },

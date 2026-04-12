@@ -36,6 +36,7 @@ export function ContextList(): JSX.Element {
       type: 'context',
       targetId: context.id,
       title: context.name,
+      isDirty: true,
     });
   };
 

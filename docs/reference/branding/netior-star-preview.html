@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Netior Star Logo Drafts</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #06101a;
+      --bg-soft: #0b1624;
+      --panel: rgba(12, 22, 35, 0.82);
+      --panel-strong: rgba(15, 27, 43, 0.94);
+      --border: rgba(147, 197, 253, 0.14);
+      --text: #edf6ff;
+      --muted: #8ea4b8;
+      --accent: #3dd5c3;
+      --accent-soft: rgba(61, 213, 195, 0.14);
+      --shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(61, 213, 195, 0.18), transparent 28%),
+        radial-gradient(circle at 85% 20%, rgba(125, 211, 252, 0.10), transparent 24%),
+        linear-gradient(180deg, #08111b 0%, #050c15 100%);
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 56px);
+      letter-spacing: -0.05em;
+    }
+
+    .lead {
+      max-width: 760px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .callout {
+      margin-top: 22px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid rgba(61, 213, 195, 0.24);
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .grid {
+      margin-top: 34px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(15, 27, 43, 0.9), rgba(9, 17, 28, 0.98));
+      box-shadow: var(--shadow);
+    }
+
+    .artboard {
+      position: relative;
+      padding: 24px;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 20% 20%, rgba(61, 213, 195, 0.08), transparent 32%),
+        var(--bg-soft);
+      background-size: 28px 28px, 28px 28px, auto, auto;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .artboard img {
+      display: block;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+    }
+
+    .content {
+      padding: 20px 20px 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow.recommended {
+      background: rgba(61, 213, 195, 0.16);
+    }
+
+    h2 {
+      margin: 14px 0 10px;
+      font-size: 24px;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .sizes {
+      margin-top: 18px;
+      display: flex;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .size-chip {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .size-frame {
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #0d1725 0%, #09111b 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .size-frame img {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .size-128 {
+      width: 128px;
+      height: 128px;
+      padding: 8px;
+    }
+
+    .size-48 {
+      width: 48px;
+      height: 48px;
+      padding: 3px;
+      border-radius: 12px;
+    }
+
+    .size-24 {
+      width: 24px;
+      height: 24px;
+      padding: 2px;
+      border-radius: 8px;
+    }
+
+    .notes {
+      margin-top: 34px;
+      padding: 20px 22px;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: rgba(10, 18, 29, 0.82);
+    }
+
+    .notes h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .notes ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Netior star logo drafts</h1>
+    <p class="lead">Three draft directions with a star mood, kept separate from the real app icon so you can review the shape language first.</p>
+    <div class="callout">Draft only - no app assets changed</div>
+
+    <section class="grid">
+      <article class="card">
+        <div class="artboard">
+          <img src="./netior-star-axis.svg" alt="Netior Axis Spark draft" />
+        </div>
+        <div class="content">
+          <div class="eyebrow recommended">Recommended</div>
+          <h2>Axis Spark</h2>
+          <p>The cleanest option. It reads as a star immediately, but the center node and inner satellites still keep the Netior network feeling.</p>
+          <div class="sizes">
+            <div class="size-chip">
+              <div class="size-frame size-128"><img src="./netior-star-axis.svg" alt="" /></div>
+              <span>128</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-48"><img src="./netior-star-axis.svg" alt="" /></div>
+              <span>48</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-24"><img src="./netior-star-axis.svg" alt="" /></div>
+              <span>24</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="artboard">
+          <img src="./netior-star-orbit.svg" alt="Netior Orbit Star draft" />
+        </div>
+        <div class="content">
+          <div class="eyebrow">Brand Forward</div>
+          <h2>Orbit Star</h2>
+          <p>The most iconic and logo-like. Less obviously a graph, more like a polished north-star mark with a subtle motion accent.</p>
+          <div class="sizes">
+            <div class="size-chip">
+              <div class="size-frame size-128"><img src="./netior-star-orbit.svg" alt="" /></div>
+              <span>128</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-48"><img src="./netior-star-orbit.svg" alt="" /></div>
+              <span>48</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-24"><img src="./netior-star-orbit.svg" alt="" /></div>
+              <span>24</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="artboard">
+          <img src="./netior-star-constellation.svg" alt="Netior Constellation Star draft" />
+        </div>
+        <div class="content">
+          <div class="eyebrow">Most Netior</div>
+          <h2>Constellation Star</h2>
+          <p>The most concept-map-driven direction. It keeps the existing network DNA strongest, but it is also the busiest at very small sizes.</p>
+          <div class="sizes">
+            <div class="size-chip">
+              <div class="size-frame size-128"><img src="./netior-star-constellation.svg" alt="" /></div>
+              <span>128</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-48"><img src="./netior-star-constellation.svg" alt="" /></div>
+              <span>48</span>
+            </div>
+            <div class="size-chip">
+              <div class="size-frame size-24"><img src="./netior-star-constellation.svg" alt="" /></div>
+              <span>24</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="notes">
+      <h3>What to validate</h3>
+      <ul>
+        <li>Does the app icon need to read more like a pure star, or more like a concept network?</li>
+        <li>Should the final direction stay strict and geometric, or get a little softer and brighter?</li>
+        <li>At small sizes, Axis Spark will likely survive best. Orbit Star is strongest for brand polish. Constellation Star preserves the product meaning best.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

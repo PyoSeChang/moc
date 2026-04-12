@@ -3,8 +3,8 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { createRequire } from 'module';
 import { resolveSidecarRuntime } from './sidecar-runtime';
+import { getNetiorServicePort } from '../runtime/runtime-paths';
 
-const DEFAULT_NETIOR_SERVICE_PORT = 3201;
 const require = createRequire(import.meta.url);
 
 let netiorServiceProcess: ChildProcess | null = null;
@@ -60,7 +60,7 @@ export async function startNetiorService(config: {
     return false;
   }
 
-  const port = config.port ?? DEFAULT_NETIOR_SERVICE_PORT;
+  const port = config.port ?? getNetiorServicePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const runtime = resolveSidecarRuntime({
     envVarName: 'NETIOR_SERVICE_NODE_PATH',

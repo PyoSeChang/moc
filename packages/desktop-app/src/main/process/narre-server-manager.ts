@@ -5,6 +5,7 @@ import { join } from 'path';
 import type { NarreBehaviorSettings, NarreCodexSettings } from '@netior/shared/types';
 import { resolveSidecarRuntime } from './sidecar-runtime';
 import { getNetiorServiceBaseUrl } from './netior-service-manager';
+import { getNarreServerPort } from '../runtime/runtime-paths';
 
 export type NarreProviderName = 'claude' | 'openai' | 'codex';
 
@@ -18,7 +19,6 @@ export interface StartNarreServerConfig {
   port?: number;
 }
 
-const DEFAULT_NARRE_PORT = 3100;
 const require = createRequire(import.meta.url);
 
 let narreProcess: ChildProcess | null = null;
@@ -98,7 +98,7 @@ function buildLaunchSignature(config: StartNarreServerConfig): string {
     behaviorSettings: config.behaviorSettings ?? null,
     codexSettings: config.codexSettings ?? null,
     dataDir: config.dataDir,
-    port: config.port ?? DEFAULT_NARRE_PORT,
+    port: config.port ?? getNarreServerPort(),
     externalNodePath: process.env.NETIOR_NARRE_NODE_PATH ?? process.env.npm_node_execpath ?? null,
     electronNodeVersion: process.versions.node,
   });
@@ -128,7 +128,7 @@ export async function startNarreServer(config: StartNarreServerConfig): Promise<
   }
 
   const runtime = resolveRuntime(config.provider);
-  const port = config.port ?? DEFAULT_NARRE_PORT;
+  const port = config.port ?? getNarreServerPort();
   const baseUrl = `http://127.0.0.1:${port}`;
   console.log(`[narre-server] Starting: ${modulePath}`);
   console.log(`[narre-server] Provider: ${config.provider}`);

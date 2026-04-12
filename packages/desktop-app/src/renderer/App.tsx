@@ -126,7 +126,7 @@ function ProjectSwitcher(): JSX.Element {
           <ChevronDown size={12} className="text-muted" />
         </button>
         {open && (
-          <div className="absolute left-0 top-full mt-1 z-50 min-w-[200px] rounded-md border border-default bg-surface-modal py-1 shadow-lg">
+          <div className="absolute left-0 top-full mt-1 z-[10020] min-w-[200px] rounded-md border border-default bg-surface-modal py-1 shadow-lg">
             {projects.map((p) => (
               <button
                 key={p.id}
@@ -166,7 +166,7 @@ function TitleBar(): JSX.Element {
 
   return (
     <div
-      className="relative z-20 grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-subtle pl-4"
+      className="relative z-[1000] grid h-9 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-subtle pl-4"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Left: app name + project */}

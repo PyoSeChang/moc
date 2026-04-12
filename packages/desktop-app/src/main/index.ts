@@ -10,11 +10,19 @@ import { agentRuntimeManager } from './agent-runtime/agent-runtime-manager';
 import { getConfiguredNarreProvider, syncNarreServerWithSettings } from './narre/narre-config';
 import { getRemoteConfig, setRemoteConfig } from './netior-service/netior-service-client';
 import { initMainLogging } from './logging';
+import {
+  getNetiorServicePort,
+  getRuntimeScope,
+  getRuntimeSessionDataDir,
+  getSharedUserDataRoot,
+} from './runtime/runtime-paths';
 
 // Force userData to %APPDATA%/netior
 app.name = 'Netior';
-app.setPath('userData', join(app.getPath('appData'), 'netior'));
+app.setPath('userData', getSharedUserDataRoot());
+app.setPath('sessionData', getRuntimeSessionDataDir());
 const desktopMainLogFilePath = initMainLogging();
+console.log(`[desktop-main] Runtime scope: ${getRuntimeScope()}`);
 console.log(`[desktop-main] Log file: ${desktopMainLogFilePath}`);
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -250,7 +258,10 @@ app.whenReady().then(async () => {
   const dbDir = join(app.getPath('userData'), 'data');
   mkdirSync(dbDir, { recursive: true });
   const dbPath = join(dbDir, is.dev ? 'netior-dev.db' : 'netior.db');
-  const netiorServiceStarted = await startNetiorService({ dbPath });
+  const netiorServiceStarted = await startNetiorService({
+    dbPath,
+    port: getNetiorServicePort(),
+  });
   if (!netiorServiceStarted) {
     throw new Error('Netior service failed to start');
   }

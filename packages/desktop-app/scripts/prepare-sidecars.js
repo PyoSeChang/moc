@@ -43,6 +43,7 @@ const sidecarTargets = [
     packageName: '@netior/mcp',
     source: path.join(repoRoot, 'packages', 'netior-mcp', 'dist'),
     destinationRoot: path.join(packagedSidecarsRoot, 'netior-mcp'),
+    copyDistOnly: true,
   },
 ];
 

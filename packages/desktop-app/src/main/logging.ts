@@ -1,6 +1,6 @@
 import { appendFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { app } from 'electron';
+import { getRuntimeLogsDir } from './runtime/runtime-paths';
 
 type ConsoleMethod = 'log' | 'info' | 'warn' | 'error';
 
@@ -19,7 +19,7 @@ export function initMainLogging(): string {
     return activeLogFilePath;
   }
 
-  const logsDir = join(app.getPath('userData'), 'data', 'logs');
+  const logsDir = getRuntimeLogsDir();
   mkdirSync(logsDir, { recursive: true });
   activeLogFilePath = join(logsDir, 'desktop-main.log');
   loggingInitialized = true;

@@ -1,4 +1,4 @@
-import { ipcMain, app, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import http from 'http';
 import { join } from 'path';
@@ -24,9 +24,10 @@ import {
   syncNarreServerWithSettings,
   writeNarreSetting,
 } from '../narre/narre-config';
+import { getRuntimeLogsDir, getRuntimeNarreDir } from '../runtime/runtime-paths';
 
 function getNarreDir(projectId: string): string {
-  const dir = join(app.getPath('userData'), 'data', 'narre', projectId);
+  const dir = getRuntimeNarreDir(projectId);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -69,13 +70,13 @@ async function ensureNarreServerBaseUrl(): Promise<string> {
       throw new Error('Narre server start was skipped. Check the selected provider and API key.');
     }
   } catch (error) {
-    const logPath = join(app.getPath('userData'), 'data', 'logs', 'narre-server.log');
+    const logPath = join(getRuntimeLogsDir(), 'narre-server.log');
     throw new Error(`${(error as Error).message} See ${logPath}`);
   }
 
   const restartedBaseUrl = getNarreServerBaseUrl();
   if (!restartedBaseUrl) {
-    const logPath = join(app.getPath('userData'), 'data', 'logs', 'narre-server.log');
+    const logPath = join(getRuntimeLogsDir(), 'narre-server.log');
     throw new Error(`Narre server failed to start. See ${logPath}`);
   }
 
@@ -196,7 +197,7 @@ export function registerNarreIpc(): void {
 
       // We need to search across all project dirs to find the session
       // For now, the sessionId is globally unique, so we scan
-      const baseDir = join(app.getPath('userData'), 'data', 'narre');
+      const baseDir = getRuntimeNarreDir();
       if (!existsSync(baseDir)) {
         return { success: false, error: 'Session not found' };
       }
@@ -228,7 +229,7 @@ export function registerNarreIpc(): void {
         return { success: true, data: await deleteRemoteNarreSession(sessionId) };
       }
 
-      const baseDir = join(app.getPath('userData'), 'data', 'narre');
+      const baseDir = getRuntimeNarreDir();
       if (!existsSync(baseDir)) {
         return { success: false, error: 'Session not found' };
       }

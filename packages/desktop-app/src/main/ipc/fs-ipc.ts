@@ -1,8 +1,9 @@
-import { ipcMain, dialog, shell, clipboard, BrowserWindow, app } from 'electron';
+import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron';
 import { readdir, readFile, writeFile, stat, rename, rm, mkdir, copyFile, cp } from 'fs/promises';
 import { join, resolve, extname, basename, dirname } from 'path';
 import { existsSync, watch, type FSWatcher } from 'fs';
 import type { IpcResult, FileTreeNode } from '@netior/shared/types';
+import { getRuntimeUndoTrashDir } from '../runtime/runtime-paths';
 
 function normalizeFsPath(targetPath: string): string {
   return resolve(targetPath).replace(/\\/g, '/').toLowerCase();
@@ -15,7 +16,7 @@ function isSameOrNestedPath(sourcePath: string, destPath: string): boolean {
 }
 
 function getUndoTrashDir(): string {
-  return join(app.getPath('userData'), 'undo-trash');
+  return getRuntimeUndoTrashDir();
 }
 
 async function buildFileTree(dirPath: string): Promise<FileTreeNode[]> {

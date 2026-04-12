@@ -27,9 +27,9 @@ packages:
     impact: local
     contracts: []
   desktop-app:
-    version: "1.1.23"
+    version: "1.1.24"
     type: patch
-    summary: "Pre-clean old desktop installs before upgrade when Netior is not actually running"
+    summary: "하이퍼 터미널 기반과 데스크톱 패키징 정리, 에디터 탭 회귀 수정"
     impact: local
     contracts: []
   narre-eval:

@@ -13,11 +13,16 @@ function normalizeSeparators(path: string): string {
 }
 
 function isAbsolutePath(path: string): boolean {
-  return /^[A-Za-z]:[\\/]/.test(path) || /^\/(?!\/)/.test(path);
+  const normalized = normalizeSeparators(path);
+  return /^[A-Za-z]:\//.test(normalized) || /^\/[A-Za-z]:\//.test(normalized) || /^\/(?!\/)/.test(normalized);
+}
+
+function normalizeAbsoluteInputPath(path: string): string {
+  return normalizeSeparators(path).replace(/^\/([A-Za-z]:\/)/, '$1');
 }
 
 function normalizeJoinedPath(path: string): string {
-  const normalized = normalizeSeparators(path);
+  const normalized = normalizeAbsoluteInputPath(path);
   const drive = normalized.match(/^[A-Za-z]:/)?.[0] ?? '';
   const startsWithSlash = normalized.startsWith('/');
   const body = drive ? normalized.slice(drive.length) : normalized;
@@ -62,7 +67,7 @@ async function pushIfExists(
 }
 
 export async function resolveFilePathCandidates(inputPath: string, terminalCwd?: string): Promise<ResolvedFilePath[]> {
-  const input = inputPath.trim().replace(/^["'`]+|["'`]+$/g, '');
+  const input = normalizeAbsoluteInputPath(inputPath.trim().replace(/^["'`]+|["'`]+$/g, ''));
   const candidates: ResolvedFilePath[] = [];
   const seen = new Set<string>();
 

@@ -188,6 +188,10 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
     || target.isContentEditable;
 }
 
+function isEditableClipboardTarget(target: EventTarget | null): boolean {
+  return isEditablePasteTarget(target);
+}
+
 function validateFileName(name: string): string | null {
   const trimmed = name.trim();
   if (!trimmed) return 'Name cannot be empty.';
@@ -930,6 +934,26 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     e.preventDefault();
   }, []);
 
+  const handleNativeCopy = useCallback((e: React.ClipboardEvent) => {
+    if (contextMenu || renamingPath || newInput) return;
+    if (isEditableClipboardTarget(e.target)) return;
+    const activeSelection = getActiveSelection();
+    if (activeSelection.length === 0) return;
+    e.preventDefault();
+    logShortcut('shortcut.fileTree.copySelection');
+    void handleClipboardAction(activeSelection, 'copy');
+  }, [contextMenu, renamingPath, newInput, getActiveSelection, handleClipboardAction]);
+
+  const handleNativeCut = useCallback((e: React.ClipboardEvent) => {
+    if (contextMenu || renamingPath || newInput) return;
+    if (isEditableClipboardTarget(e.target)) return;
+    const activeSelection = getActiveSelection();
+    if (activeSelection.length === 0) return;
+    e.preventDefault();
+    logShortcut('shortcut.fileTree.cutSelection');
+    void handleClipboardAction(activeSelection, 'cut');
+  }, [contextMenu, renamingPath, newInput, getActiveSelection, handleClipboardAction]);
+
   /** Resolve parent directory for a node (for file nodes, use their parent dir) */
   const getParentDir = useCallback((node: FileTreeNode): string => {
     if (node.type === 'directory') return node.path;
@@ -1278,16 +1302,6 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     if (!isPrimaryModifier(e.nativeEvent)) return;
 
     const key = e.key.toLowerCase();
-    if (key === 'a') {
-      e.preventDefault();
-      const paths = visibleItems.map((item) => item.node.path);
-      setSelectedPaths(new Set(paths));
-      if (paths.length > 0) {
-        setFocusedPath(paths[0]);
-        setSelectionAnchorPath(paths[0]);
-      }
-      return;
-    }
     if (key === 'c' && activeSelection.length > 0) {
       e.preventDefault();
       logShortcut('shortcut.fileTree.copySelection');
@@ -1298,6 +1312,16 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       e.preventDefault();
       logShortcut('shortcut.fileTree.cutSelection');
       await handleClipboardAction(activeSelection, 'cut');
+      return;
+    }
+    if (key === 'a') {
+      e.preventDefault();
+      const paths = visibleItems.map((item) => item.node.path);
+      setSelectedPaths(new Set(paths));
+      if (paths.length > 0) {
+        setFocusedPath(paths[0]);
+        setSelectionAnchorPath(paths[0]);
+      }
       return;
     }
     if (key === 'v') {
@@ -1334,6 +1358,8 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       tabIndex={0}
       onContextMenu={handleBgContextMenu}
       onKeyDown={handleTreeKeyDown}
+      onCopy={handleNativeCopy}
+      onCut={handleNativeCut}
       onPaste={handleNativePaste}
       onMouseDown={() => treeRef.current?.focus()}
     >

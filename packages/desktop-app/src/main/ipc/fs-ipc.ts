@@ -36,9 +36,22 @@ function toPowerShellSingleQuoted(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-async function writeWindowsFileClipboard(paths: string[]): Promise<void> {
-  const command = `Set-Clipboard -Path @(${paths.map(toPowerShellSingleQuoted).join(', ')})`;
-  await execFileAsync('powershell.exe', ['-NoProfile', '-Command', command], { windowsHide: true });
+async function writeWindowsFileClipboard(paths: string[], action: 'copy' | 'cut'): Promise<void> {
+  const dropEffect = action === 'cut' ? 2 : 1;
+  const command = [
+    'Add-Type -AssemblyName System.Windows.Forms',
+    '$collection = New-Object System.Collections.Specialized.StringCollection',
+    `@(${paths.map(toPowerShellSingleQuoted).join(', ')}) | ForEach-Object { [void]$collection.Add($_) }`,
+    '$data = New-Object System.Windows.Forms.DataObject',
+    '$data.SetFileDropList($collection)',
+    `$bytes = [System.BitConverter]::GetBytes([int]${dropEffect})`,
+    '$stream = New-Object System.IO.MemoryStream',
+    '$stream.Write($bytes, 0, $bytes.Length)',
+    '$stream.Position = 0',
+    "$data.SetData('Preferred DropEffect', $stream)",
+    '[System.Windows.Forms.Clipboard]::SetDataObject($data, $true)',
+  ].join('; ');
+  await execFileAsync('powershell.exe', ['-NoProfile', '-STA', '-Command', command], { windowsHide: true });
 }
 
 async function buildFileTree(dirPath: string): Promise<FileTreeNode[]> {
@@ -418,11 +431,7 @@ export function registerFsIpc(): void {
         return { success: false, error: 'No existing files were available to place on the clipboard' };
       }
 
-      await writeWindowsFileClipboard(normalizedPaths);
-
-      const preferredDropEffect = Buffer.alloc(4);
-      preferredDropEffect.writeUInt32LE(action === 'cut' ? 2 : 1, 0);
-      clipboard.writeBuffer('Preferred DropEffect', preferredDropEffect);
+      await writeWindowsFileClipboard(normalizedPaths, action);
 
       const writtenPaths = parseClipboardFileBuffer(clipboard.readBuffer('FileNameW'));
       const expected = normalizedPaths.map(normalizeFsPath);

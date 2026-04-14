@@ -271,6 +271,19 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     setLinkUnderlineSegments([]);
   }, []);
 
+  const resetLinkInteractionState = useCallback(() => {
+    overlayHoverRef.current = false;
+    modifierDownRef.current = false;
+    hoveredLinkTargetRef.current = null;
+    lastMousePositionRef.current = null;
+    pendingModifierOverlayRef.current = null;
+    ctrlMouseDownRef.current = null;
+    suppressNextTerminalClickRef.current = false;
+    actionOverlayRef.current = null;
+    setLinkUnderlineSegments([]);
+    setActionOverlay(null);
+  }, []);
+
   const closeActionOverlay = useCallback(() => {
     overlayHoverRef.current = false;
     actionOverlayRef.current = null;
@@ -280,9 +293,9 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
 
   useEffect(() => {
     if (!isActive) {
-      closeActionOverlay();
+      resetLinkInteractionState();
     }
-  }, [closeActionOverlay, isActive]);
+  }, [isActive, resetLinkInteractionState]);
 
   const isPointInsideActionOverlay = useCallback((x: number, y: number): boolean => {
     const overlay = actionOverlayRefEl.current;
@@ -881,9 +894,9 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       document.removeEventListener('keyup', handleKeyUp, true);
       window.removeEventListener('blur', handleWindowBlur);
       titleListener?.dispose();
+      resetLinkInteractionState();
       getMouseBufferCellRef.current = null;
       readHoveredLinkTargetRef.current = null;
-      pendingModifierOverlayRef.current = null;
       instanceRef.current?.detachFromElement();
       instanceRef.current?.setVisible(false);
       instanceRef.current = null;
@@ -904,6 +917,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     clearLinkUi,
     closeActionOverlay,
     finishModifierHold,
+    resetLinkInteractionState,
   ]);
 
   const paneOptions = actionOverlay?.resolvedFile ? getFileOpenPaneOptions(tab.id) : [];

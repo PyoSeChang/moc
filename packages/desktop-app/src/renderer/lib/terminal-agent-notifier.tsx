@@ -248,15 +248,27 @@ function initSoundUnlockListener(): void {
   if (soundUnlockListenerInitialized) return;
   soundUnlockListenerInitialized = true;
 
+  const cleanup = () => {
+    window.removeEventListener('pointerdown', unlockFromPointer);
+    window.removeEventListener('keydown', unlockFromKeyDown);
+  };
+
   const unlock = () => {
-    console.log('[AgentSound] unlock event');
+    cleanup();
     getAgentSoundElement('completion').load();
     getAgentSoundElement('attention').load();
     void getAgentAudioContext();
   };
 
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock);
+  const unlockFromPointer = () => {
+    unlock();
+  };
+  const unlockFromKeyDown = () => {
+    unlock();
+  };
+
+  window.addEventListener('pointerdown', unlockFromPointer, { passive: true });
+  window.addEventListener('keydown', unlockFromKeyDown);
 }
 
 async function playAgentSound(kind: 'completion' | 'attention' | 'error'): Promise<void> {

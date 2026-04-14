@@ -19,8 +19,8 @@ export interface UrlLink {
 //   src/bar.ts:42                  (relative without ./)
 
 const FILE_LINK_PATTERNS = [
-  // Windows absolute: C:\...\file.ext[:line[:col]]  or  C:\...\file.ext(line,col)
-  /([A-Za-z]:\\[^\s:*?"<>|]+\.\w+)(?:\((\d+),\s*(\d+)\)|:(\d+)(?::(\d+))?)?/g,
+  // Windows absolute: C:\...\file.ext, C:/...\file.ext, /C:/...\file.ext
+  /((?:\/)?[A-Za-z]:[\\/](?:[^\\/:*?"<>|\r\n]+[\\/])*[^\\/:*?"<>|\r\n]+\.\w+)(?:\((\d+),\s*(\d+)\)|:(\d+)(?::(\d+))?)?/g,
   // Unix absolute: /path/to/file.ext[:line[:col]]
   /(\/[^\s:*?"<>|]+\.\w+)(?::(\d+)(?::(\d+))?)?/g,
   // Relative: ./path or path/to/file.ext[:line[:col]]  (must contain / or \)

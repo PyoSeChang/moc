@@ -1,0 +1,7 @@
+interface:
+  display_name: "Narre Observability"
+  short_description: "Trace Narre request lifecycles through desktop-main and narre-server logs."
+  default_prompt: "Use $narre-observability to inspect why Narre responses are missing or delayed in this repo."
+
+policy:
+  allow_implicit_invocation: true

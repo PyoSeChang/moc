@@ -25,12 +25,13 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
   constructor(private readonly options: OpenAIDirectTransportOptions) {}
 
   async run(context: OpenAIFamilyTransportRunContext) {
+    const traceId = context.traceId ?? 'no-trace';
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is required when NARRE_PROVIDER=openai');
     }
 
     console.log(
-      `[narre:${this.name}] Starting run session=${context.sessionId} project=${context.projectId} ` +
+      `[narre:${this.name}] trace=${traceId} Starting run session=${context.sessionId} project=${context.projectId} ` +
       `resume=${context.isResume ? 'yes' : 'no'} model=${this.options.model ?? 'default'}`,
     );
 
@@ -52,7 +53,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
     try {
       const activeNames = servers.active.map((server) => server.name).filter(Boolean).join(', ');
       console.log(
-        `[narre:${this.name}] MCP connected active=${servers.active.length} failed=${servers.failed.length}` +
+        `[narre:${this.name}] trace=${traceId} MCP connected active=${servers.active.length} failed=${servers.failed.length}` +
         `${activeNames ? ` names=${activeNames}` : ''}`,
       );
 
@@ -60,7 +61,9 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
         const failedNames = servers.failed
           .map((server) => server.name)
           .filter((name): name is string => typeof name === 'string' && name.length > 0);
-        console.warn(`[narre:${this.name}] Failed MCP servers: ${failedNames.join(', ') || servers.failed.length}`);
+        console.warn(
+          `[narre:${this.name}] trace=${traceId} Failed MCP servers: ${failedNames.join(', ') || servers.failed.length}`,
+        );
       }
 
       const agent = new Agent({
@@ -98,7 +101,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
           }
 
           trackedToolCalls.set(started.callId, started.toolCall);
-          console.log(`[narre:${this.name}] Tool start ${started.toolCall.tool}`);
+          console.log(`[narre:${this.name}] trace=${traceId} Tool start ${started.toolCall.tool}`);
           context.onToolStart(started.toolCall.tool, started.toolCall.input);
           continue;
         }
@@ -109,7 +112,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
             continue;
           }
 
-          console.log(`[narre:${this.name}] Tool end ${completed.tool}`);
+          console.log(`[narre:${this.name}] trace=${traceId} Tool end ${completed.tool}`);
           context.onToolEnd(completed.tool, completed.result);
         }
       }
@@ -124,7 +127,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
       }
 
       console.log(
-        `[narre:${this.name}] Run completed session=${context.sessionId} ` +
+        `[narre:${this.name}] trace=${traceId} Run completed session=${context.sessionId} ` +
         `streamedChars=${assistantText.length} finalChars=${finalOutput.length} tools=${trackedToolCalls.size}`,
       );
 
@@ -142,7 +145,10 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
         toolCall.error = (error as Error).message;
       }
 
-      console.error(`[narre:${this.name}] Run failed session=${context.sessionId}: ${(error as Error).stack ?? (error as Error).message}`);
+      console.error(
+        `[narre:${this.name}] trace=${traceId} Run failed session=${context.sessionId}: ` +
+        `${(error as Error).stack ?? (error as Error).message}`,
+      );
       throw error;
     } finally {
       await servers.close();

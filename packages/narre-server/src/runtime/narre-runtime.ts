@@ -16,6 +16,7 @@ const commandPromptBuilders: Record<string, (params: SystemPromptParams, behavio
 };
 
 export interface NarreRuntimeChatRequest {
+  traceId?: string;
   sessionId?: string;
   projectId: string;
   message: string;
@@ -46,6 +47,8 @@ export class NarreRuntime {
   }
 
   async runChat(request: NarreRuntimeChatRequest, events: NarreRuntimeEvents): Promise<{ sessionId: string }> {
+    const traceId = request.traceId ?? 'no-trace';
+    const runStartedAt = Date.now();
     const parsedCommand = parseCommand(request.message);
 
     if (parsedCommand && parsedCommand.command.type === 'system') {
@@ -87,6 +90,7 @@ export class NarreRuntime {
 
     const mcpServerPath = this.config.resolveMcpServerPath();
     if (!mcpServerPath) {
+      console.error(`[narre:runtime] trace=${traceId} stage=mcp.missing session=${resolvedSessionId}`);
       events.onError('Could not find netior-mcp server. Run: pnpm --filter @netior/mcp build');
       return { sessionId: resolvedSessionId };
     }
@@ -95,13 +99,18 @@ export class NarreRuntime {
     const history = sessionData?.messages ?? [];
     const isResume = history.length > 1;
     const mcpServerConfigs = this.buildMcpServerConfigs(mcpServerPath);
+    console.log(
+      `[narre:runtime] trace=${traceId} stage=run.start session=${resolvedSessionId} ` +
+      `project=${request.projectId} resume=${isResume ? 'yes' : 'no'} mentions=${request.mentions?.length ?? 0}`,
+    );
     for (const config of mcpServerConfigs) {
       console.log(
-        `[narre] MCP config ${config.name} command=${config.command} ` +
+        `[narre:runtime] trace=${traceId} stage=mcp.config name=${config.name} command=${config.command} ` +
         `args=${JSON.stringify(config.args ?? [])} cwd=${config.cwd ?? '(default)'}`,
       );
     }
     const result = await this.config.provider.run({
+      traceId,
       projectId: request.projectId,
       projectRootDir: metadata.projectRootDir ?? null,
       systemPrompt,
@@ -123,6 +132,12 @@ export class NarreRuntime {
         timestamp: new Date().toISOString(),
       });
     }
+
+    console.log(
+      `[narre:runtime] trace=${traceId} stage=run.completed session=${resolvedSessionId} ` +
+      `assistantChars=${result.assistantText.length} tools=${result.toolCalls.length} ` +
+      `elapsedMs=${Date.now() - runStartedAt}`,
+    );
 
     return { sessionId: resolvedSessionId };
   }

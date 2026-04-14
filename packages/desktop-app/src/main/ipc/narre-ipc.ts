@@ -38,6 +38,8 @@ import {
 } from '../narre/narre-config';
 import { getRuntimeLogsDir, getRuntimeNarreDir } from '../runtime/runtime-paths';
 
+const NARRE_TRACE_HEADER = 'x-netior-trace-id';
+
 function getNarreDir(projectId: string): string {
   const dir = getRuntimeNarreDir(projectId);
   if (!existsSync(dir)) {
@@ -120,6 +122,25 @@ async function requestNarreServer<T>(path: string, init?: RequestInit): Promise<
   }
 
   return await response.json() as T;
+}
+
+function summarizeNarreStreamEvent(event: NarreStreamEvent): string {
+  switch (event.type) {
+    case 'text':
+      return `type=text chars=${event.content?.length ?? 0}`;
+    case 'tool_start':
+      return `type=tool_start tool=${event.tool ?? 'unknown'}`;
+    case 'tool_end':
+      return `type=tool_end tool=${event.tool ?? 'unknown'}`;
+    case 'card':
+      return `type=card card=${event.card?.type ?? 'unknown'}`;
+    case 'error':
+      return `type=error error=${JSON.stringify(event.error ?? '')}`;
+    case 'done':
+      return `type=done session=${event.sessionId ?? 'unknown'}`;
+    default:
+      return `type=${(event as { type?: string }).type ?? 'unknown'}`;
+  }
 }
 
 async function listRemoteNarreSessions(projectId: string): Promise<NarreSession[]> {
@@ -466,6 +487,9 @@ export function registerNarreIpc(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.NARRE_SEND_MESSAGE, async (_e, data: Record<string, unknown>): Promise<IpcResult<null>> => {
+    const traceId = randomUUID();
+    const requestStartedAt = Date.now();
+
     try {
       const { sessionId, projectId, message, mentions } = data as {
         sessionId?: string;
@@ -474,8 +498,14 @@ export function registerNarreIpc(): void {
         mentions?: unknown[];
       };
 
+      console.log(
+        `[narre:bridge] trace=${traceId} stage=request.start session=${sessionId ?? 'new'} ` +
+        `project=${projectId} chars=${message.length} mentions=${mentions?.length ?? 0}`,
+      );
+
       const mainWindow = BrowserWindow.getAllWindows()[0] ?? null;
       if (!mainWindow) {
+        console.error(`[narre:bridge] trace=${traceId} stage=request.error reason=no-main-window`);
         return { success: false, error: 'No main window available' };
       }
 
@@ -537,6 +567,11 @@ export function registerNarreIpc(): void {
         networkTree: mapNetworkTree(networkTree),
       };
 
+      console.log(
+        `[narre:bridge] trace=${traceId} stage=request.metadata.ready project=${projectId} ` +
+        `archetypes=${archetypes.length} relationTypes=${relationTypes.length} typeGroups=${typeGroups.length}`,
+      );
+
       const body = JSON.stringify({ sessionId, projectId, message, mentions, projectMetadata });
       const chatUrl = new URL('/chat', await ensureNarreServerBaseUrl());
 
@@ -547,10 +582,26 @@ export function registerNarreIpc(): void {
           headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body),
+            [NARRE_TRACE_HEADER]: traceId,
           },
         },
         (res) => {
+          let eventCount = 0;
+          let streamEnded = false;
           let buffer = '';
+          console.log(
+            `[narre:bridge] trace=${traceId} stage=response.headers status=${res.statusCode ?? 'unknown'} ` +
+            `session=${sessionId ?? 'new'}`,
+          );
+
+          const forwardEvent = (parsed: NarreStreamEvent, source: 'chunk' | 'buffer'): void => {
+            eventCount += 1;
+            console.log(
+              `[narre:bridge] trace=${traceId} stage=sse.recv source=${source} seq=${eventCount} ` +
+              `${summarizeNarreStreamEvent(parsed)}`,
+            );
+            mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, parsed);
+          };
           res.on('data', (chunk: Buffer) => {
             buffer += chunk.toString();
             const events = buffer.split('\n\n');
@@ -560,26 +611,51 @@ export function registerNarreIpc(): void {
               if (trimmed.startsWith('data: ')) {
                 try {
                   const parsed: NarreStreamEvent = JSON.parse(trimmed.slice(6));
-                  mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, parsed);
-                } catch {
-                  // Skip malformed events
+                  forwardEvent(parsed, 'chunk');
+                } catch (error) {
+                  console.error(
+                    `[narre:bridge] trace=${traceId} stage=sse.parse_error source=chunk ` +
+                    `message=${(error as Error).message}`,
+                  );
                 }
               }
             }
           });
           res.on('end', () => {
+            streamEnded = true;
             // Process any remaining buffer
             if (buffer.trim().startsWith('data: ')) {
               try {
                 const parsed: NarreStreamEvent = JSON.parse(buffer.trim().slice(6));
-                mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, parsed);
-              } catch {
-                // Skip
+                forwardEvent(parsed, 'buffer');
+              } catch (error) {
+                console.error(
+                  `[narre:bridge] trace=${traceId} stage=sse.parse_error source=buffer ` +
+                  `message=${(error as Error).message}`,
+                );
               }
             }
             // Don't send a duplicate done event — narre-server already sends one via the stream
+            console.log(
+              `[narre:bridge] trace=${traceId} stage=stream.end events=${eventCount} ` +
+              `elapsedMs=${Date.now() - requestStartedAt}`,
+            );
+          });
+          res.on('close', () => {
+            if (streamEnded) {
+              return;
+            }
+
+            console.warn(
+              `[narre:bridge] trace=${traceId} stage=stream.close events=${eventCount} ` +
+              `elapsedMs=${Date.now() - requestStartedAt}`,
+            );
           });
           res.on('error', (err) => {
+            console.error(
+              `[narre:bridge] trace=${traceId} stage=stream.error message=${err.message} ` +
+              `elapsedMs=${Date.now() - requestStartedAt}`,
+            );
             mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, {
               type: 'error',
               error: err.message,
@@ -592,7 +668,10 @@ export function registerNarreIpc(): void {
       );
 
       req.on('error', (err) => {
-        console.error('[narre] Narre server connection error:', err.message);
+        console.error(
+          `[narre:bridge] trace=${traceId} stage=request.error message=${err.message} ` +
+          `elapsedMs=${Date.now() - requestStartedAt}`,
+        );
         mainWindow.webContents.send(IPC_CHANNELS.NARRE_STREAM_EVENT, {
           type: 'error',
           error: `Narre server connection failed: ${err.message}. Check the selected provider auth settings.`,
@@ -605,10 +684,18 @@ export function registerNarreIpc(): void {
 
       req.write(body);
       req.end();
+      console.log(
+        `[narre:bridge] trace=${traceId} stage=request.sent bytes=${Buffer.byteLength(body)} ` +
+        `session=${sessionId ?? 'new'}`,
+      );
 
       // Return immediately; streaming happens via events
       return { success: true, data: null };
     } catch (err) {
+      console.error(
+        `[narre:bridge] trace=${traceId} stage=request.setup.error message=${(err as Error).message} ` +
+        `elapsedMs=${Date.now() - requestStartedAt}`,
+      );
       return { success: false, error: (err as Error).message };
     }
   });

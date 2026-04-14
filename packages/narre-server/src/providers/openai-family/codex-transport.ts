@@ -120,6 +120,7 @@ export class CodexTransport implements OpenAIFamilyTransport {
   constructor(private readonly options: CodexTransportOptions) {}
 
   async run(context: OpenAIFamilyTransportRunContext) {
+    const traceId = context.traceId ?? 'no-trace';
     const threadStore = new CodexThreadStore(this.options.dataDir, context.projectId, context.sessionId);
     const runtimeSettings = normalizeCodexRuntimeSettings(this.options.runtimeSettings);
     const client = new CodexAppServerClient(context, runtimeSettings);
@@ -142,7 +143,7 @@ export class CodexTransport implements OpenAIFamilyTransport {
       await client.waitForMcpServers();
 
       console.log(
-        `[narre:${this.name}] Starting run session=${context.sessionId} project=${context.projectId} ` +
+        `[narre:${this.name}] trace=${traceId} Starting run session=${context.sessionId} project=${context.projectId} ` +
         `thread=${threadId} resume=${context.isResume ? 'yes' : 'no'} model=${this.resolveModel(runtimeSettings) ?? 'default'}`,
       );
 
@@ -170,7 +171,7 @@ export class CodexTransport implements OpenAIFamilyTransport {
       await client.startTurn(threadId, context.userPrompt);
 
       console.log(
-        `[narre:${this.name}] Run completed session=${context.sessionId} thread=${threadId} ` +
+        `[narre:${this.name}] trace=${traceId} Run completed session=${context.sessionId} thread=${threadId} ` +
         `chars=${assistantText.length} tools=${trackedToolCalls.size}`,
       );
 
@@ -246,6 +247,10 @@ class CodexAppServerClient {
     private readonly runtimeSettings: NarreCodexSettings,
   ) {}
 
+  private getTracePrefix(): string {
+    return `trace=${this.context.traceId ?? 'no-trace'}`;
+  }
+
   async start(): Promise<void> {
     const port = await allocateLoopbackPort();
     const url = `ws://127.0.0.1:${port}`;
@@ -267,14 +272,14 @@ class CodexAppServerClient {
     this.child.stdout?.on('data', (chunk: Buffer) => {
       const message = chunk.toString().trim();
       if (message) {
-        console.log(`[narre:codex:stdout] ${message}`);
+        console.log(`[narre:codex:stdout] ${this.getTracePrefix()} ${message}`);
       }
     });
 
     this.child.stderr?.on('data', (chunk: Buffer) => {
       const message = chunk.toString().trim();
       if (message) {
-        console.error(`[narre:codex:stderr] ${message}`);
+        console.error(`[narre:codex:stderr] ${this.getTracePrefix()} ${message}`);
       }
     });
 
@@ -386,7 +391,7 @@ class CodexAppServerClient {
       }
 
       if (allStartupReady) {
-        console.log(`[narre:codex] MCP ready ${lastSummary}`);
+        console.log(`[narre:codex] ${this.getTracePrefix()} MCP ready ${lastSummary}`);
         return;
       }
 
@@ -491,7 +496,7 @@ class CodexAppServerClient {
     try {
       parsed = JSON.parse(rawData);
     } catch (error) {
-      console.warn(`[narre:codex] Invalid JSON-RPC payload: ${(error as Error).message}`);
+      console.warn(`[narre:codex] ${this.getTracePrefix()} Invalid JSON-RPC payload: ${(error as Error).message}`);
       return;
     }
 
@@ -616,7 +621,7 @@ class CodexAppServerClient {
     const toolCallId = `mcp-elicitation:${request.id}`;
 
     console.log(
-      `[narre:codex] MCP elicitation server=${serverName} mode=${mode} ` +
+      `[narre:codex] ${this.getTracePrefix()} MCP elicitation server=${serverName} mode=${mode} ` +
       `payload=${JSON.stringify(payload)}`,
     );
 
@@ -733,7 +738,7 @@ class CodexAppServerClient {
       return;
     }
 
-    console.log(`[narre:codex] Tool start ${mapped.tool}`);
+    console.log(`[narre:codex] ${this.getTracePrefix()} Tool start ${mapped.tool}`);
     this.onToolStart?.(mapped.callId, mapped.tool, mapped.input);
   }
 
@@ -744,7 +749,7 @@ class CodexAppServerClient {
       return;
     }
 
-    console.log(`[narre:codex] Tool end ${mapped.tool}`);
+    console.log(`[narre:codex] ${this.getTracePrefix()} Tool end ${mapped.tool}`);
     this.onToolEnd?.(mapped.callId, mapped.tool, mapped.result, mapped.error);
   }
 
@@ -790,7 +795,7 @@ class CodexAppServerClient {
     }
 
     this.mcpServerStartupStates.set(name, { status, error });
-    console.log(`[narre:codex] MCP startup ${name} status=${status}${error ? ` error=${error}` : ''}`);
+    console.log(`[narre:codex] ${this.getTracePrefix()} MCP startup ${name} status=${status}${error ? ` error=${error}` : ''}`);
   }
 }
 

@@ -138,10 +138,10 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   }, []);
 
   useEffect(() => {
-    if (!hasSideEditor) return;
+    if (!hasSideEditor && !isFullMode) return;
     setShowSideDropHint(false);
     setShowFloatDropHint(false);
-  }, [hasSideEditor]);
+  }, [hasSideEditor, isFullMode]);
 
   const clearShellDropState = useCallback(() => {
     setIsTabDragging(false);
@@ -291,11 +291,11 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     if (!isTabDrag(e) && !isFileOpenDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = isFileOpenDrag(e) ? 'copy' : 'move';
-    if (!hasSideEditor) {
+    if (!hasSideEditor && !isFullMode) {
       setShowSideDropHint(true);
       setShowFloatDropHint(true);
     }
-  }, [hasSideEditor]);
+  }, [hasSideEditor, isFullMode]);
 
   const handleShellDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -313,11 +313,11 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     if (!isTabDrag(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (!hasSideEditor) {
+    if (!hasSideEditor && !isFullMode) {
       setShowSideDropHint(true);
       setShowFloatDropHint(true);
     }
-  }, [hasSideEditor]);
+  }, [hasSideEditor, isFullMode]);
 
   const handleWorkspaceDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -406,7 +406,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               )}
             </>
           )}
-          {isTabDragging && !hasSideEditor && (
+          {isTabDragging && !hasSideEditor && !isFullMode && (
             <>
               {showFloatDropHint && (
                 <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">

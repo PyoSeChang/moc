@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EditorTab } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
-import { useEditorStore } from '../../stores/editor-store';
+import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
 import { useProjectStore } from '../../stores/project-store';
 import { adjustTerminalFontSize, resetTerminalFontSize } from '../../lib/terminal/hyper-fork/terminal-appearance';
 import { getTerminalEngine, type TerminalEngineInstance } from '../../lib/terminal/engine';
@@ -231,6 +231,11 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   const currentProjectId = useProjectStore((s) => s.currentProject?.id ?? null);
   const cwdRef = useRef(tab.terminalCwd ?? getDefaultTerminalCwd());
   const updateTitle = useEditorStore((s) => s.updateTitle);
+  const isActive = useEditorStore((s) => {
+    if (tab.hostId === MAIN_HOST_ID) return s.activeTabId === tab.id;
+    const host = s.hosts[tab.hostId];
+    return host?.activeTabId === tab.id;
+  });
   const { t } = useI18n();
   const [searchVisible, setSearchVisible] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -272,6 +277,12 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     clearLinkUi();
     setActionOverlay(null);
   }, [clearLinkUi]);
+
+  useEffect(() => {
+    if (!isActive) {
+      closeActionOverlay();
+    }
+  }, [closeActionOverlay, isActive]);
 
   const isPointInsideActionOverlay = useCallback((x: number, y: number): boolean => {
     const overlay = actionOverlayRefEl.current;
@@ -803,7 +814,16 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
     };
 
     const handleMouseUp = (e: MouseEvent): void => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      const selectedText = instanceRef.current?.getSelection().trim() ?? '';
+      if (!e.ctrlKey && !e.metaKey) {
+        ctrlMouseDownRef.current = null;
+        if (selectedText) {
+          showOverlayForText(selectedText, e.clientX, e.clientY);
+        } else if (!overlayHoverRef.current) {
+          closeActionOverlay();
+        }
+        return;
+      }
 
       const target = updateHoveredLinkFromProviderRanges();
       if (target) {
@@ -827,10 +847,8 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       }
 
       ctrlMouseDownRef.current = null;
-      const selectedText = instanceRef.current?.getSelection().trim() ?? '';
       if (!selectedText) return;
-      const rect = container.getBoundingClientRect();
-      showOverlayForText(selectedText, rect.left + 24, rect.top + 24);
+      showOverlayForText(selectedText, e.clientX, e.clientY);
     };
 
     const handleKeyUp = (e: KeyboardEvent): void => {

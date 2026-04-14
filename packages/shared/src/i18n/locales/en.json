@@ -806,6 +806,10 @@
     "renameFailed": "Rename failed",
     "createFailed": "Creation failed",
     "clipboardFailed": "Failed to copy files to the clipboard",
+    "clipboardInteropFailed": "Failed to share files with the system clipboard",
+    "sourceMissing": "The source file or folder could not be found",
+    "permissionDenied": "Permission was denied or the item is in use by another app",
+    "cannotNestIntoSelf": "A folder cannot be copied or moved into itself",
     "deleteFailed": "Delete failed",
     "pasteFailed": "Paste failed",
     "refresh": "Refresh"

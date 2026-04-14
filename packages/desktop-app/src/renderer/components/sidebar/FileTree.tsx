@@ -4,7 +4,7 @@ import type { FileTreeNode } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
 import { FileIcon } from './FileIcon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
-import { useFileStore } from '../../stores/file-store';
+import { useFileStore, type ClipboardState } from '../../stores/file-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
 import { showToast } from '../ui/Toast';
@@ -69,6 +69,68 @@ function isAlreadyExistsError(error: unknown): boolean {
   return message.includes('Already exists') || message.includes('already exists') || message.includes('EEXIST');
 }
 
+function isMissingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /ENOENT|not exist|no such file|cannot find the file/i.test(message);
+}
+
+function isPermissionError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /EACCES|EPERM|permission denied|access is denied/i.test(message);
+}
+
+function isSelfNestingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /into itself/i.test(message);
+}
+
+function isClipboardInteropError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Windows did not accept|No existing files were available to place on the clipboard/i.test(message);
+}
+
+function areSamePathLists(left: string[], right: string[]): boolean {
+  const normalizedLeft = compactPaths(left).map(normalizePath).sort();
+  const normalizedRight = compactPaths(right).map(normalizePath).sort();
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((path, index) => path === normalizedRight[index]);
+}
+
+function shouldPreferSystemClipboard(
+  clipboard: ClipboardState | null,
+  systemPaths: string[],
+  hasSystemImage: boolean,
+): boolean {
+  if (hasSystemImage) return true;
+  if (systemPaths.length === 0) return false;
+  if (!clipboard || clipboard.paths.length === 0) return true;
+  return !areSamePathLists(systemPaths, clipboard.paths);
+}
+
+function getFileTreeErrorMessage(
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+  error: unknown,
+  fallbackKey: TranslationKey,
+  options?: { alreadyExistsName?: string },
+): string {
+  if (options?.alreadyExistsName && isAlreadyExistsError(error)) {
+    return t('fileTree.alreadyExists' as TranslationKey, { name: options.alreadyExistsName });
+  }
+  if (isSelfNestingError(error)) {
+    return t('fileTree.cannotNestIntoSelf' as TranslationKey);
+  }
+  if (isPermissionError(error)) {
+    return t('fileTree.permissionDenied' as TranslationKey);
+  }
+  if (isMissingError(error)) {
+    return t('fileTree.sourceMissing' as TranslationKey);
+  }
+  if (isClipboardInteropError(error)) {
+    return t('fileTree.clipboardInteropFailed' as TranslationKey);
+  }
+  return t(fallbackKey);
+}
+
 function normalizePath(targetPath: string): string {
   return targetPath.replace(/\\/g, '/');
 }
@@ -117,6 +179,13 @@ function getSelectionRange(items: VisibleTreeItem[], anchorPath: string | null, 
   const rangeStart = anchorIndex === -1 ? targetIndex : Math.min(anchorIndex, targetIndex);
   const rangeEnd = anchorIndex === -1 ? targetIndex : Math.max(anchorIndex, targetIndex);
   return items.slice(rangeStart, rangeEnd + 1).map((item) => item.node.path);
+}
+
+function isEditablePasteTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.matches('input, textarea, [contenteditable=""], [contenteditable="true"]')
+    || target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]') != null
+    || target.isContentEditable;
 }
 
 function validateFileName(name: string): string | null {
@@ -648,7 +717,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       setClipboard(nextPaths, clipboard.action);
       void fsService.writeClipboardFiles(nextPaths, clipboard.action).catch((error) => {
         console.error('[FileTree] Failed to sync system clipboard:', error);
-        showToast('error', t('fileTree.clipboardFailed' as TranslationKey));
+        showToast('error', getFileTreeErrorMessage(t, error, 'fileTree.clipboardFailed' as TranslationKey));
       });
     } else {
       clearClipboard();
@@ -664,7 +733,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       await fsService.writeClipboardFiles(nextPaths, action);
     } catch (error) {
       console.error('[FileTree] Failed to write file clipboard:', { action, paths: nextPaths, error });
-      showToast('error', t('fileTree.clipboardFailed' as TranslationKey));
+      showToast('error', getFileTreeErrorMessage(t, error, 'fileTree.clipboardFailed' as TranslationKey));
     }
   }, [setClipboard, t]);
 
@@ -688,12 +757,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       renamed = true;
     } catch (err) {
       console.error('[FileTree] Rename failed:', { oldPath, newPath, error: err });
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('Already exists')) {
-        showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: newName }));
-      } else {
-        showToast('error', t('fileTree.renameFailed' as TranslationKey));
-      }
+      showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.renameFailed' as TranslationKey, { alreadyExistsName: newName }));
     }
     setRenamingPath(null);
     if (renamed) {
@@ -729,12 +793,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       setSelectionAnchorPath(fullPath);
     } catch (err) {
       console.error('[FileTree] Create failed:', { parentPath, requestedPath, type, error: err });
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('already exists') || msg.includes('Already exists')) {
-        showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name }));
-      } else {
-        showToast('error', t('fileTree.createFailed' as TranslationKey));
-      }
+      showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.createFailed' as TranslationKey, { alreadyExistsName: name }));
     }
     setNewInput(null);
   }, [refreshFileTree, t]);
@@ -758,14 +817,21 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       );
     } catch (err) {
       console.error('[FileTree] Delete failed:', { paths: targets, error: err });
-      showToast('error', t('fileTree.deleteFailed' as TranslationKey));
+      showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.deleteFailed' as TranslationKey));
     }
   }, [refreshFileTree, syncClipboardPaths, t]);
 
   const handlePaste = useCallback(async (destDir: string) => {
-    // Internal clipboard (cut/copy within the app)
     const normalizedDestDir = normalizePath(destDir);
-    if (clipboard && clipboard.paths.length > 0) {
+    const [rawSystemPaths, hasSystemImage] = await Promise.all([
+      fsService.readClipboardFiles().catch(() => [] as string[]),
+      fsService.hasClipboardImage().catch(() => false),
+    ]);
+    const systemPaths = compactPaths(rawSystemPaths);
+    const preferSystemClipboard = shouldPreferSystemClipboard(clipboard, systemPaths, hasSystemImage);
+
+    // Internal clipboard (cut/copy within the app)
+    if (!preferSystemClipboard && clipboard && clipboard.paths.length > 0) {
       const sourcePaths = compactPaths(clipboard.paths);
       const createdPaths: string[] = [];
       const movedPaths: Array<{ from: string; to: string }> = [];
@@ -807,11 +873,9 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
           destDir: normalizedDestDir,
           error: err,
         });
-        if (isAlreadyExistsError(err)) {
-          showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: getBaseName(sourcePaths[0] ?? normalizedDestDir) }));
-        } else {
-          showToast('error', t('fileTree.pasteFailed' as TranslationKey));
-        }
+        showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.pasteFailed' as TranslationKey, {
+          alreadyExistsName: getBaseName(sourcePaths[0] ?? normalizedDestDir),
+        }));
       }
       return;
     }
@@ -819,10 +883,9 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
     let currentSrcName = '';
     let lastPastedPath = '';
     try {
-      const paths = await fsService.readClipboardFiles();
       const createdPaths: string[] = [];
-      if (paths.length > 0) {
-        for (const srcPath of paths) {
+      if (systemPaths.length > 0) {
+        for (const srcPath of systemPaths) {
           currentSrcName = getBaseName(srcPath);
           const requestedDestPath = normalizedDestDir + '/' + currentSrcName;
           const destPath = await getNextAvailablePath(requestedDestPath);
@@ -830,7 +893,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
           createdPaths.push(destPath);
           lastPastedPath = destPath;
         }
-      } else if (await fsService.hasClipboardImage()) {
+      } else if (hasSystemImage) {
         currentSrcName = `${formatPastedImageBaseName()}.png`;
         const requestedDestPath = normalizedDestDir + '/' + currentSrcName;
         const destPath = await getNextAvailablePath(requestedDestPath);
@@ -855,16 +918,15 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
         currentSrcName,
         error: err,
       });
-      if (isAlreadyExistsError(err)) {
-        showToast('error', t('fileTree.alreadyExists' as TranslationKey, { name: currentSrcName || destDir }));
-      } else {
-        showToast('error', t('fileTree.pasteFailed' as TranslationKey));
-      }
+      showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.pasteFailed' as TranslationKey, {
+        alreadyExistsName: currentSrcName || destDir,
+      }));
     }
   }, [clipboard, clearClipboard, refreshFileTree, t]);
 
   // Block browser default paste behavior (prevents "Not allowed to load local resource" errors)
   const handleNativePaste = useCallback((e: React.ClipboardEvent) => {
+    if (isEditablePasteTarget(e.target)) return;
     e.preventDefault();
   }, []);
 
@@ -997,7 +1059,7 @@ export function FileTree({ nodes, onFileClick }: FileTreeProps): JSX.Element {
       }
     } catch (err) {
       console.error('[FileTree] Drag drop failed:', { node, error: err });
-      showToast('error', t('fileTree.pasteFailed' as TranslationKey));
+      showToast('error', getFileTreeErrorMessage(t, err, 'fileTree.pasteFailed' as TranslationKey));
     }
   }, [getParentDir, refreshFileTree, t]);
 

@@ -806,6 +806,10 @@
     "renameFailed": "이름 변경 실패",
     "createFailed": "생성 실패",
     "clipboardFailed": "파일을 클립보드에 복사하지 못했습니다",
+    "clipboardInteropFailed": "시스템 클립보드와 파일을 공유하지 못했습니다",
+    "sourceMissing": "원본 파일이나 폴더를 찾을 수 없습니다",
+    "permissionDenied": "권한이 없거나 다른 프로그램에서 사용 중입니다",
+    "cannotNestIntoSelf": "폴더를 자기 자신 안으로 복사하거나 이동할 수 없습니다",
     "deleteFailed": "삭제 실패",
     "pasteFailed": "붙여넣기 실패",
     "refresh": "새로고침"

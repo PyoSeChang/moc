@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
-import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { createRequire } from 'module';
+import { randomUUID } from 'crypto';
 import type { NarreBehaviorSettings, NarreCodexSettings, NarreMention, NarreStreamEvent } from '@netior/shared/types';
 import {
   normalizeNarreBehaviorSettings,
@@ -133,8 +133,8 @@ app.delete('/sessions/:id', async (req, res) => {
   }
 });
 
-app.post('/chat/respond', (req, res) => {
-  const { toolCallId, response } = req.body;
+app.post('/chat/respond', async (req, res) => {
+  const { sessionId, toolCallId, response } = req.body;
   if (!toolCallId) {
     res.status(400).json({ error: 'toolCallId required' });
     return;
@@ -144,6 +144,11 @@ app.post('/chat/respond', (req, res) => {
     res.status(404).json({ error: 'No pending UI call' });
     return;
   }
+
+  if (typeof sessionId === 'string') {
+    await sessionStore.updateCardResponseById(sessionId, toolCallId, response);
+  }
+
   res.json({ ok: true });
 });
 
@@ -197,6 +202,14 @@ app.post('/chat', async (req, res) => {
     return;
   }
 
+  const abortController = new AbortController();
+  const abortRun = (): void => {
+    if (!abortController.signal.aborted) {
+      abortController.abort();
+    }
+  };
+  req.on('aborted', abortRun);
+  res.on('close', abortRun);
   res.setHeader('X-Netior-Trace-Id', traceId);
   initSSE(res);
   res.on('close', () => {
@@ -213,25 +226,53 @@ app.post('/chat', async (req, res) => {
   try {
     console.log(
       `[narre:server] trace=${traceId} stage=request.accept provider=${provider.name} ` +
-      `project=${projectId} session=${sessionId ?? 'new'} chars=${message.length} mentions=${mentions?.length ?? 0}`,
+      `project=${projectId} session=${sessionId ?? 'new'} ` +
+      `chars=${message.length} mentions=${mentions?.length ?? 0}`,
     );
 
     const result = await runtime.runChat(
       { sessionId, projectId, message, mentions, projectMetadata, traceId },
       {
-        onText: (content) => emitEvent({ type: 'text', content }),
-        onToolStart: (tool, toolInput) => emitEvent({ type: 'tool_start', tool, toolInput }),
-        onToolEnd: (tool, toolResult) => emitEvent({ type: 'tool_end', tool, toolResult }),
-        onCard: (card) => emitEvent({ type: 'card', card }),
-        onError: (error) => emitEvent({ type: 'error', error }),
+        onText: (content) => {
+          if (!abortController.signal.aborted) {
+            emitEvent({ type: 'text', content });
+          }
+        },
+        onToolStart: (tool, toolInput, toolMetadata) => {
+          if (!abortController.signal.aborted) {
+            emitEvent({ type: 'tool_start', tool, toolInput, toolMetadata });
+          }
+        },
+        onToolEnd: (tool, toolResult, toolMetadata) => {
+          if (!abortController.signal.aborted) {
+            emitEvent({ type: 'tool_end', tool, toolResult, toolMetadata });
+          }
+        },
+        onCard: (card) => {
+          if (!abortController.signal.aborted) {
+            emitEvent({ type: 'card', card });
+          }
+        },
+        onError: (error) => {
+          if (!abortController.signal.aborted) {
+            emitEvent({ type: 'error', error });
+          }
+        },
       },
+      abortController.signal,
     );
+    if (abortController.signal.aborted || res.writableEnded) {
+      return;
+    }
     console.log(
       `[narre:server] trace=${traceId} stage=request.completed provider=${provider.name} ` +
       `session=${result.sessionId} events=${streamEventCount} elapsedMs=${Date.now() - requestStartedAt}`,
     );
     emitEvent({ type: 'done', sessionId: result.sessionId });
   } catch (error) {
+    if (abortController.signal.aborted || res.writableEnded) {
+      return;
+    }
     console.error(
       `[narre:server] trace=${traceId} stage=request.error ` +
       `message=${(error as Error).stack ?? (error as Error).message}`,
@@ -244,7 +285,9 @@ app.post('/chat', async (req, res) => {
       `[narre:server] trace=${traceId} stage=response.end events=${streamEventCount} ` +
       `elapsedMs=${Date.now() - requestStartedAt}`,
     );
-    endSSE(res);
+    if (!res.writableEnded) {
+      endSSE(res);
+    }
   }
 });
 
@@ -269,6 +312,12 @@ function resolveMcpServerPath(): string | null {
     join(currentDir, '../../netior-mcp/dist/index.js'),
     join(currentDir, '../../../netior-mcp/dist/index.cjs'),
     join(currentDir, '../../../netior-mcp/dist/index.js'),
+    join(currentDir, '../../mcp/dist-trace/index.cjs'),
+    join(currentDir, '../../mcp/dist-trace/index.js'),
+    join(currentDir, '../../netior-mcp/dist-trace/index.cjs'),
+    join(currentDir, '../../netior-mcp/dist-trace/index.js'),
+    join(currentDir, '../../../netior-mcp/dist-trace/index.cjs'),
+    join(currentDir, '../../../netior-mcp/dist-trace/index.js'),
     join(process.cwd(), 'packages/netior-mcp/dist/index.cjs'),
     join(process.cwd(), 'packages/netior-mcp/dist/index.js'),
   ];

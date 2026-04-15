@@ -1,9 +1,11 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { createServer } from 'net';
+import { getNarreToolMetadata } from '@netior/shared/constants';
 import type { NarreCodexSettings, NarreToolCall } from '@netior/shared/types';
+import { ApprovalStore } from '../../approval-store.js';
 import type { NarreMcpServerConfig } from '../../runtime/provider-adapter.js';
 import { CodexThreadStore } from '../codex-thread-store.js';
-import { askToolSchema, confirmToolSchema, proposalToolSchema } from '../shared/ui-schemas.js';
+import { askToolSchema, confirmToolSchema, draftToolSchema } from '../shared/ui-schemas.js';
 import type { OpenAIFamilyTransport, OpenAIFamilyTransportRunContext } from './transport.js';
 
 interface JsonRpcResponse {
@@ -123,9 +125,13 @@ export class CodexTransport implements OpenAIFamilyTransport {
     const traceId = context.traceId ?? 'no-trace';
     const threadStore = new CodexThreadStore(this.options.dataDir, context.projectId, context.sessionId);
     const runtimeSettings = normalizeCodexRuntimeSettings(this.options.runtimeSettings);
-    const client = new CodexAppServerClient(context, runtimeSettings);
+    const client = new CodexAppServerClient(context, runtimeSettings, new ApprovalStore(this.options.dataDir));
     const trackedToolCalls = new Map<string, NarreToolCall>();
     let assistantText = '';
+    const abortHandler = (): void => {
+      void client.close();
+    };
+    context.signal?.addEventListener('abort', abortHandler, { once: true });
 
     try {
       await client.start();
@@ -147,16 +153,27 @@ export class CodexTransport implements OpenAIFamilyTransport {
         `thread=${threadId} resume=${context.isResume ? 'yes' : 'no'} model=${this.resolveModel(runtimeSettings) ?? 'default'}`,
       );
 
-      client.onTextDelta = (delta) => {
+      client.onTextDelta = async (delta) => {
         assistantText += delta;
-        context.onText(delta);
+        await context.onText(delta);
       };
-      client.onToolStart = (callId, tool, input) => {
-        trackedToolCalls.set(callId, { tool, input, status: 'running' });
-        context.onToolStart(tool, input);
+      client.onToolStart = async (callId, tool, input) => {
+        const metadata = getNarreToolMetadata(tool);
+        trackedToolCalls.set(callId, {
+          tool,
+          input,
+          status: 'running',
+          metadata,
+        });
+        await context.onToolStart(tool, input, metadata);
       };
-      client.onToolEnd = (callId, tool, result, error) => {
-        const tracked = trackedToolCalls.get(callId) ?? { tool, input: {}, status: 'running' as const };
+      client.onToolEnd = async (callId, tool, result, error) => {
+        const tracked = trackedToolCalls.get(callId) ?? {
+          tool,
+          input: {},
+          status: 'running' as const,
+          metadata: getNarreToolMetadata(tool),
+        };
         if (error) {
           tracked.status = 'error';
           tracked.error = error;
@@ -165,7 +182,7 @@ export class CodexTransport implements OpenAIFamilyTransport {
           tracked.result = result;
         }
         trackedToolCalls.set(callId, tracked);
-        context.onToolEnd(tool, error ?? result);
+        await context.onToolEnd(tool, error ?? result, tracked.metadata ?? getNarreToolMetadata(tool));
       };
 
       await client.startTurn(threadId, context.userPrompt);
@@ -180,6 +197,7 @@ export class CodexTransport implements OpenAIFamilyTransport {
         toolCalls: Array.from(trackedToolCalls.values()),
       };
     } finally {
+      context.signal?.removeEventListener('abort', abortHandler);
       await client.close();
     }
   }
@@ -245,6 +263,7 @@ class CodexAppServerClient {
   constructor(
     private readonly context: OpenAIFamilyTransportRunContext,
     private readonly runtimeSettings: NarreCodexSettings,
+    private readonly approvalStore: ApprovalStore,
   ) {}
 
   private getTracePrefix(): string {
@@ -618,7 +637,9 @@ class CodexAppServerClient {
     const serverName = typeof payload.serverName === 'string' ? payload.serverName : 'unknown';
     const mode = payload.mode === 'url' ? 'url' : 'form';
     const message = typeof payload.message === 'string' ? payload.message : 'MCP server requires user input.';
+    const requestedSchema = payload.requestedSchema;
     const toolCallId = `mcp-elicitation:${request.id}`;
+    const requestedToolName = extractRequestedMcpToolName(message);
 
     console.log(
       `[narre:codex] ${this.getTracePrefix()} MCP elicitation server=${serverName} mode=${mode} ` +
@@ -652,12 +673,32 @@ class CodexAppServerClient {
       return;
     }
 
+    if (serverName === 'netior' && requestedToolName) {
+      const metadata = getNarreToolMetadata(requestedToolName);
+      const alwaysAllowed = await this.approvalStore.isToolAllowed(this.context.projectId, requestedToolName);
+
+      if (metadata.approvalMode === 'auto' || alwaysAllowed) {
+        this.sendMessage({
+          id: request.id,
+          result: {
+            action: 'accept',
+            content: buildDefaultElicitationContent(requestedSchema),
+            _meta: null,
+          },
+        });
+        return;
+      }
+    }
+
     const responseText = await this.context.uiBridge.requestPermission(
       this.context.onCard,
       {
         message,
         actions: [
           { key: 'accept', label: 'Approve' },
+          ...(serverName === 'netior' && requestedToolName
+            ? [{ key: 'accept_project', label: 'Always allow in this project' as const }]
+            : []),
           { key: 'decline', label: 'Decline', variant: 'danger' },
         ],
       },
@@ -665,8 +706,12 @@ class CodexAppServerClient {
     );
 
     const response = safeParseJson(responseText);
-    const approved = isActionResponse(response) && response.action === 'accept';
-    const requestedSchema = payload.requestedSchema;
+    const action = isActionResponse(response) ? response.action : null;
+    const approved = action === 'accept' || action === 'accept_project';
+
+    if (approved && action === 'accept_project' && serverName === 'netior' && requestedToolName) {
+      await this.approvalStore.allowTool(this.context.projectId, requestedToolName);
+    }
 
     this.sendMessage({
       id: request.id,
@@ -681,8 +726,8 @@ class CodexAppServerClient {
   private async runDynamicTool(tool: string, rawArguments: unknown, toolCallId?: string): Promise<string> {
     switch (tool) {
       case 'propose': {
-        const parsed = proposalToolSchema.parse(rawArguments);
-        return this.context.uiBridge.requestProposal(this.context.onCard, parsed, toolCallId);
+        const parsed = draftToolSchema.parse(rawArguments);
+        return this.context.uiBridge.requestDraft(this.context.onCard, parsed, toolCallId);
       }
       case 'ask': {
         const parsed = askToolSchema.parse(rawArguments);
@@ -832,6 +877,11 @@ function isActionResponse(value: unknown): value is { action?: string } {
   return Boolean(value && typeof value === 'object' && 'action' in value);
 }
 
+function extractRequestedMcpToolName(message: string): string | null {
+  const match = message.match(/tool ["'`]([^"'`]+)["'`]/i);
+  return match?.[1]?.trim() || null;
+}
+
 function buildDefaultElicitationContent(schema: unknown): unknown {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
     return {};
@@ -893,46 +943,23 @@ function buildDynamicToolSpecs(): Array<Record<string, unknown>> {
   return [
     {
       name: 'propose',
-      description: 'Present a proposal table to the user for review and inline editing. Use this when suggesting archetypes, relation types, or concepts.',
+      description: 'Present an editable draft block to the user. Use this when suggesting archetypes, relation types, concepts, or any structured plan that benefits from inline revision.',
       inputSchema: {
         type: 'object',
         additionalProperties: false,
-        required: ['title', 'columns', 'rows'],
+        required: ['content'],
         properties: {
-          title: { type: 'string', description: 'Title for the proposal' },
-          columns: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['key', 'label', 'cellType'],
-              properties: {
-                key: { type: 'string' },
-                label: { type: 'string' },
-                cellType: {
-                  type: 'string',
-                  enum: proposalToolSchema.shape.columns.element.shape.cellType.options,
-                  description: 'text | icon | color | enum | boolean | readonly',
-                },
-                options: {
-                  type: 'array',
-                  items: { type: 'string' },
-                },
-              },
-            },
+          title: { type: 'string', description: 'Optional title for the draft block' },
+          content: { type: 'string', description: 'Editable markdown or plain-text draft' },
+          format: {
+            type: 'string',
+            enum: ['markdown'],
+            description: 'Draft format. Defaults to markdown.',
           },
-          rows: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'values'],
-              properties: {
-                id: { type: 'string' },
-                values: { type: 'object', additionalProperties: true },
-              },
-            },
-          },
+          placeholder: { type: 'string', description: 'Optional placeholder when the draft content starts empty' },
+          confirmLabel: { type: 'string', description: 'Optional label for the accept button' },
+          feedbackLabel: { type: 'string', description: 'Optional label for the feedback button' },
+          feedbackPlaceholder: { type: 'string', description: 'Optional placeholder for the feedback input' },
         },
       },
     },

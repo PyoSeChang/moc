@@ -9,6 +9,7 @@ import {
   type RunToolCallOutputItem,
 } from '@openai/agents';
 import { randomUUID } from 'crypto';
+import { getNarreToolMetadata } from '@netior/shared/constants';
 import type { NarreToolCall } from '@netior/shared/types';
 import { OpenAIFileSession } from '../openai-file-session.js';
 import type { OpenAIFamilyTransport, OpenAIFamilyTransportRunContext } from './transport.js';
@@ -85,7 +86,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
           const rawEvent = event.data.event;
           if (rawEvent.type === 'response.output_text.delta' && rawEvent.delta) {
             assistantText += rawEvent.delta;
-            context.onText(rawEvent.delta);
+            await context.onText(rawEvent.delta);
           }
           continue;
         }
@@ -102,7 +103,11 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
 
           trackedToolCalls.set(started.callId, started.toolCall);
           console.log(`[narre:${this.name}] trace=${traceId} Tool start ${started.toolCall.tool}`);
-          context.onToolStart(started.toolCall.tool, started.toolCall.input);
+          await context.onToolStart(
+            started.toolCall.tool,
+            started.toolCall.input,
+            started.toolCall.metadata ?? getNarreToolMetadata(started.toolCall.tool),
+          );
           continue;
         }
 
@@ -113,7 +118,12 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
           }
 
           console.log(`[narre:${this.name}] trace=${traceId} Tool end ${completed.tool}`);
-          context.onToolEnd(completed.tool, completed.result);
+          const completedCall = trackedToolCalls.get(completed.callId);
+          await context.onToolEnd(
+            completed.tool,
+            completed.result,
+            completedCall?.metadata ?? getNarreToolMetadata(completed.tool),
+          );
         }
       }
 
@@ -123,7 +133,7 @@ export class OpenAIDirectTransport implements OpenAIFamilyTransport {
       const trailingText = resolveTrailingAssistantText(assistantText, finalOutput);
       if (trailingText) {
         assistantText += trailingText;
-        context.onText(trailingText);
+        await context.onText(trailingText);
       }
 
       console.log(
@@ -173,6 +183,7 @@ function extractToolStart(item: RunItem): { callId: string; toolCall: NarreToolC
       tool,
       input: extractToolInput(rawItem),
       status: 'running',
+      metadata: getNarreToolMetadata(tool),
     },
   };
 }
@@ -180,7 +191,7 @@ function extractToolStart(item: RunItem): { callId: string; toolCall: NarreToolC
 function extractToolEnd(
   item: RunItem,
   trackedToolCalls: Map<string, NarreToolCall>,
-): { tool: string; result: string } | null {
+): { callId: string; tool: string; result: string } | null {
   if (item.type !== 'tool_call_output_item') {
     return null;
   }
@@ -198,6 +209,7 @@ function extractToolEnd(
   tracked.result = result;
 
   return {
+    callId,
     tool: tracked.tool,
     result,
   };

@@ -241,6 +241,10 @@ function buildAssistantRenderSegments(
       return;
     }
 
+    if (block.type === 'tool') {
+      return;
+    }
+
     segments.push({ type: 'block', block });
   });
 
@@ -328,7 +332,9 @@ export function NarreMessageBubble({
   const { t, locale } = useI18n();
   const isUser = role === 'user';
   const segments = isUser
-    ? blocks.map((block) => ({ type: 'block', block } as AssistantRenderSegment))
+    ? blocks
+      .filter((block): block is Exclude<NarreTranscriptBlock, { type: 'tool' }> => block.type !== 'tool')
+      .map((block) => ({ type: 'block', block } as AssistantRenderSegment))
     : buildAssistantRenderSegments(blocks, locale, t);
 
   return (

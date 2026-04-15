@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { ArchetypeField, ArchetypeFieldUpdate, FieldType, SystemSlotKey } from '@netior/shared/types';
+import type { ArchetypeField, ArchetypeFieldUpdate, FieldType, SemanticTraitKey, SystemSlotKey } from '@netior/shared/types';
 import {
   getSemanticTraitDefinition,
   getSystemSlotDefinition,
@@ -30,6 +30,22 @@ interface ArchetypeFieldRowProps {
 }
 
 const CHOICE_TYPES = new Set(['select', 'multi-select', 'radio']);
+
+function normalizeSemanticTraits(value: unknown): SemanticTraitKey[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is SemanticTraitKey => typeof item === 'string');
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return normalizeSemanticTraits(JSON.parse(value));
+    } catch {
+      return value.trim() ? [value as SemanticTraitKey] : [];
+    }
+  }
+
+  return [];
+}
 
 const FIELD_TYPE_LABEL_KEYS: Record<FieldType, TranslationKey> = {
   text: 'typeSelector.text',
@@ -70,7 +86,7 @@ export function ArchetypeFieldRow({ tabId, field, onUpdate, onDelete }: Archetyp
   const slotDescription = field.system_slot ? t(getSystemSlotDescriptionKey(field.system_slot) as never) : undefined;
   const isSlotLocked = field.slot_binding_locked;
   const traitSlots = Array.from(new Set<SystemSlotKey>(
-    (archetype?.semantic_traits ?? []).flatMap((trait) => {
+    normalizeSemanticTraits(archetype?.semantic_traits).flatMap((trait) => {
       const definition = getSemanticTraitDefinition(trait);
       if (!definition) return [];
       return [...definition.coreSlots, ...definition.optionalSlots];

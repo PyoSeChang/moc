@@ -69,6 +69,22 @@ const EMPTY_ARCHETYPE_STATE: ArchetypeState = {
   semantic_traits: [],
 };
 
+function normalizeSemanticTraits(value: unknown): SemanticTraitKey[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is SemanticTraitKey => typeof item === 'string');
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return normalizeSemanticTraits(JSON.parse(value));
+    } catch {
+      return value.trim() ? [value as SemanticTraitKey] : [];
+    }
+  }
+
+  return [];
+}
+
 export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
   const { t } = useI18n();
   const archetypeId = tab.targetId;
@@ -113,16 +129,23 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
         color: a.color,
         node_shape: a.node_shape,
         file_template: a.file_template,
-        semantic_traits: a.semantic_traits ?? [],
+        semantic_traits: normalizeSemanticTraits(a.semantic_traits),
       };
     },
     save: async (state) => {
-      await updateArchetype(archetypeId, state);
+      await updateArchetype(archetypeId, {
+        ...state,
+        semantic_traits: normalizeSemanticTraits(state.semantic_traits),
+      });
       useEditorStore.getState().updateTitle(tab.id, state.name);
     },
     deps: [archetypeId],
   });
   const editorState = session.state ?? EMPTY_ARCHETYPE_STATE;
+  const semanticTraits = useMemo(
+    () => normalizeSemanticTraits(editorState.semantic_traits),
+    [editorState.semantic_traits],
+  );
 
   const handleAddField = async () => {
     useEditorStore.getState().setDirty(tab.id, true);
@@ -196,12 +219,12 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
     return counts;
   }, [fields]);
   const activeTraitSlots = useMemo(() => new Set(
-    (editorState.semantic_traits ?? []).flatMap((trait) => {
+    semanticTraits.flatMap((trait) => {
       const definition = getSemanticTraitDefinition(trait);
       if (!definition) return [];
       return [...definition.coreSlots, ...definition.optionalSlots];
     }),
-  ), [editorState.semantic_traits]);
+  ), [semanticTraits]);
   const detachedSlotFields = useMemo(() => (
     fields.filter((field) => field.system_slot && !activeTraitSlots.has(field.system_slot) && !field.generated_by_trait)
   ), [activeTraitSlots, fields]);
@@ -231,7 +254,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
   }, [archetypeId, deleteField, session, tab.id]);
 
   const handleToggleTrait = useCallback(async (trait: SemanticTraitKey, checked: boolean) => {
-    const currentTraits = editorState.semantic_traits ?? [];
+    const currentTraits = semanticTraits;
     const nextTraits = checked
       ? [...new Set([...currentTraits, trait])]
       : currentTraits.filter((item) => item !== trait);
@@ -284,7 +307,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
       });
       sortOrder += 1;
     }
-  }, [archetypeId, createField, editorState.semantic_traits, session, tab.id]);
+  }, [archetypeId, createField, semanticTraits, session, tab.id]);
 
   if (!archetype) {
     return (
@@ -383,7 +406,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
               </div>
               <div className="flex flex-wrap gap-2">
                 {traitDefinitionsByCategory.map(({ categoryKey, categoryLabel, traits }) => {
-                  const activeCount = traits.filter((traitDefinition) => editorState.semantic_traits.includes(traitDefinition.key)).length;
+                  const activeCount = traits.filter((traitDefinition) => semanticTraits.includes(traitDefinition.key)).length;
                   const isActive = activeCategoryDefinition?.categoryKey === categoryKey;
                   return (
                     <button
@@ -437,7 +460,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                 </div>
                 <div className="flex flex-col gap-3">
                   {activeCategoryDefinition.traits.map((traitDefinition) => {
-                    const checked = editorState.semantic_traits.includes(traitDefinition.key);
+                    const checked = semanticTraits.includes(traitDefinition.key);
                     return (
                       <div
                         key={traitDefinition.key}
@@ -551,7 +574,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
                 <div className="flex flex-wrap gap-2">
                   {traitDefinitionsByCategory.map(({ categoryKey, categoryLabel, traits }) => {
-                    const activeCount = traits.filter((traitDefinition) => editorState.semantic_traits.includes(traitDefinition.key)).length;
+                    const activeCount = traits.filter((traitDefinition) => semanticTraits.includes(traitDefinition.key)).length;
                     const isActive = activeCategoryDefinition?.categoryKey === categoryKey;
                     return (
                       <button
@@ -607,7 +630,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
 
                     <div className="flex flex-col gap-3">
                       {activeCategoryDefinition.traits.map((traitDefinition) => {
-                        const checked = editorState.semantic_traits.includes(traitDefinition.key);
+                        const checked = semanticTraits.includes(traitDefinition.key);
                         return (
                           <div
                             key={traitDefinition.key}

@@ -208,18 +208,20 @@ export function NarreToolLog({
               );
             }
 
-            const metadata = getToolMetadata(item.call);
-            const summary = getToolResultSummary(item.call, locale);
-            const permissionResponse = item.permission
-              ? getEffectivePermissionResponse(item.permission, item.call)
+            const toolItem: Extract<NarreToolLogItem, { kind: 'tool' }> = item;
+            const metadata = getToolMetadata(toolItem.call);
+            const summary = getToolResultSummary(toolItem.call, locale);
+            const permissionResponse = toolItem.permission
+              ? getEffectivePermissionResponse(toolItem.permission, toolItem.call)
               : null;
-            const showPermissionPrompt = Boolean(item.permission) && permissionResponse === null;
+            const showPermissionPrompt = Boolean(toolItem.permission) && permissionResponse === null;
             const permissionDecisionLabel = permissionResponse
               ? getPermissionDecisionLabel(permissionResponse.action, t)
               : null;
             const permissionDecisionVariant = permissionResponse
               ? getPermissionDecisionVariant(permissionResponse.action)
               : 'default';
+            const permission = toolItem.permission;
 
             return (
               <div
@@ -230,11 +232,11 @@ export function NarreToolLog({
                 ].join(' ')}
               >
                 <div className="flex items-start gap-2">
-                  <ToolStatusIcon status={item.call.status} />
+                  <ToolStatusIcon status={toolItem.call.status} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={item.call.status === 'pending' ? 'text-muted' : 'text-secondary'}>
-                        {formatToolLabel(item.call, locale)}
+                      <span className={toolItem.call.status === 'pending' ? 'text-muted' : 'text-secondary'}>
+                        {formatToolLabel(toolItem.call, locale)}
                       </span>
                       <Badge>{getLocalizedToolCategoryLabel(metadata.category, locale)}</Badge>
                       {permissionDecisionLabel && (
@@ -257,27 +259,27 @@ export function NarreToolLog({
                       )}
                       {metadata.isMutation && <Badge variant="warning">{getLocalizedToolWriteLabel(locale)}</Badge>}
                     </div>
-                    {item.permission && showPermissionPrompt && onPermissionRespond ? (
+                    {permission && showPermissionPrompt && onPermissionRespond ? (
                       <div className="mt-1">
                         <PermissionCard
-                          card={item.permission.card}
+                          card={permission.card}
                           submittedResponse={permissionResponse ?? undefined}
                           compact
-                          onAction={(actionKey) => onPermissionRespond(item.permission.card.toolCallId, { action: actionKey })}
+                          onAction={(actionKey) => onPermissionRespond(permission.card.toolCallId, { action: actionKey })}
                         />
                       </div>
                     ) : null}
-                    {item.call.status === 'success' && summary ? (
-                      <div className={`${item.permission ? 'mt-1' : 'mt-0.5'} truncate text-muted`}>
+                    {toolItem.call.status === 'success' && summary ? (
+                      <div className={`${permission ? 'mt-1' : 'mt-0.5'} truncate text-muted`}>
                         {summary}
                       </div>
                     ) : null}
-                    {item.call.status === 'error' && summary ? (
-                      <div className={`${item.permission ? 'mt-1' : 'mt-0.5'} truncate text-[var(--status-error)]`}>
+                    {toolItem.call.status === 'error' && summary ? (
+                      <div className={`${permission ? 'mt-1' : 'mt-0.5'} truncate text-[var(--status-error)]`}>
                         {summary}
                       </div>
                     ) : null}
-                    {item.call.status !== 'success' && item.call.status !== 'error' && metadata.description ? (
+                    {toolItem.call.status !== 'success' && toolItem.call.status !== 'error' && metadata.description ? (
                       <div className="mt-0.5 text-muted">
                         {metadata.description}
                       </div>

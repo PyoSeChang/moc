@@ -50,7 +50,7 @@ export async function sendMessage(data: {
 }
 
 export function onStreamEvent(callback: (event: NarreStreamEvent) => void): () => void {
-  return window.electron.narre.onStreamEvent(callback);
+  return window.electron.narre.onStreamEvent((event) => callback(event as NarreStreamEvent));
 }
 
 export async function respondToCard(

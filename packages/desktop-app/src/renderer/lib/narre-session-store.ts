@@ -410,7 +410,7 @@ function updateCardResponseInBlocks(
   let updated = false;
 
   for (const block of blocks) {
-    if (block.type !== 'card' || block.card.toolCallId !== toolCallId) {
+    if (block.type !== 'card' || !('toolCallId' in block.card) || block.card.toolCallId !== toolCallId) {
       continue;
     }
 

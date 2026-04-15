@@ -94,6 +94,49 @@ function attachWindowStateEvents(win: BrowserWindow): void {
   win.on('always-on-top-changed', () => sendWindowAlwaysOnTopState(win));
 }
 
+function toggleWindowDevTools(win: BrowserWindow): void {
+  if (win.isDestroyed()) {
+    return;
+  }
+  if (win.webContents.isDevToolsOpened()) {
+    win.webContents.closeDevTools();
+    return;
+  }
+  win.webContents.openDevTools({ mode: 'detach', activate: false });
+}
+
+function attachDevToolsShortcuts(win: BrowserWindow): void {
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') {
+      return;
+    }
+
+    const hasPrimaryModifier = input.control || input.meta;
+    const upperKey = input.key.toUpperCase();
+    const shouldToggleDevTools = input.key === 'F12'
+      || (hasPrimaryModifier && input.shift && !input.alt && (upperKey === 'I' || upperKey === 'J'));
+    if (!shouldToggleDevTools) {
+      return;
+    }
+
+    event.preventDefault();
+    toggleWindowDevTools(win);
+  });
+}
+
+function openProductionDevTools(win: BrowserWindow): void {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  win.webContents.once('did-finish-load', () => {
+    if (win.isDestroyed()) {
+      return;
+    }
+    win.webContents.openDevTools({ mode: 'detach', activate: false });
+  });
+}
+
 async function loadWindowBounds(): Promise<StoredWindowBounds> {
   const raw = await withTimeout(
     getRemoteConfig('windowBounds'),
@@ -150,9 +193,12 @@ async function createWindow(): Promise<void> {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true,
     },
   });
   attachWindowStateEvents(mainWindow);
+  attachDevToolsShortcuts(mainWindow);
+  openProductionDevTools(mainWindow);
 
   if (saved.isMaximized) {
     mainWindow.maximize();
@@ -382,11 +428,13 @@ app.whenReady().then(async () => {
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false,
+        devTools: true,
       },
     });
 
     detachedWindows.set(hostId, detached);
     attachWindowStateEvents(detached);
+    attachDevToolsShortcuts(detached);
 
     // Intercept shortcuts for detached windows too
     detached.webContents.on('before-input-event', (event, input) => {

@@ -73,6 +73,7 @@ interface CodexAppServerSession {
   lastObservedName: string | null;
   lastEmittedName: string | null;
   spawnError: Error | null;
+  recentDebugEvents: string[];
 }
 
 interface CodexLaunchCommand {
@@ -864,6 +865,7 @@ const TRANSIENT_THREAD_SUFFIX_PATTERN = new RegExp(`[\\s.:()\\-–—|/\\\\]+${T
 const EDGE_SEPARATOR_PATTERN = /^[\s.:()\-–—|/\\]+|[\s.:()\-–—|/\\]+$/g;
 
 const DEFAULT_CODEX_SESSION_NAME = 'codex';
+const CODEX_DEBUG_RING_LIMIT = 200;
 
 function sanitizeCodexThreadName(name: string | null | undefined): string | null {
   if (typeof name !== 'string') {
@@ -927,6 +929,85 @@ function logCodexThreadName(
   } catch {
     // ignore debug log write failures
   }
+}
+
+function appendCodexDebugLine(wrapperDir: string, fileName: string, line: string): void {
+  try {
+    appendFileSync(join(wrapperDir, fileName), `${line}\n`, 'utf-8');
+  } catch {
+    // ignore debug log write failures
+  }
+}
+
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return JSON.stringify('[unserializable]');
+  }
+}
+
+function extractThreadIdFromParams(params: unknown): string | null {
+  if (!params || typeof params !== 'object') {
+    return null;
+  }
+  const maybeThreadId = (params as { threadId?: unknown }).threadId;
+  return typeof maybeThreadId === 'string' ? maybeThreadId : null;
+}
+
+function recordCodexSessionDebug(
+  session: CodexAppServerSession,
+  event: string,
+  details: Record<string, unknown> = {},
+  options: { persist?: boolean } = {},
+): void {
+  const line = safeJsonStringify({
+    ts: new Date().toISOString(),
+    event,
+    terminalSessionId: session.terminalSessionId,
+    externalSessionId: session.externalSessionId,
+    started: session.started,
+    lastStatus: session.lastStatus,
+    lastStatusReason: session.lastStatusReason,
+    ...details,
+  });
+  session.recentDebugEvents.push(line);
+  if (session.recentDebugEvents.length > CODEX_DEBUG_RING_LIMIT) {
+    session.recentDebugEvents.splice(0, session.recentDebugEvents.length - CODEX_DEBUG_RING_LIMIT);
+  }
+  if (options.persist) {
+    appendCodexDebugLine(session.wrapperDir, 'events.log', line);
+  }
+}
+
+function flushCodexSessionBlackbox(
+  session: CodexAppServerSession,
+  reason: string,
+  extra: Record<string, unknown> = {},
+): void {
+  const snapshot = safeJsonStringify({
+    ts: new Date().toISOString(),
+    reason,
+    terminalSessionId: session.terminalSessionId,
+    cwd: session.cwd,
+    remoteUrl: session.remoteUrl,
+    externalSessionId: session.externalSessionId,
+    started: session.started,
+    lastStatus: session.lastStatus,
+    lastStatusReason: session.lastStatusReason,
+    lastObservedName: session.lastObservedName,
+    lastEmittedName: session.lastEmittedName,
+    pendingName: session.pendingName,
+    pendingRequestCount: session.pendingRequests.size,
+    socketConnected: Boolean(session.socket),
+    childPid: session.child?.pid ?? null,
+    childExitCode: session.child?.exitCode ?? null,
+    childKilled: session.child?.killed ?? false,
+    spawnError: session.spawnError?.message ?? null,
+    extra,
+    recentEvents: session.recentDebugEvents,
+  });
+  appendCodexDebugLine(session.wrapperDir, 'blackbox.log', snapshot);
 }
 
 async function connectWebSocket(url: string, timeoutMs: number): Promise<WebSocketLike> {
@@ -1038,12 +1119,20 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
       lastObservedName: null,
       lastEmittedName: null,
       spawnError: null,
+      recentDebugEvents: [],
     };
 
     this.sessions.set(terminalSessionId, session);
+    recordCodexSessionDebug(session, 'session.prepared', {
+      cwd: launchConfig.cwd,
+      remoteUrl,
+      shell: launchConfig.shell ?? null,
+      launchTitle: launchConfig.title ?? null,
+    }, { persist: true });
     session.activationWatcher = watch(wrapperDir, { persistent: false }, (_eventType, filename) => {
       const changed = typeof filename === 'string' ? filename : null;
       if (changed === CODEX_WRAPPER_ACTIVATION_FILE) {
+        recordCodexSessionDebug(session, 'activation.file.detected', { file: changed }, { persist: true });
         void this.ensureSessionActivated(session);
       }
     });
@@ -1127,19 +1216,29 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
   private async activateSession(session: CodexAppServerSession): Promise<void> {
     const child = this.spawnAppServer(session);
     session.child = child;
+    recordCodexSessionDebug(session, 'app-server.spawned', {
+      childPid: child.pid ?? null,
+      remoteUrl: session.remoteUrl,
+    }, { persist: true });
 
     const socket = await this.connectWithRetry(session, 5_000);
     session.socket = socket;
+    recordCodexSessionDebug(session, 'socket.connected', {}, { persist: true });
     socket.addEventListener('message', (event) => {
       this.handleSocketMessage(session, event.data);
     });
-    socket.addEventListener('close', () => {
+    socket.addEventListener('close', (event) => {
       session.socket = null;
+      recordCodexSessionDebug(session, 'socket.closed', {
+        code: event.code ?? null,
+        reason: event.reason ?? null,
+      }, { persist: true });
       if (this.sessions.has(session.terminalSessionId)) {
         this.emitStatus(session, 'offline');
       }
     });
     socket.addEventListener('error', () => {
+      recordCodexSessionDebug(session, 'socket.error', {}, { persist: true });
       if (this.sessions.has(session.terminalSessionId)) {
         this.emitStatus(session, 'offline');
       }
@@ -1159,6 +1258,7 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     socket.send(JSON.stringify({
       method: 'initialized',
     }));
+    recordCodexSessionDebug(session, 'session.initialized', {}, { persist: true });
   }
 
   private spawnAppServer(session: CodexAppServerSession): ChildProcess {
@@ -1181,10 +1281,15 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     child.stderr?.on('data', () => {});
     child.on('error', (error) => {
       session.spawnError = error;
+      recordCodexSessionDebug(session, 'child.error', { message: error.message }, { persist: true });
       console.error(`[CodexAppServer:${session.terminalSessionId}] spawn error: ${error.message}`);
     });
-    child.on('exit', () => {
+    child.on('exit', (code, signal) => {
       session.child = null;
+      recordCodexSessionDebug(session, 'child.exit', {
+        code: code ?? null,
+        signal: signal ?? null,
+      }, { persist: true });
       if (!this.sessions.has(session.terminalSessionId)) {
         return;
       }
@@ -1322,6 +1427,12 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     method: string,
     params: unknown,
   ): void {
+    recordCodexSessionDebug(session, 'notification', {
+      method,
+      threadId: extractThreadIdFromParams(params),
+    }, {
+      persist: method === 'thread/closed' || method === 'thread/status/changed' || method === 'thread/started',
+    });
     switch (method) {
       case 'thread/started':
         this.handleThreadStarted(session, params);
@@ -1451,17 +1562,9 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
       return;
     }
 
-    this.sink?.emitSessionEvent({
-      provider: 'codex',
-      sessionId: session.terminalSessionId,
-      surface: { kind: 'terminal', id: session.terminalSessionId },
-      externalSessionId: threadId,
-      type: 'stop',
+    this.emitStopAndResetSession(session, 'thread_closed_current', {
+      closedThreadId: threadId,
     });
-    session.externalSessionId = null;
-    session.started = false;
-    session.lastStatus = null;
-    session.lastStatusReason = null;
   }
 
   private handleTurnCompleted(session: CodexAppServerSession, params: unknown): void {
@@ -1495,18 +1598,9 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
 
   private ensureSessionStarted(session: CodexAppServerSession, externalSessionId: string): void {
     if (session.externalSessionId && session.externalSessionId !== externalSessionId && session.started) {
-      this.sink?.emitSessionEvent({
-        provider: 'codex',
-        sessionId: session.terminalSessionId,
-        surface: { kind: 'terminal', id: session.terminalSessionId },
-        externalSessionId: session.externalSessionId,
-        type: 'stop',
+      this.emitStopAndResetSession(session, 'thread_switch', {
+        nextExternalSessionId: externalSessionId,
       });
-      session.started = false;
-      session.lastStatus = null;
-      session.lastStatusReason = null;
-      session.lastObservedName = null;
-      session.lastEmittedName = null;
     }
 
     session.externalSessionId = externalSessionId;
@@ -1519,6 +1613,9 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     }
 
     session.started = true;
+    recordCodexSessionDebug(session, 'session.start', {
+      externalSessionId,
+    }, { persist: true });
     this.sink?.emitSessionEvent({
       provider: 'codex',
       sessionId: session.terminalSessionId,
@@ -1542,6 +1639,10 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
 
     session.lastStatus = status;
     session.lastStatusReason = reason;
+    recordCodexSessionDebug(session, 'status.emit', {
+      status,
+      reason,
+    }, { persist: status === 'offline' || status === 'error' || status === 'blocked' });
     this.sink?.emitStatusEvent({
       provider: 'codex',
       sessionId: session.terminalSessionId,
@@ -1596,6 +1697,35 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     });
   }
 
+  private emitStopAndResetSession(
+    session: CodexAppServerSession,
+    reason: string,
+    extra: Record<string, unknown> = {},
+  ): void {
+    if (!session.started) {
+      return;
+    }
+
+    recordCodexSessionDebug(session, 'session.stop', {
+      reason,
+      ...extra,
+    }, { persist: true });
+    flushCodexSessionBlackbox(session, reason, extra);
+    this.sink?.emitSessionEvent({
+      provider: 'codex',
+      sessionId: session.terminalSessionId,
+      surface: { kind: 'terminal', id: session.terminalSessionId },
+      externalSessionId: session.externalSessionId,
+      type: 'stop',
+    });
+    session.externalSessionId = null;
+    session.started = false;
+    session.lastStatus = null;
+    session.lastStatusReason = null;
+    session.lastObservedName = null;
+    session.lastEmittedName = null;
+  }
+
   private cleanupSession(
     terminalSessionId: string,
     reason: TerminalCleanupReason,
@@ -1628,19 +1758,10 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
     session.activationInFlight = null;
 
     if (session.started) {
-      this.sink?.emitSessionEvent({
-        provider: 'codex',
-        sessionId: terminalSessionId,
-        surface: { kind: 'terminal', id: terminalSessionId },
-        externalSessionId: session.externalSessionId,
-        type: 'stop',
+      this.emitStopAndResetSession(session, `cleanup:${reason}`, {
+        exitCode,
       });
     }
-
-    session.externalSessionId = null;
-    session.started = false;
-    session.lastStatus = null;
-    session.lastStatusReason = null;
 
     try {
       session.socket?.close();
@@ -1732,6 +1853,10 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
       }
     } catch (error) {
       const message = formatRpcError(error);
+      recordCodexSessionDebug(session, 'thread.read.failed', {
+        threadId,
+        message,
+      }, { persist: true });
       console.warn(
         `[CodexAppServer:${session.terminalSessionId}] thread/read failed: ${message}`,
       );
@@ -1759,6 +1884,11 @@ export class CodexAppServerAdapter implements AgentRuntimeAdapter {
       .then(async (response) => {
         const threadIds = this.readLoadedThreadIds(response);
         const candidateThreadId = threadIds.find((threadId) => threadId !== failedThreadId) ?? null;
+        recordCodexSessionDebug(session, 'thread.loaded_list.result', {
+          failedThreadId,
+          candidateThreadId,
+          loadedThreadIds: threadIds,
+        }, { persist: true });
         if (!candidateThreadId) {
           return;
         }

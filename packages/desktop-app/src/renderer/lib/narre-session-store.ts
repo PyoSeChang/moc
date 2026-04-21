@@ -109,8 +109,8 @@ function humanizeSlashCommandName(commandName: string): string {
   switch (commandName) {
     case 'index':
       return 'PDF TOC Indexing';
-    case 'onboarding':
-      return 'Project Type System Setup';
+    case 'bootstrap':
+      return 'Project Bootstrap';
     default:
       return commandName
         .split(/[-_]/g)

@@ -181,8 +181,9 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
             id: item.id,
             objectType: 'network' as const,
             title: item.name,
-            subtitle: item.scope === 'project' ? 'Project Network' : 'Network',
+            subtitle: item.kind === 'ontology' ? 'Ontology' : item.kind === 'universe' ? 'Universe' : 'Network',
             isActive: item.id === currentNetwork?.id,
+            networkKind: item.kind,
           })),
       },
       {
@@ -237,7 +238,7 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
       },
     ];
 
-    if (network?.scope === 'app' || selection?.objectType === 'project') {
+    if (network?.kind === 'universe' || selection?.objectType === 'project') {
       sections.splice(1, 0, {
         key: 'project' as const,
         label: t('project.title' as never) ?? 'Projects',
@@ -254,7 +255,7 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
     }
 
     return sections;
-  }, [t, networks, currentNetwork?.id, concepts, archetypes, relationTypes, contexts, network?.scope, selection?.objectType, projects, currentProject?.id]);
+  }, [t, networks, currentNetwork?.id, concepts, archetypes, relationTypes, contexts, network?.kind, selection?.objectType, projects, currentProject?.id]);
 
   const selectedItem = useMemo<NetworkBrowserItem | null>(() => {
     const effectiveSelection = selection ?? { objectType: 'network' as const, id: networkId };
@@ -335,10 +336,12 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
     if (selectedObjectType !== 'network') return [];
     const selectedIdSet = new Set(selectedNetworkIds);
     return selectedNetworkIds.filter((id) => {
+      const selectedNetwork = networks.find((networkItem) => networkItem.id === id);
+      if (selectedNetwork?.kind === 'universe' || selectedNetwork?.kind === 'ontology') return false;
       const ancestors = networkAncestorsById.get(id) ?? [];
       return !ancestors.some((ancestorId) => selectedIdSet.has(ancestorId));
     });
-  }, [networkAncestorsById, selectedNetworkIds, selectedObjectType]);
+  }, [networkAncestorsById, networks, selectedNetworkIds, selectedObjectType]);
 
   const buildGroupOptions = useCallback((groups: TypeGroup[], parentGroupId: string | null = null, depth = 0): Array<{ value: string; label: string }> => {
     return groups
@@ -381,6 +384,11 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
   const canBulkMoveNetwork = selectedObjectType === 'network' && topLevelSelectedNetworkIds.length > 0;
   const canBulkDelete = selectedItems.length > 0
     && !selectedItems.some((item) => item.objectType === 'project')
+    && !selectedItems.some((item) => {
+      if (item.objectType !== 'network') return false;
+      const selectedNetwork = networks.find((networkItem) => networkItem.id === item.id);
+      return selectedNetwork?.kind === 'universe' || selectedNetwork?.kind === 'ontology';
+    })
     && !selectedItems.some((item) => item.objectType === 'network' && item.id === networkId);
 
   const handleBulkDelete = useCallback(async () => {
@@ -432,6 +440,7 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
       { value: '', label: t('common.none') ?? 'None' },
       ...[...networks]
         .filter((candidate) => !blockedIds.has(candidate.id))
+        .filter((candidate) => candidate.kind !== 'universe' && candidate.kind !== 'ontology')
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((candidate) => ({ value: candidate.id, label: candidate.name })),
     ];

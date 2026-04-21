@@ -2,6 +2,7 @@ import type {
   NarreCard,
   NarreMention,
   NarreStreamEvent,
+  NarrePromptSkillKey,
   Project,
   ProjectCreate,
   Archetype,
@@ -20,6 +21,88 @@ import type {
 
 export type ScenarioType = 'single-turn' | 'conversation';
 export type ScenarioLifecycle = 'draft' | 'active' | 'deprecated';
+export type EvalProviderId = 'claude' | 'openai' | 'codex';
+export type EvalScenarioKind = 'fixed' | 'interpretive';
+export type EvalTesterId =
+  | 'codex-tester'
+  | 'basic-turn-runner'
+  | 'conversation-tester'
+  | 'card-responder'
+  | 'approval-sensitive';
+export type EvalExecutionMode = 'single_agent' | 'multi_agent';
+export type ResponsibilitySurfaceId =
+  | 'NR01'
+  | 'NR02'
+  | 'NR03'
+  | 'NR04'
+  | 'NR05'
+  | 'NR06'
+  | 'NR07'
+  | 'NR08'
+  | 'NR09'
+  | 'NR10'
+  | 'NR11'
+  | 'NR12'
+  | 'NR13'
+  | 'NR14'
+  | 'NR15'
+  | 'NR16'
+  | 'NR17'
+  | 'NR18'
+  | 'NR19'
+  | 'NR20'
+  | 'NR21'
+  | 'NR22'
+  | 'NR23'
+  | 'NR24'
+  | 'NR25';
+
+export interface ScenarioExecutionManifest {
+  supported_agents?: string[];
+  required_capabilities?: string[];
+  target_skill?: NarrePromptSkillKey;
+  scenario_kind?: EvalScenarioKind;
+  agent_id?: string;
+  provider?: EvalProviderId;
+  tester?: EvalTesterId;
+  execution_mode?: EvalExecutionMode;
+  analysis_targets?: string[];
+  provider_settings?: Record<string, unknown>;
+  tester_settings?: Record<string, unknown>;
+}
+
+export interface ScenarioExecutionConfig {
+  supported_agents: string[];
+  required_capabilities: string[];
+  target_skill?: NarrePromptSkillKey;
+  scenario_kind: EvalScenarioKind;
+  agent_id: string;
+  provider: EvalProviderId;
+  tester: EvalTesterId;
+  execution_mode: EvalExecutionMode;
+  analysis_targets: string[];
+  provider_settings?: Record<string, unknown>;
+  tester_settings?: Record<string, unknown>;
+}
+
+export interface RunSpec {
+  run_id?: string;
+  scenario_id?: string;
+  tag?: string;
+  repeat?: number;
+  judge?: boolean;
+  port?: number;
+  baseline?: string;
+  target_skill?: NarrePromptSkillKey;
+  scenario_kind?: EvalScenarioKind;
+  agent_id?: string;
+  provider?: EvalProviderId;
+  tester?: EvalTesterId;
+  execution_mode?: EvalExecutionMode;
+  analysis_targets?: string[];
+  provider_settings?: Record<string, unknown>;
+  tester_settings?: Record<string, unknown>;
+}
 
 // ── Scenario Bundle (manifest.yaml) ──
 
@@ -32,10 +115,8 @@ export interface ScenarioManifest {
   type: ScenarioType;
   lifecycle: ScenarioLifecycle;
   labels: string[];
-  execution: {
-    supported_agents: string[];
-    required_capabilities: string[];
-  };
+  responsibility_surfaces?: ResponsibilitySurfaceId[];
+  execution: ScenarioExecutionManifest;
   turn_plan: { file: string };
   entrypoints: { seed: string; responder?: string };
   assets: {
@@ -56,6 +137,14 @@ export interface ScenarioVersionInfo {
   schema_version: number;
   supported_agents: string[];
   required_capabilities: string[];
+  target_skill?: NarrePromptSkillKey;
+  scenario_kind: EvalScenarioKind;
+  agent_id: string;
+  provider: EvalProviderId;
+  tester: EvalTesterId;
+  execution_mode: EvalExecutionMode;
+  analysis_targets: string[];
+  responsibility_surfaces: ResponsibilitySurfaceId[];
   created_by: ProvenanceInfo | null;
 }
 
@@ -70,6 +159,8 @@ export interface EvalScenario {
   description: string;
   type: ScenarioType;
   tags: string[];
+  responsibilitySurfaces: ResponsibilitySurfaceId[];
+  execution: ScenarioExecutionConfig;
   turns: Turn[];
   verify: VerifyItem[];
   qualitative: QualitativeItem[];
@@ -152,6 +243,22 @@ export interface VerifyItem {
     contains_any?: string[];
     no_error?: boolean;
   };
+  analysis?: {
+    tool_use?: {
+      findings_present?: ToolUseFindingKind[];
+      findings_absent?: ToolUseFindingKind[];
+      summary?: {
+        total_calls?: { count?: number; min?: number; max?: number };
+        unique_tool_count?: { count?: number; min?: number; max?: number };
+        discovery_call_count?: { count?: number; min?: number; max?: number };
+        prompt_redundant_lookup_count?: { count?: number; min?: number; max?: number };
+        repeated_lookup_group_count?: { count?: number; min?: number; max?: number };
+        project_binding_violation_count?: { count?: number; min?: number; max?: number };
+        finding_count?: { count?: number; min?: number; max?: number };
+        over_budget?: boolean;
+      };
+    };
+  };
 }
 
 export interface VerifyResult {
@@ -184,9 +291,33 @@ export interface SeedContext {
 export interface ResponderContext {
   cardIndex: number;
   previousCards: NarreCard[];
+  turnIndex: number;
+  scenarioId: string;
+  tester: EvalTesterId;
 }
 
 // ── Transcript ──
+
+export type TesterInteractionSource =
+  | 'scenario_responder'
+  | 'tester_default'
+  | 'tester_fallback'
+  | 'codex_tester';
+export type TesterInteractionStatus = 'responded' | 'skipped';
+
+export interface TesterInteraction {
+  turnIndex: number;
+  cardIndex: number;
+  tester: EvalTesterId;
+  source: TesterInteractionSource;
+  status: TesterInteractionStatus;
+  cardType: NarreCard['type'];
+  toolCallId?: string;
+  card: NarreCard;
+  response?: unknown;
+  decisionSummary?: string;
+  evaluationNote?: string;
+}
 
 export interface TurnTranscript {
   user: string;
@@ -194,6 +325,7 @@ export interface TurnTranscript {
   toolCalls: ToolCallRecord[];
   events: NarreStreamEvent[];
   errors: string[];
+  testerInteractions: TesterInteraction[];
 }
 
 export interface ToolCallRecord {
@@ -209,6 +341,8 @@ export interface Transcript {
   totalToolCalls: number;
   cardResponseCount: number;
   sessionResumeCount: number;
+  testerInteractions: TesterInteraction[];
+  testerInteractionCount: number;
 }
 
 // ── Metrics ──
@@ -228,6 +362,10 @@ export interface AgentInfo {
   version?: string;
   runtime: string;
   adapter_version?: string;
+  adapter_id?: string;
+  adapter_name?: string;
+  provider?: EvalProviderId;
+  tester?: EvalTesterId;
 }
 
 // ── Results ──
@@ -251,12 +389,53 @@ export interface ComparisonResult {
   metricDeltas: Record<string, number | null>;
 }
 
+export type ToolUseFindingSeverity = 'info' | 'warn' | 'error';
+export type ToolUseFindingKind =
+  | 'bootstrap_missing_interview'
+  | 'bootstrap_insufficient_interview'
+  | 'bootstrap_missing_proposal'
+  | 'prompt_digest_redundant_lookup'
+  | 'broad_discovery_overuse'
+  | 'redundant_repeated_lookup'
+  | 'project_binding_violation'
+  | 'tool_budget_overrun';
+
+export interface ToolUseFinding {
+  kind: ToolUseFindingKind;
+  severity: ToolUseFindingSeverity;
+  message: string;
+  tools?: string[];
+  count?: number;
+  turnIndexes?: number[];
+}
+
+export interface ToolUseAnalysisSummary {
+  totalCalls: number;
+  uniqueToolCount: number;
+  discoveryCallCount: number;
+  promptRedundantLookupCount: number;
+  repeatedLookupGroupCount: number;
+  projectBindingViolationCount: number;
+  overBudget: boolean;
+  budgetLimit: number;
+}
+
+export interface ToolUseAnalysis {
+  findings: ToolUseFinding[];
+  summary: ToolUseAnalysisSummary;
+}
+
+export interface ScenarioAnalysis {
+  toolUse: ToolUseAnalysis;
+}
+
 export interface ScenarioResult {
   runId: string;
   scenarioId: string;
   timestamp: string;
   status: ScenarioStatus;
   agent: AgentInfo;
+  execution: ScenarioExecutionConfig;
   scenarioAuthor: ProvenanceInfo | null;
   executedBy: ProvenanceInfo;
   scenarioVersion: string | null;
@@ -265,8 +444,10 @@ export interface ScenarioResult {
   verifyResults: { passed: number; total: number; results: VerifyResult[] };
   judgeScores: JudgeScore[];
   judgeAvg: number | null;
+  judgeReportMarkdown: string | null;
   durationMs: number;
   metrics: Record<string, MetricValue>;
+  analysis: ScenarioAnalysis;
   transcript: Transcript;
   comparison?: ComparisonResult;
   error?: string;
@@ -279,6 +460,9 @@ export interface RunMetadata {
   finishedAt: string;
   agent: AgentInfo;
   executedBy: ProvenanceInfo;
+  runSpecPath: string | null;
+  runSpec: RunSpec | null;
+  scenarioExecutions: Array<{ scenarioId: string; execution: ScenarioExecutionConfig }>;
   scenarioIds: string[];
 }
 
@@ -292,4 +476,5 @@ export interface EvalOptions {
   port: number;
   /** Run ID substring to compare against. 'latest' (default) uses most recent run. */
   baseline?: string;
+  runSpec?: string;
 }

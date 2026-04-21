@@ -13,6 +13,7 @@ export default defineConfig({
   platform: 'node',
   external: [],
   noExternal: [/.*/],
+  onSuccess: 'node scripts/copy-pdf-worker.mjs',
   outExtension() {
     return {
       js: '.cjs',

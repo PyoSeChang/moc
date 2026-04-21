@@ -114,7 +114,7 @@ function ProjectSwitcher(): JSX.Element {
 
   // Projects with cached state (quick-switch spans)
   const cachedProjects = projects.filter((p) => p.id !== currentProject?.id && hasCachedState(p.id));
-  const currentLabel = currentProject?.name ?? (currentNetwork?.scope === 'app' ? 'App Root' : t('project.noProject'));
+  const currentLabel = currentProject?.name ?? (currentNetwork?.kind === 'universe' ? 'Universe' : t('project.noProject'));
 
   return (
     <div className="flex items-center gap-1.5" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>

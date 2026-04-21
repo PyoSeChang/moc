@@ -14,11 +14,11 @@ export * from './netior-mcp-tools.js';
 
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   {
-    name: 'onboarding',
-    description: 'narre.command.onboarding',
+    name: 'bootstrap',
+    description: 'narre.command.bootstrap',
     type: 'conversation',
-    hint: 'narre.command.onboardingHint',
-    promptSkillKey: 'onboarding',
+    hint: 'narre.command.bootstrapHint',
+    promptSkillKey: 'bootstrap',
   },
   {
     name: 'index',

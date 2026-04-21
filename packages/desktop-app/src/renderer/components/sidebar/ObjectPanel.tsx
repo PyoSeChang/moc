@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { TypeGroup, TypeGroupKind } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
 import {
+  Boxes,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -50,6 +51,7 @@ type PanelItem =
       color?: string | null;
       isActive?: boolean;
       iconName?: string | null;
+      networkKind?: string;
     }
   | {
       id: string;
@@ -492,8 +494,9 @@ export function ObjectPanel(): JSX.Element {
         kind: 'object',
         objectType: 'network',
         title: network.name,
-        subtitle: network.scope === 'project' ? 'Project Network' : 'Network',
+        subtitle: network.kind === 'ontology' ? 'Ontology' : network.kind === 'universe' ? 'Universe' : 'Network',
         isActive: currentNetwork?.id === network.id,
+        networkKind: network.kind,
       },
     }))
   ), [networks, currentNetwork?.id]);
@@ -700,7 +703,6 @@ export function ObjectPanel(): JSX.Element {
         const created = await createNetwork({
           project_id: currentProject.id,
           name: t('network.defaultName'),
-          parent_network_id: currentNetwork?.id ?? undefined,
         });
         await loadNetworkTree(currentProject.id);
         await openNetwork(created.id);
@@ -1107,6 +1109,9 @@ export function ObjectPanel(): JSX.Element {
       case 'concept':
         return <CircleDot size={14} className="shrink-0 text-secondary" />;
       case 'network':
+        if (row.item.networkKind === 'ontology') {
+          return <Boxes size={14} className="shrink-0 text-secondary" />;
+        }
         return <Waypoints size={14} className="shrink-0 text-secondary" />;
       case 'archetype':
         return <Shapes size={14} className="shrink-0 text-secondary" />;

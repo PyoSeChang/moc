@@ -1,0 +1,37 @@
+id: think-data-structure-pdf-index
+title: "Think Data Structure PDF 목차 인덱싱"
+description: "루트의 Think Data Structure.pdf를 대상으로 /index skill이 PDF 목차 페이지를 읽고, 사용자 승인 후 file metadata의 pdf_toc에 구조화된 TOC를 저장하는지 평가한다"
+scenario_version: "1.0.0"
+schema_version: 1
+type: single-turn
+lifecycle: active
+labels: [product, pdf, toc, index, file-metadata, artifact, skill]
+responsibility_surfaces: [NR10, NR11, NR24, NR25]
+
+execution:
+  supported_agents: [narre-server]
+  required_capabilities: [tool_call_trace]
+  target_skill: index
+  scenario_kind: fixed
+  agent_id: narre-basic
+  provider: codex
+  tester: basic-turn-runner
+  analysis_targets: [tool_use, file_metadata, pdf_toc]
+
+turn_plan:
+  file: turns.yaml
+
+entrypoints:
+  seed: seed.ts
+
+assets:
+  verify:
+    - verify/checks.yaml
+  rubrics:
+    - rubrics/quality.yaml
+
+provenance:
+  created_by:
+    id: netior-team
+    name: Netior Team
+    source: repo-scenario

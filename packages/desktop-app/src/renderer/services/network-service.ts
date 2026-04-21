@@ -51,12 +51,12 @@ export async function getNetworkFull(networkId: string): Promise<NetworkFullData
   return unwrapIpc(await window.electron.network.getFull(networkId));
 }
 
-export async function getAppRootNetwork(): Promise<Network | undefined> {
-  return unwrapIpc(await window.electron.network.getAppRoot());
+export async function getUniverseNetwork(): Promise<Network | undefined> {
+  return unwrapIpc(await window.electron.network.getUniverse());
 }
 
-export async function getProjectRootNetwork(projectId: string): Promise<Network | undefined> {
-  return unwrapIpc(await window.electron.network.getProjectRoot(projectId));
+export async function getProjectOntologyNetwork(projectId: string): Promise<Network | undefined> {
+  return unwrapIpc(await window.electron.network.getProjectOntology(projectId));
 }
 
 export async function getNetworkAncestors(networkId: string): Promise<NetworkBreadcrumbItem[]> {
@@ -100,7 +100,7 @@ export async function deleteEdge(id: string): Promise<boolean> {
 export const networkService = {
   create: createNetwork, list: listNetworks, update: updateNetwork,
   delete: deleteNetwork, getFull: getNetworkFull,
-  getAppRoot: getAppRootNetwork, getProjectRoot: getProjectRootNetwork,
+  getUniverse: getUniverseNetwork, getProjectOntology: getProjectOntologyNetwork,
   getAncestors: getNetworkAncestors, getTree: getNetworkTree,
   node: { add: addNetworkNode, update: updateNetworkNode, remove: removeNetworkNode },
   edge: { create: createEdge, get: getEdge, update: updateEdge, delete: deleteEdge },

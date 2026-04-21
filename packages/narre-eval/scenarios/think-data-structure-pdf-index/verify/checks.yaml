@@ -1,0 +1,64 @@
+verify:
+  - name: "target PDF file entity exists"
+    db:
+      table: files
+      condition: "project_id = '{{project_id}}' AND path = 'Think Data Structure.pdf' AND type = 'file'"
+      expect:
+        count: 1
+
+  - name: "no response error"
+    response:
+      no_error: true
+
+  - name: "index checks existing file metadata first"
+    tool:
+      name: get_file_metadata
+      expect:
+        count_min: 1
+        count_max: 2
+
+  - name: "index reads declared TOC pages"
+    tool:
+      name: read_pdf_pages
+      expect:
+        count_min: 1
+        count_max: 3
+        sequence: [get_file_metadata, read_pdf_pages, confirm, update_file_pdf_toc]
+
+  - name: "index asks for save approval"
+    tool:
+      name: confirm
+      expect:
+        count_min: 1
+        count_max: 3
+
+  - name: "index stores PDF TOC metadata"
+    tool:
+      name: update_file_pdf_toc
+      expect:
+        count_min: 1
+        count_max: 1
+
+  - name: "pdf_toc metadata has page count and enough entries"
+    db:
+      table: files
+      condition: "project_id = '{{project_id}}' AND path = 'Think Data Structure.pdf' AND json_extract(metadata, '$.pdf_toc.pageCount') = 184 AND json_array_length(json_extract(metadata, '$.pdf_toc.entries')) >= 10"
+      expect:
+        count: 1
+
+  - name: "pdf_toc metadata includes viewer destinations"
+    db:
+      table: files
+      condition: "project_id = '{{project_id}}' AND path = 'Think Data Structure.pdf' AND metadata LIKE '%\"destPage\"%' AND metadata LIKE '%\"sourceMethod\":\"text\"%'"
+      expect:
+        count: 1
+
+  - name: "vision fallback is not used for this text-readable PDF"
+    tool_absent_in_turn:
+      tool: read_pdf_pages_vision
+      turn: 0
+
+  - name: "broad project discovery is not used during PDF indexing"
+    tool_absent_in_turn:
+      tool: get_project_summary
+      turn: 0

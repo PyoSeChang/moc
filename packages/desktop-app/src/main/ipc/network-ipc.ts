@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import type { IpcResult } from '@netior/shared/types';
 import {
   addRemoteNetworkNode,
@@ -6,12 +6,12 @@ import {
   createRemoteNetwork,
   deleteRemoteEdge,
   deleteRemoteNetwork,
-  getRemoteAppRootNetwork,
   getRemoteEdge,
   getRemoteNetworkAncestors,
   getRemoteNetworkFull,
   getRemoteNetworkTree,
-  getRemoteProjectRootNetwork,
+  getRemoteProjectOntologyNetwork,
+  getRemoteUniverseNetwork,
   listRemoteNetworks,
   removeRemoteNetworkNode,
   updateRemoteEdge,
@@ -67,21 +67,23 @@ export function registerNetworkIpc(): void {
     }
   });
 
-  ipcMain.handle('network:getAppRoot', async (): Promise<IpcResult<unknown>> => {
+  const handleGetUniverseNetwork = async (): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: await getRemoteAppRootNetwork() };
+      return { success: true, data: await getRemoteUniverseNetwork() };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
-  });
+  };
+  ipcMain.handle('network:getUniverse', handleGetUniverseNetwork);
 
-  ipcMain.handle('network:getProjectRoot', async (_e, projectId: string): Promise<IpcResult<unknown>> => {
+  const handleGetProjectOntologyNetwork = async (_e: IpcMainInvokeEvent, projectId: string): Promise<IpcResult<unknown>> => {
     try {
-      return { success: true, data: await getRemoteProjectRootNetwork(projectId) };
+      return { success: true, data: await getRemoteProjectOntologyNetwork(projectId) };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
-  });
+  };
+  ipcMain.handle('network:getProjectOntology', handleGetProjectOntologyNetwork);
 
   ipcMain.handle('network:getAncestors', async (_e, networkId: string): Promise<IpcResult<unknown>> => {
     try {

@@ -22,11 +22,12 @@ import { migrate018 } from './migrations/018-unify-hierarchy-parent-contract';
 import { migrate019 } from './migrations/019-module-path';
 import { migrate020 } from './migrations/020-archetype-semantics';
 import { migrate021 } from './migrations/021-concept-recurrence-materialization';
+import { migrate022 } from './migrations/022-network-universe-ontology';
 import {
-  ensureAppRootNetworkForDb,
-  ensureProjectNodeInAppRootForDb,
-  ensureProjectRootNetworkForDb,
-} from './repositories/network-roots';
+  ensureProjectNodeInUniverseForDb,
+  ensureProjectOntologyNetworkForDb,
+  ensureUniverseNetworkForDb,
+} from './repositories/system-networks';
 
 let db: Database.Database | null = null;
 
@@ -57,6 +58,7 @@ const migrations: Migration[] = [
   { version: 19, migrate: migrate019 },
   { version: 20, migrate: migrate020 },
   { version: 21, migrate: migrate021 },
+  { version: 22, migrate: migrate022 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {
@@ -149,12 +151,12 @@ export function initDatabase(dbPath: string, options?: InitDatabaseOptions): voi
     }
   }
 
-  ensureAppRootNetworkForDb(db);
+  ensureUniverseNetworkForDb(db);
 
   const projectRows = db.prepare('SELECT id FROM projects').all() as { id: string }[];
   for (const project of projectRows) {
-    ensureProjectRootNetworkForDb(db, project.id);
-    ensureProjectNodeInAppRootForDb(db, project.id);
+    ensureProjectOntologyNetworkForDb(db, project.id);
+    ensureProjectNodeInUniverseForDb(db, project.id);
   }
 }
 

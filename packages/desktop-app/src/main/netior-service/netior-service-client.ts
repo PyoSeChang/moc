@@ -452,12 +452,12 @@ export async function getRemoteNetworkFull(networkId: string): Promise<NetworkFu
   return requestJson<NetworkFullData | null>(`/networks/${encodeURIComponent(networkId)}/full`);
 }
 
-export async function getRemoteAppRootNetwork(): Promise<Network | null> {
-  return requestJson<Network | null>('/networks/app-root');
+export async function getRemoteUniverseNetwork(): Promise<Network | null> {
+  return requestJson<Network | null>('/networks/universe');
 }
 
-export async function getRemoteProjectRootNetwork(projectId: string): Promise<Network | null> {
-  return requestJson<Network | null>(`/networks/project-root${toQueryString({ projectId })}`);
+export async function getRemoteProjectOntologyNetwork(projectId: string): Promise<Network | null> {
+  return requestJson<Network | null>(`/networks/ontology${toQueryString({ projectId })}`);
 }
 
 export async function getRemoteNetworkAncestors(networkId: string): Promise<NetworkBreadcrumbItem[]> {

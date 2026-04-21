@@ -29,7 +29,6 @@ import {
   deleteTypeGroup,
   getContext,
   getContextMembers,
-  getAppRootNetwork,
   getArchetype,
   getByConceptId,
   getConceptsByProject,
@@ -42,14 +41,16 @@ import {
   getLayoutByNetwork,
   getNetworkAncestors,
   getNetworkFull,
+  getNetworkNode,
   getNetworkTree,
   getNodePositions,
   getObject,
   getObjectByRef,
-  getProjectRootNetwork,
+  getProjectOntologyNetwork,
   getProjectById,
   getRelationType,
   getSetting,
+  getUniverseNetwork,
   getDatabase,
   initDatabase,
   listArchetypes,
@@ -821,24 +822,24 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  if (pathname === '/networks/app-root') {
+  if (pathname === '/networks/universe') {
     if (method !== 'GET') {
       sendJson(res, 405, { ok: false, error: `Method ${method} not allowed for ${pathname}` });
       return;
     }
 
-    sendJson(res, 200, { ok: true, data: getAppRootNetwork() });
+    sendJson(res, 200, { ok: true, data: getUniverseNetwork() });
     return;
   }
 
-  if (pathname === '/networks/project-root') {
+  if (pathname === '/networks/ontology') {
     if (method !== 'GET') {
       sendJson(res, 405, { ok: false, error: `Method ${method} not allowed for ${pathname}` });
       return;
     }
 
     const projectId = getRequiredSearchParam(url, 'projectId');
-    sendJson(res, 200, { ok: true, data: getProjectRootNetwork(projectId) });
+    sendJson(res, 200, { ok: true, data: getProjectOntologyNetwork(projectId) });
     return;
   }
 
@@ -926,6 +927,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
   if (pathname.startsWith('/network-nodes/')) {
     const id = decodeURIComponent(pathname.slice('/network-nodes/'.length));
+
+    if (method === 'GET') {
+      sendJson(res, 200, { ok: true, data: getNetworkNode(id) ?? null });
+      return;
+    }
 
     if (method === 'PATCH') {
       const body = await readJsonBody<NetworkNodeUpdate>(req);

@@ -129,6 +129,29 @@ export async function setupScenario(
 export async function teardownScenario(setup: Pick<SetupResult, 'tempDir' | 'stopService'>): Promise<void> {
   await setup.stopService();
   if (existsSync(setup.tempDir)) {
-    rmSync(setup.tempDir, { recursive: true, force: true });
+    await removeDirectoryWithRetry(setup.tempDir);
+  }
+}
+
+async function removeDirectoryWithRetry(targetDir: string): Promise<void> {
+  const maxAttempts = 8;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      rmSync(targetDir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (!existsSync(targetDir)) {
+        return;
+      }
+
+      if ((code === 'EBUSY' || code === 'EPERM' || code === 'ENOTEMPTY') && attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+        continue;
+      }
+
+      throw error;
+    }
   }
 }

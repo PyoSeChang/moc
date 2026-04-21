@@ -6,10 +6,7 @@ import { existsSync } from 'fs';
 import { createRequire } from 'module';
 import { randomUUID } from 'crypto';
 import type { NarreBehaviorSettings, NarreCodexSettings, NarreMention, NarreStreamEvent } from '@netior/shared/types';
-import {
-  normalizeNarreBehaviorSettings,
-  type SystemPromptParams,
-} from './system-prompt.js';
+import { normalizeNarreBehaviorSettings } from './system-prompt.js';
 import { SessionStore } from './session-store.js';
 import { initSSE, sendSSEEvent, endSSE } from './streaming.js';
 import { parseCommand } from './command-router.js';
@@ -17,6 +14,7 @@ import { NarreRuntime } from './runtime/narre-runtime.js';
 import type { NarreProviderAdapter } from './runtime/provider-adapter.js';
 import { ClaudeProviderAdapter } from './providers/claude.js';
 import { initNarreLogging } from './logging.js';
+import { buildProjectPromptMetadata } from './project-prompt-metadata.js';
 
 const currentFilePath = typeof __filename === 'string'
   ? __filename
@@ -171,12 +169,11 @@ app.post('/command', async (req, res) => {
 });
 
 app.post('/chat', async (req, res) => {
-  const { sessionId, projectId, message, mentions, projectMetadata } = req.body as {
+  const { sessionId, projectId, message, mentions } = req.body as {
     sessionId?: string;
     projectId: string;
     message: string;
     mentions?: NarreMention[];
-    projectMetadata?: SystemPromptParams;
   };
   const traceId = req.get(NARRE_TRACE_HEADER) || randomUUID();
   const requestStartedAt = Date.now();
@@ -231,7 +228,7 @@ app.post('/chat', async (req, res) => {
     );
 
     const result = await runtime.runChat(
-      { sessionId, projectId, message, mentions, projectMetadata, traceId },
+      { sessionId, projectId, message, mentions, traceId },
       {
         onText: (content) => {
           if (!abortController.signal.aborted) {
@@ -294,11 +291,12 @@ app.post('/chat', async (req, res) => {
 async function initializeRuntime(): Promise<{ provider: NarreProviderAdapter; runtime: NarreRuntime }> {
   const provider = await createProviderAdapter(process.env.NARRE_PROVIDER ?? 'claude');
   const runtime = new NarreRuntime({
-  behaviorSettings,
-  provider,
-  resolveMcpServerPath,
-  sessionStore,
-});
+    behaviorSettings,
+    provider,
+    resolveMcpServerPath,
+    resolvePromptMetadata: buildProjectPromptMetadata,
+    sessionStore,
+  });
   return { provider, runtime };
 }
 

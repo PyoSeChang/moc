@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, CircleDot, FolderOpen, Layers3, Shapes, Share2, Waypoints } from 'lucide-react';
+import { Boxes, ChevronDown, ChevronRight, CircleDot, FolderOpen, Layers3, Shapes, Share2, Waypoints } from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 
@@ -11,6 +11,7 @@ export interface NetworkBrowserItem {
   title: string;
   subtitle: string;
   isActive?: boolean;
+  networkKind?: string;
 }
 
 interface NetworkBrowserSection {
@@ -206,7 +207,9 @@ export function NetworkObjectBrowser({
                 {!collapsed && (
                   <div className="flex flex-col">
                     {section.items.map((item) => {
-                      const Icon = ICONS[item.objectType];
+                      const Icon = item.objectType === 'network' && item.networkKind === 'ontology'
+                        ? Boxes
+                        : ICONS[item.objectType];
                       const itemKey = `${item.objectType}:${item.id}`;
                       const selected = selectedKey === itemKey;
                       return (

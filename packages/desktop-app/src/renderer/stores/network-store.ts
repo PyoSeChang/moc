@@ -281,7 +281,7 @@ interface NetworkStore {
   networkTree: NetworkTreeNode[];
 
   // Network CRUD
-  loadAppWorkspace: () => Promise<Network | null>;
+  loadUniverseWorkspace: () => Promise<Network | null>;
   loadNetworks: (projectId: string) => Promise<void>;
   loadNetworkTree: (projectId: string) => Promise<void>;
   createNetwork: (data: NetworkCreate) => Promise<Network>;
@@ -328,13 +328,13 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   networkHistory: [],
   networkTree: [],
 
-  loadAppWorkspace: async () => {
-    const appRoot = await networkService.getAppRoot();
+  loadUniverseWorkspace: async () => {
+    const universe = await networkService.getUniverse();
     set({
-      networks: appRoot ? [appRoot] : [],
-      networkTree: appRoot ? [{ network: appRoot, children: [] }] : [],
+      networks: universe ? [universe] : [],
+      networkTree: universe ? [{ network: universe, children: [] }] : [],
     });
-    return appRoot ?? null;
+    return universe ?? null;
   },
 
   loadNetworks: async (projectId) => {

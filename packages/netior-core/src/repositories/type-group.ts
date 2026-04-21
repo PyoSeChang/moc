@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
+import { createObject, deleteObjectByRef } from './objects';
+import { syncProjectOntologyForDb } from './system-networks';
 import type { TypeGroup, TypeGroupCreate, TypeGroupUpdate, TypeGroupKind } from '@netior/shared/types';
 
 export function createTypeGroup(data: TypeGroupCreate): TypeGroup {
@@ -21,6 +23,11 @@ export function createTypeGroup(data: TypeGroupCreate): TypeGroup {
     now,
     now,
   );
+
+  createObject('type_group', data.scope ?? 'project', data.project_id, id);
+  if (data.project_id) {
+    syncProjectOntologyForDb(db, data.project_id);
+  }
 
   return db.prepare('SELECT * FROM type_groups WHERE id = ?').get(id) as TypeGroup;
 }
@@ -60,5 +67,9 @@ export function updateTypeGroup(id: string, data: TypeGroupUpdate): TypeGroup | 
 export function deleteTypeGroup(id: string): boolean {
   const db = getDatabase();
   const result = db.prepare('DELETE FROM type_groups WHERE id = ?').run(id);
-  return result.changes > 0;
+  if (result.changes > 0) {
+    deleteObjectByRef('type_group', id);
+    return true;
+  }
+  return false;
 }

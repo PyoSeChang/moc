@@ -28,6 +28,37 @@ type ResolvedConceptPropertyFilter = {
   match: 'equals' | 'contains';
 };
 
+function normalizeOptionalVisualValue(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveConceptVisualValue(input: {
+  icon?: string | null;
+  profile_image?: string | null;
+}): string | null | undefined {
+  const icon = normalizeOptionalVisualValue(input.icon);
+  const profileImage = normalizeOptionalVisualValue(input.profile_image);
+
+  if (icon !== undefined && profileImage !== undefined) {
+    if (icon && profileImage) {
+      throw new Error('Provide either icon or profile_image, not both');
+    }
+
+    return profileImage ?? icon ?? null;
+  }
+
+  return profileImage !== undefined ? profileImage : icon;
+}
+
 function tryParseSerializedValue(value: string | null): unknown {
   if (value == null) {
     return null;
@@ -192,16 +223,18 @@ export function registerConceptTools(server: McpServer): void {
       title: z.string().describe('Concept title'),
       archetype_id: z.string().optional().describe('Archetype ID to assign'),
       color: z.string().optional().describe('Color value'),
-      icon: z.string().optional().describe('Icon identifier'),
+      icon: z.string().nullable().optional().describe('Icon identifier or emoji text. Use this when not setting profile_image.'),
+      profile_image: z.string().nullable().optional().describe('Profile image source. Can be an image URL, data URL, file URL, or local file path. Stored in the concept icon field.'),
     },
-    async ({ project_id, title, archetype_id, color, icon }) => {
+    async ({ project_id, title, archetype_id, color, icon, profile_image }) => {
       try {
+        const visual = resolveConceptVisualValue({ icon, profile_image });
         const result = await createConcept({
           project_id: resolveProjectId(project_id),
           title,
           archetype_id,
           color,
-          icon,
+          ...(visual !== undefined && visual !== null ? { icon: visual } : {}),
         });
         emitChange({ type: 'concept', action: 'create', id: result.id });
         return {
@@ -224,15 +257,17 @@ export function registerConceptTools(server: McpServer): void {
       title: z.string().optional().describe('New title'),
       archetype_id: z.string().optional().describe('New archetype ID'),
       color: z.string().optional().describe('New color value'),
-      icon: z.string().optional().describe('New icon identifier'),
+      icon: z.string().nullable().optional().describe('New icon identifier or emoji text. Use this when not setting profile_image.'),
+      profile_image: z.string().nullable().optional().describe('New profile image source. Can be an image URL, data URL, file URL, or local file path. Stored in the concept icon field.'),
     },
-    async ({ concept_id, title, archetype_id, color, icon }) => {
+    async ({ concept_id, title, archetype_id, color, icon, profile_image }) => {
       try {
+        const visual = resolveConceptVisualValue({ icon, profile_image });
         const result = await updateConcept(concept_id, {
           title,
           archetype_id,
           color,
-          icon,
+          ...(visual !== undefined ? { icon: visual } : {}),
         });
         if (!result) {
           return {

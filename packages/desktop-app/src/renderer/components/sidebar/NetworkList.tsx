@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Trash2, Waypoints, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
+import { Boxes, Plus, Trash2, Waypoints, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
 import type { NetworkTreeNode } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
@@ -17,6 +17,8 @@ interface NetworkContextMenuState {
   y: number;
   networkId: string;
   networkName: string;
+  networkKind: string;
+  networkProjectId: string | null;
 }
 
 // ─── Tree Item ───────────────────────────────────────────────────
@@ -32,11 +34,12 @@ function TreeNode({
   depth: number;
   currentNetworkId?: string;
   onOpen: (id: string) => void;
-  onContextMenu: (e: React.MouseEvent, id: string, name: string) => void;
+  onContextMenu: (e: React.MouseEvent, id: string, name: string, kind: string, projectId: string | null) => void;
 }): JSX.Element {
   const [expanded, setExpanded] = useState(depth < 2);
   const isActive = currentNetworkId === treeNode.network.id;
   const hasChildren = treeNode.children.length > 0;
+  const NetworkIcon = treeNode.network.kind === 'ontology' ? Boxes : Waypoints;
 
   return (
     <>
@@ -52,7 +55,7 @@ function TreeNode({
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          onContextMenu(e, treeNode.network.id, treeNode.network.name);
+          onContextMenu(e, treeNode.network.id, treeNode.network.name, treeNode.network.kind, treeNode.network.project_id);
         }}
       >
         {hasChildren ? (
@@ -65,7 +68,7 @@ function TreeNode({
         ) : (
           <span className="w-4 shrink-0" />
         )}
-        <Waypoints size={12} className="shrink-0 opacity-60" />
+        <NetworkIcon size={12} className="shrink-0 opacity-60" />
         <span className="flex-1 truncate">{treeNode.network.name}</span>
       </div>
 
@@ -114,7 +117,6 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
     const network = await createNetwork({
       project_id: projectId,
       name: newName.trim(),
-      parent_network_id: currentNetwork?.id ?? undefined,
     });
     await openNetwork(network.id);
     await loadNetworkTree(projectId);
@@ -127,10 +129,17 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
     setNewName('');
   };
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, networkId: string, networkName: string) => {
-    setContextMenu({ x: e.clientX, y: e.clientY, networkId, networkName });
+  const handleContextMenu = useCallback((
+    e: React.MouseEvent,
+    networkId: string,
+    networkName: string,
+    networkKind: string,
+    networkProjectId: string | null,
+  ) => {
+    setContextMenu({ x: e.clientX, y: e.clientY, networkId, networkName, networkKind, networkProjectId });
   }, []);
 
+  const contextMenuIsSystem = contextMenu?.networkKind === 'universe' || contextMenu?.networkKind === 'ontology';
   const contextMenuItems: ContextMenuEntry[] = contextMenu ? [
     {
       label: t('editor.openInEditor'),
@@ -143,36 +152,37 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
         });
       },
     },
-    { type: 'divider' as const },
-    {
-      label: t('network.createSubNetwork'),
-      icon: <Plus size={14} />,
-      onClick: async () => {
-        const targetNetwork = useNetworkStore.getState().networks.find((network) => network.id === contextMenu.networkId);
-        const child = await createNetwork({
-          project_id: targetNetwork?.project_id ?? projectId,
-          name: t('network.defaultName'),
-          parent_network_id: contextMenu.networkId,
-        });
-        await loadNetworkTree(projectId);
-        await openNetwork(child.id);
-        useEditorStore.getState().openTab({
-          type: 'network',
-          targetId: child.id,
-          title: child.name,
-          isDirty: true,
-        });
+    ...(!contextMenuIsSystem ? [
+      { type: 'divider' as const },
+      {
+        label: t('network.createSubNetwork'),
+        icon: <Plus size={14} />,
+        onClick: async () => {
+          const child = await createNetwork({
+            project_id: contextMenu.networkProjectId ?? projectId,
+            name: t('network.defaultName'),
+            parent_network_id: contextMenu.networkId,
+          });
+          await loadNetworkTree(projectId);
+          await openNetwork(child.id);
+          useEditorStore.getState().openTab({
+            type: 'network',
+            targetId: child.id,
+            title: child.name,
+            isDirty: true,
+          });
+        },
       },
-    },
-    {
-      label: t('common.delete'),
-      icon: <Trash2 size={14} />,
-      danger: true,
-      onClick: async () => {
-        await useNetworkStore.getState().deleteNetwork(contextMenu.networkId);
-        await loadNetworkTree(projectId);
+      {
+        label: t('common.delete'),
+        icon: <Trash2 size={14} />,
+        danger: true,
+        onClick: async () => {
+          await useNetworkStore.getState().deleteNetwork(contextMenu.networkId);
+          await loadNetworkTree(projectId);
+        },
       },
-    },
+    ] : []),
   ] : [];
 
   return (

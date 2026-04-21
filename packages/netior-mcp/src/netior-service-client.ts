@@ -254,12 +254,12 @@ export async function getObjectByRef(objectType: NetworkObjectType, refId: strin
   return requestJson<ObjectRecord | null>(`/objects/by-ref${toQueryString({ objectType, refId })}`);
 }
 
-export async function getAppRootNetwork(): Promise<Network | null> {
-  return requestJson<Network | null>('/networks/app-root');
+export async function getUniverseNetwork(): Promise<Network | null> {
+  return requestJson<Network | null>('/networks/universe');
 }
 
-export async function getProjectRootNetwork(projectId: string): Promise<Network | null> {
-  return requestJson<Network | null>(`/networks/project-root${toQueryString({ projectId })}`);
+export async function getProjectOntologyNetwork(projectId: string): Promise<Network | null> {
+  return requestJson<Network | null>(`/networks/ontology${toQueryString({ projectId })}`);
 }
 
 export async function getNetworkTree(projectId: string): Promise<NetworkTreeNode[]> {
@@ -279,6 +279,10 @@ export async function createNetworkNode(data: NetworkNodeCreate): Promise<Networ
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function getNetworkNode(id: string): Promise<NetworkNode | null> {
+  return requestJson<NetworkNode | null>(`/network-nodes/${encodeURIComponent(id)}`);
 }
 
 export async function updateNetworkNode(id: string, data: NetworkNodeUpdate): Promise<NetworkNode> {

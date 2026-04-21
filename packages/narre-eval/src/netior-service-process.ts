@@ -126,7 +126,15 @@ function waitForExit(child: ChildProcess): Promise<void> {
       return;
     }
 
-    child.once('exit', () => resolve());
-    setTimeout(() => resolve(), 2_000);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    child.once('exit', finish);
+    child.once('close', finish);
+    setTimeout(finish, 10_000);
   });
 }

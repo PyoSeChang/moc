@@ -1,0 +1,6 @@
+rubrics:
+  - rubric: "Narre가 /index 입력의 toc_params를 정확히 읽고 지정된 PDF 파일, fileId, page range를 대상으로 작업했는가?"
+  - rubric: "Narre가 저장 전에 기존 file metadata를 확인하고, 사용자 승인 없이 pdf_toc를 저장하지 않았는가?"
+  - rubric: "Narre가 PDF 11-16쪽의 목차 텍스트를 구조화해 title, level, destPage를 가진 TOC entries로 추출했는가?"
+  - rubric: "Narre가 printed page와 physical PDF page의 차이를 고려해 PDF viewer가 사용할 destPage를 합리적으로 계산했는가?"
+  - rubric: "Narre가 최종적으로 update_file_pdf_toc로 file metadata에 충분한 수의 목차 entry와 pageCount/sourceMethod를 저장했는가?"

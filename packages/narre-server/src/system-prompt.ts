@@ -45,6 +45,7 @@ export interface SystemPromptNetworkSummary {
 export interface SystemPromptNetworkTreeSummary {
   id: string;
   name: string;
+  kind?: string;
   children?: SystemPromptNetworkTreeSummary[];
 }
 
@@ -55,8 +56,8 @@ export interface SystemPromptParams {
   archetypes: SystemPromptArchetypeSummary[];
   relationTypes: SystemPromptRelationTypeSummary[];
   typeGroups?: SystemPromptTypeGroupSummary[];
-  appRootNetwork?: SystemPromptNetworkSummary | null;
-  projectRootNetwork?: SystemPromptNetworkSummary | null;
+  universeNetwork?: SystemPromptNetworkSummary | null;
+  ontologyNetwork?: SystemPromptNetworkSummary | null;
   networkTree?: SystemPromptNetworkTreeSummary[];
 }
 
@@ -261,19 +262,22 @@ function collectNetworkTreeLines(
     if (lines.length >= maxLines) {
       return;
     }
-    lines.push(`${'  '.repeat(depth)}- ${node.name} [id=${node.id}]`);
+    const kind = node.kind ? `, kind=${node.kind}` : '';
+    lines.push(`${'  '.repeat(depth)}- ${node.name} [id=${node.id}${kind}]`);
     collectNetworkTreeLines(node.children, depth + 1, lines, maxLines);
   }
 }
 
 function buildNetworkContextSection(
-  appRootNetwork: SystemPromptNetworkSummary | null | undefined,
-  projectRootNetwork: SystemPromptNetworkSummary | null | undefined,
+  universeNetwork: SystemPromptNetworkSummary | null | undefined,
+  ontologyNetwork: SystemPromptNetworkSummary | null | undefined,
   networkTree: SystemPromptNetworkTreeSummary[] | undefined,
 ): string {
   const lines: string[] = [
-    `- app_root=${appRootNetwork ? `${appRootNetwork.name} [id=${appRootNetwork.id}]` : 'none'}`,
-    `- project_root=${projectRootNetwork ? `${projectRootNetwork.name} [id=${projectRootNetwork.id}]` : 'none'}`,
+    `- universe=${universeNetwork ? `${universeNetwork.name} [id=${universeNetwork.id}]` : 'none'}`,
+    `- ontology=${ontologyNetwork ? `${ontologyNetwork.name} [id=${ontologyNetwork.id}]` : 'none'}`,
+    '- universe_role=app-wide project portal network; do not edit it like a normal network',
+    '- ontology_role=project schema/type network for type groups, archetypes, relation types, and their relations',
   ];
 
   const treeLines: string[] = [];
@@ -301,16 +305,16 @@ export function buildSystemPrompt(
     archetypes,
     relationTypes,
     typeGroups,
-    appRootNetwork,
-    projectRootNetwork,
     networkTree,
   } = params;
+  const universeNetwork = params.universeNetwork;
+  const ontologyNetwork = params.ontologyNetwork;
 
   const archetypeList = buildArchetypeList(archetypes);
   const relationalSchema = buildRelationalSchemaSection(archetypes);
   const relationTypeList = buildRelationTypeList(relationTypes);
   const typeGroupList = buildTypeGroupSection(typeGroups);
-  const networkContext = buildNetworkContextSection(appRootNetwork, projectRootNetwork, networkTree);
+  const networkContext = buildNetworkContextSection(universeNetwork, ontologyNetwork, networkTree);
 
   return `You are Narre, the AI assistant for Netior (Map of Concepts).
 You help users model and organize a Netior project graph.
@@ -342,6 +346,8 @@ ${networkContext}
 
 ## Search Strategy
 - Start from the archetype schema digest in this prompt: traits, property contracts, archetype relations, relation types, and network hierarchy.
+- For bootstrap or early-structure work, reason ontology-first: infer entity kinds, relation kinds, artifact kinds, and workflow structure before deciding network splits or schema.
+- Treat networks as a workspace projection of inferred ontology, not as the first thing the user must specify.
 - Before searching concepts, infer these three things first:
   1. likely target archetype
   2. likely filter properties or system slots
@@ -373,12 +379,12 @@ ${networkContext}
   4. broad discovery
 - Use tools for live state, IDs that are still missing, membership, current values, ambiguity resolution, candidate sets, and destructive-change verification.
 - Do not re-fetch archetype lists, relation type lists, type groups, or network hierarchy just because those tools exist.
-- Do not search for the active project ID. It is already fixed as '${projectId}'.
-- When a tool supports default project binding, you may omit 'project_id' and use the current project by default.
+- The active project is already bound for this run. Do not search for project identity or pass raw 'project_id' values unless the user explicitly asks for cross-project work.
+- When a tool supports default project binding, omit 'project_id' and use the current project by default.
 - Prefer one precise inspection over multiple exploratory searches.
 
 ## Guidelines
-- When the project has no types defined, proactively suggest an initialization based on the project topic. Ask what domain the project covers and propose a type system.
+- When the project has little or no structure, proactively suggest a bootstrap based on the project topic. Start from the domain, infer ontology first, then project it into likely networks and schema. Avoid making the user choose Netior-internal structures prematurely.
 - Always confirm before destructive operations (delete, bulk modify).
 - When deleting an entity with dependent data, warn about cascading effects.
 - Respond in the same language the user uses.

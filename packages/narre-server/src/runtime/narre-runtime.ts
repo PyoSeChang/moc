@@ -16,11 +16,15 @@ import {
   DEFAULT_NARRE_BEHAVIOR_SETTINGS,
   type SystemPromptParams,
 } from '../system-prompt.js';
+import { buildProjectPromptMetadata } from '../project-prompt-metadata.js';
 import { parseCommand } from '../command-router.js';
 import { SessionStore } from '../session-store.js';
 import type { NarreMcpServerConfig, NarreProviderAdapter } from './provider-adapter.js';
 import { loadPromptSkill } from '../prompt-skills/registry.js';
-import type { NarrePromptSkillDefinition } from '../prompt-skills/types.js';
+import type {
+  NarrePromptSkillContext,
+  NarrePromptSkillDefinition,
+} from '../prompt-skills/types.js';
 
 export interface NarreRuntimeChatRequest {
   traceId?: string;
@@ -28,7 +32,6 @@ export interface NarreRuntimeChatRequest {
   projectId: string;
   message: string;
   mentions?: NarreMention[];
-  projectMetadata?: SystemPromptParams;
 }
 
 export interface NarreRuntimeEvents {
@@ -43,6 +46,7 @@ export interface NarreRuntimeConfig {
   sessionStore: SessionStore;
   provider: NarreProviderAdapter;
   resolveMcpServerPath: () => string | null;
+  resolvePromptMetadata?: (projectId: string) => Promise<SystemPromptParams>;
   behaviorSettings?: NarreBehaviorSettings;
 }
 
@@ -76,20 +80,22 @@ export class NarreRuntime {
       throw new Error('Failed to resolve Narre session id');
     }
     const resolvedSessionId = activeSessionId;
+    const sessionData = await this.config.sessionStore.getSession(resolvedSessionId, request.projectId);
+    const historyTurns = sessionData?.transcript?.turns ?? [];
 
-    const metadata = request.projectMetadata ?? {
-      projectId: request.projectId,
-      projectName: request.projectId,
-      projectRootDir: null,
-      archetypes: [],
-      relationTypes: [],
-    };
+    const metadata = await (this.config.resolvePromptMetadata ?? buildProjectPromptMetadata)(request.projectId);
     const behaviorSettings = this.config.behaviorSettings ?? DEFAULT_NARRE_BEHAVIOR_SETTINGS;
     const promptSkill = parsedCommand?.command.type === 'conversation'
       ? await loadPromptSkill(parsedCommand.command.promptSkillKey)
       : null;
+    const promptSkillContext: NarrePromptSkillContext = {
+      params: metadata,
+      behavior: behaviorSettings,
+      projectId: request.projectId,
+      historyTurns,
+    };
     const skillPrompt = promptSkill
-      ? promptSkill.buildPrompt({ params: metadata, behavior: behaviorSettings, projectId: request.projectId })
+      ? promptSkill.buildPrompt(promptSkillContext)
       : '';
     const systemPrompt = skillPrompt
       ? `${buildSystemPrompt(metadata, behaviorSettings)}\n\n${skillPrompt}`
@@ -110,10 +116,13 @@ export class NarreRuntime {
       return { sessionId: resolvedSessionId };
     }
 
-    const sessionData = await this.config.sessionStore.getSession(resolvedSessionId, request.projectId);
-    const historyTurns = sessionData?.transcript?.turns ?? [];
     const isResume = historyTurns.length > 1;
-    const mcpServerConfigs = this.buildMcpServerConfigs(mcpServerPath, request.projectId, promptSkill);
+    const mcpServerConfigs = this.buildMcpServerConfigs(
+      mcpServerPath,
+      request.projectId,
+      promptSkill,
+      promptSkillContext,
+    );
     console.log(
       `[narre:runtime] trace=${traceId} stage=run.start session=${resolvedSessionId} ` +
       `project=${request.projectId} resume=${isResume ? 'yes' : 'no'} mentions=${request.mentions?.length ?? 0}`,
@@ -335,6 +344,7 @@ export class NarreRuntime {
     mcpServerPath: string,
     projectId: string,
     promptSkill: NarrePromptSkillDefinition | null,
+    promptSkillContext: NarrePromptSkillContext,
   ): NarreMcpServerConfig[] {
     const runningInsideElectronNode = Boolean(process.versions.electron) || process.env.ELECTRON_RUN_AS_NODE === '1';
     const mcpCommand = process.execPath;
@@ -347,10 +357,13 @@ export class NarreRuntime {
       baseEnv.ELECTRON_RUN_AS_NODE = '1';
     }
 
-    const profiles = Array.from(new Set([
-      'core',
-      ...(promptSkill?.additionalToolProfiles ?? []),
-    ]));
+    const profiles = Array.from(new Set(
+      promptSkill?.resolveToolProfiles?.(promptSkillContext)
+      ?? [
+        'core',
+        ...(promptSkill?.additionalToolProfiles ?? []),
+      ],
+    ));
 
     return profiles.map((profile) => ({
       name: profile === 'core' ? 'netior-core' : `netior-${profile}`,

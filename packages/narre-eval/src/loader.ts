@@ -3,6 +3,7 @@ import { join } from 'path';
 import { parse } from 'yaml';
 import { pathToFileURL } from 'url';
 import type { EvalScenario, EvalOptions, ScenarioManifest, VerifyItem, QualitativeItem, Turn } from './types.js';
+import { normalizeScenarioExecution } from './execution.js';
 
 // ── Legacy scenario.yaml shape ──
 
@@ -62,6 +63,7 @@ export async function loadScenarios(scenariosDir: string, options: EvalOptions):
 async function loadFromManifest(scenarioDir: string, manifestPath: string): Promise<EvalScenario> {
   const raw = readFileSync(manifestPath, 'utf-8');
   const manifest = parse(raw) as ScenarioManifest;
+  const execution = normalizeScenarioExecution(manifest.execution);
 
   // Load turns from turn_plan file
   const turnsPath = join(scenarioDir, manifest.turn_plan.file);
@@ -70,6 +72,17 @@ async function loadFromManifest(scenarioDir: string, manifestPath: string): Prom
   }
   const turnsRaw = readFileSync(turnsPath, 'utf-8');
   const turnsYaml = parse(turnsRaw) as { turns: Turn[] };
+  const turns = turnsYaml.turns ?? [];
+
+  if (execution.target_skill) {
+    const expectedPrefix = `/${execution.target_skill}`;
+    const hasTargetSkillTurn = turns.some((turn) => turn.content.trimStart().startsWith(expectedPrefix));
+    if (!hasTargetSkillTurn) {
+      throw new Error(
+        `Scenario "${manifest.id}" declares target_skill="${execution.target_skill}" but no user turn starts with "${expectedPrefix}"`,
+      );
+    }
+  }
 
   // Load verify from assets.verify files
   const verify: VerifyItem[] = [];
@@ -125,17 +138,27 @@ async function loadFromManifest(scenarioDir: string, manifestPath: string): Prom
     description: manifest.description,
     type: manifest.type,
     tags: manifest.labels ?? [],
-    turns: turnsYaml.turns ?? [],
+    execution,
+    turns,
     verify,
     qualitative,
     scenarioDir,
     seed,
     responder,
+    responsibilitySurfaces: manifest.responsibility_surfaces ?? [],
     versionInfo: {
       scenario_version: manifest.scenario_version,
       schema_version: manifest.schema_version,
-      supported_agents: manifest.execution?.supported_agents ?? [],
-      required_capabilities: manifest.execution?.required_capabilities ?? [],
+      supported_agents: execution.supported_agents,
+      required_capabilities: execution.required_capabilities,
+      target_skill: execution.target_skill,
+      scenario_kind: execution.scenario_kind,
+      agent_id: execution.agent_id,
+      provider: execution.provider,
+      tester: execution.tester,
+      execution_mode: execution.execution_mode,
+      analysis_targets: execution.analysis_targets,
+      responsibility_surfaces: manifest.responsibility_surfaces ?? [],
       created_by: manifest.provenance?.created_by ?? null,
     },
   };
@@ -146,6 +169,7 @@ async function loadFromManifest(scenarioDir: string, manifestPath: string): Prom
 async function loadFromLegacy(scenarioDir: string, yamlPath: string): Promise<EvalScenario> {
   const raw = readFileSync(yamlPath, 'utf-8');
   const yaml = parse(raw) as ScenarioYaml;
+  const execution = normalizeScenarioExecution(undefined);
 
   // Dynamic import seed.ts
   const seedPath = join(scenarioDir, 'seed.ts');
@@ -169,12 +193,14 @@ async function loadFromLegacy(scenarioDir: string, yamlPath: string): Promise<Ev
     description: yaml.description,
     type: yaml.type,
     tags: yaml.tags ?? [],
+    execution,
     turns: yaml.turns ?? [],
     verify: yaml.verify ?? [],
     qualitative: yaml.qualitative ?? [],
     scenarioDir,
     seed,
     responder,
+    responsibilitySurfaces: [],
     versionInfo: null,
   };
 }

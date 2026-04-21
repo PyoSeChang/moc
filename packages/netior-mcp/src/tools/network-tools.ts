@@ -3,11 +3,11 @@ import { z } from 'zod';
 import {
   createNetwork,
   deleteNetwork,
-  getAppRootNetwork,
   getNetworkAncestors,
   getNetworkFull,
   getNetworkTree,
-  getProjectRootNetwork,
+  getProjectOntologyNetwork,
+  getUniverseNetwork,
   listNetworks,
   updateNetwork,
 } from '../netior-service-client.js';
@@ -161,11 +161,11 @@ export function registerNetworkTools(server: McpServer): void {
 
   registerNetiorTool(
     server,
-    'get_app_root_network',
+    'get_universe_network',
     {},
     async () => {
       try {
-        const result = await getAppRootNetwork();
+        const result = await getUniverseNetwork();
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };
@@ -180,11 +180,11 @@ export function registerNetworkTools(server: McpServer): void {
 
   registerNetiorTool(
     server,
-    'get_project_root_network',
+    'get_project_ontology_network',
     { project_id: projectIdSchema() },
     async ({ project_id }) => {
       try {
-        const result = await getProjectRootNetwork(resolveProjectId(project_id));
+        const result = await getProjectOntologyNetwork(resolveProjectId(project_id));
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         };

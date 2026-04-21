@@ -4,7 +4,6 @@ import http from 'http';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type {
-  ArchetypeField,
   IpcResult,
   NarreMessage,
   NarreSessionDetail,
@@ -14,21 +13,13 @@ import type {
   NarreStreamEvent,
   NarreToolCall,
   NarreTranscript,
-  NetworkTreeNode,
-  TypeGroup,
 } from '@netior/shared/types';
 import { IPC_CHANNELS } from '@netior/shared/constants';
 import {
-  getRemoteAppRootNetwork,
-  getRemoteNetworkTree,
-  getRemoteProject,
-  getRemoteProjectRootNetwork,
-  listRemoteArchetypeFields,
   listRemoteArchetypes,
   listRemoteFilesByProject,
   listRemoteNetworks,
   listRemoteRelationTypes,
-  listRemoteTypeGroups,
   searchRemoteConcepts,
 } from '../netior-service/netior-service-client';
 import {
@@ -301,69 +292,6 @@ async function deleteRemoteNarreSession(sessionId: string): Promise<boolean> {
   return payload.success;
 }
 
-function buildTypeGroupPathMap(groups: TypeGroup[]): Map<string, string> {
-  const byId = new Map(groups.map((group) => [group.id, group]));
-  const cache = new Map<string, string>();
-
-  const resolvePath = (group: TypeGroup): string => {
-    const cached = cache.get(group.id);
-    if (cached) {
-      return cached;
-    }
-
-    const parent = group.parent_group_id ? byId.get(group.parent_group_id) : null;
-    const path = parent ? `${resolvePath(parent)}/${group.name}` : group.name;
-    cache.set(group.id, path);
-    return path;
-  };
-
-  for (const group of groups) {
-    resolvePath(group);
-  }
-
-  return cache;
-}
-
-function mapTypeGroups(groups: TypeGroup[]): Array<{ id: string; kind: 'archetype' | 'relation_type'; path: string }> {
-  const pathMap = buildTypeGroupPathMap(groups);
-  return groups.map((group) => ({
-    id: group.id,
-    kind: group.kind,
-    path: pathMap.get(group.id) ?? group.name,
-  }));
-}
-
-interface NarrePromptNetworkTreeNode {
-  id: string;
-  name: string;
-  children: NarrePromptNetworkTreeNode[];
-}
-
-function mapNetworkTree(nodes: NetworkTreeNode[]): NarrePromptNetworkTreeNode[] {
-  return nodes.map((node) => ({
-    id: node.network.id,
-    name: node.network.name,
-    children: mapNetworkTree(node.children),
-  }));
-}
-
-function buildOptionsPreview(options: string | null): string[] | undefined {
-  if (!options) {
-    return undefined;
-  }
-
-  const values = options
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  if (values.length === 0) {
-    return undefined;
-  }
-
-  return values.slice(0, 5);
-}
-
 function emitNarreStreamEvent(
   mainWindow: BrowserWindow,
   event: NarreStreamEvent,
@@ -385,35 +313,6 @@ function emitNarreStreamEvent(
     }
     throw error;
   }
-}
-
-function mapArchetypeFields(
-  fields: ArchetypeField[],
-  archetypeNames: Map<string, string>,
-): Array<{
-  name: string;
-  field_type: string;
-  required: boolean;
-  system_slot?: string;
-  generated_by_trait?: boolean;
-  ref_archetype_name?: string;
-  options_preview?: string[];
-}> {
-  return fields.map((field) => {
-    const optionsPreview = buildOptionsPreview(field.options);
-
-    return {
-      name: field.name,
-      field_type: field.field_type,
-      required: field.required,
-      ...(field.system_slot ? { system_slot: field.system_slot } : {}),
-      ...(field.generated_by_trait ? { generated_by_trait: true } : {}),
-      ...(field.ref_archetype_id
-        ? { ref_archetype_name: archetypeNames.get(field.ref_archetype_id) ?? field.ref_archetype_id }
-        : {}),
-      ...(optionsPreview ? { options_preview: optionsPreview } : {}),
-    };
-  });
 }
 
 export function registerNarreIpc(): void {
@@ -672,74 +571,7 @@ export function registerNarreIpc(): void {
         return { success: false, error: 'No main window available' };
       }
 
-      // Build project metadata for system prompt (narre-server doesn't access DB)
-      const project = await getRemoteProject(projectId);
-      const [
-        archetypes,
-        relationTypes,
-        archetypeGroups,
-        relationTypeGroups,
-        appRootNetwork,
-        projectRootNetwork,
-        networkTree,
-      ] = project
-        ? await Promise.all([
-          listRemoteArchetypes(projectId),
-          listRemoteRelationTypes(projectId),
-          listRemoteTypeGroups(projectId, 'archetype'),
-          listRemoteTypeGroups(projectId, 'relation_type'),
-          getRemoteAppRootNetwork(),
-          getRemoteProjectRootNetwork(projectId),
-          getRemoteNetworkTree(projectId),
-        ])
-        : [[], [], [], [], null, null, []];
-
-      const archetypeNameMap = new Map<string, string>(archetypes.map((archetype) => [archetype.id, archetype.name]));
-      const archetypeFieldsById = new Map<string, ArchetypeField[]>(
-        await Promise.all(
-          archetypes.map(async (archetype) => [archetype.id, await listRemoteArchetypeFields(archetype.id)] as const),
-        ),
-      );
-      const typeGroups = mapTypeGroups([...archetypeGroups, ...relationTypeGroups]);
-
-      const projectMetadata = {
-        projectId,
-        projectName: project?.name ?? projectId,
-        projectRootDir: project?.root_dir ?? null,
-        archetypes: archetypes.map((archetype) => ({
-          id: archetype.id,
-          name: archetype.name,
-          icon: archetype.icon,
-          color: archetype.color,
-          node_shape: archetype.node_shape,
-          description: archetype.description,
-          semantic_traits: archetype.semantic_traits,
-          fields: mapArchetypeFields(archetypeFieldsById.get(archetype.id) ?? [], archetypeNameMap),
-        })),
-        relationTypes: relationTypes.map((relationType) => ({
-          id: relationType.id,
-          name: relationType.name,
-          directed: relationType.directed,
-          line_style: relationType.line_style,
-          color: relationType.color,
-          description: relationType.description,
-        })),
-        typeGroups,
-        appRootNetwork: appRootNetwork
-          ? { id: appRootNetwork.id, name: appRootNetwork.name }
-          : null,
-        projectRootNetwork: projectRootNetwork
-          ? { id: projectRootNetwork.id, name: projectRootNetwork.name }
-          : null,
-        networkTree: mapNetworkTree(networkTree),
-      };
-
-      console.log(
-        `[narre:bridge] trace=${traceId} stage=request.metadata.ready project=${projectId} ` +
-        `archetypes=${archetypes.length} relationTypes=${relationTypes.length} typeGroups=${typeGroups.length}`,
-      );
-
-      const body = JSON.stringify({ sessionId, projectId, message, mentions, projectMetadata });
+      const body = JSON.stringify({ sessionId, projectId, message, mentions });
       const chatUrl = new URL('/chat', await ensureNarreServerBaseUrl());
 
       const req = http.request(

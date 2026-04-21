@@ -5,8 +5,8 @@ export async function loadPromptSkill(
   skillKey: NarrePromptSkillKey | undefined,
 ): Promise<NarrePromptSkillDefinition | null> {
   switch (skillKey) {
-    case 'onboarding':
-      return (await import('./onboarding-skill.js')).onboardingPromptSkill;
+    case 'bootstrap':
+      return (await import('./bootstrap-skill.js')).bootstrapPromptSkill;
     case 'index':
       return (await import('./index-skill.js')).indexPromptSkill;
     default:

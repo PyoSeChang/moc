@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
 import { createObject, deleteObjectByRef } from './objects';
+import { syncProjectOntologyForDb } from './system-networks';
 import type {
   Archetype,
   ArchetypeCreate,
@@ -106,6 +107,7 @@ export function createArchetype(data: ArchetypeCreate): Archetype {
   );
 
   createObject('archetype', 'project', data.project_id, id);
+  syncProjectOntologyForDb(db, data.project_id);
 
   const row = db.prepare('SELECT * FROM archetypes WHERE id = ?').get(id) as ArchetypeRow;
   return toArchetype(row);

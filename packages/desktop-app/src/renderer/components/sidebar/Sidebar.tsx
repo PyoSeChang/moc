@@ -53,21 +53,21 @@ function AppWorkspaceSidebar(): JSX.Element {
         <div className="mb-2 text-xs font-medium text-secondary">{t('sidebar.networks' as never)}</div>
         <button
           className={`flex w-full items-center rounded px-2 py-1 text-left text-xs transition-colors ${
-            currentNetwork?.scope === 'app'
+            currentNetwork?.kind === 'universe'
               ? 'bg-interactive-selected text-accent'
               : 'text-default hover:bg-surface-hover'
           }`}
           onClick={() => {
-            if (currentNetwork?.scope === 'app') return;
-            const loadAppWorkspace = useNetworkStore.getState().loadAppWorkspace;
-            loadAppWorkspace().then((appRoot) => {
-              if (appRoot) {
-                void useNetworkStore.getState().openNetwork(appRoot.id);
+            if (currentNetwork?.kind === 'universe') return;
+            const loadUniverseWorkspace = useNetworkStore.getState().loadUniverseWorkspace;
+            loadUniverseWorkspace().then((universe) => {
+              if (universe) {
+                void useNetworkStore.getState().openNetwork(universe.id);
               }
             });
           }}
         >
-          App Root
+          Universe
         </button>
       </div>
 

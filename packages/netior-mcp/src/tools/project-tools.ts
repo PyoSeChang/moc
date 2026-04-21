@@ -2,9 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ArchetypeField, NetworkTreeNode, TypeGroup } from '@netior/shared/types';
 import {
-  getAppRootNetwork,
+  getUniverseNetwork,
   getProjectById,
-  getProjectRootNetwork,
+  getProjectOntologyNetwork,
   getNetworkTree,
   listArchetypeFields,
   listArchetypes,
@@ -94,6 +94,7 @@ function mapArchetypeFields(
 interface ProjectSummaryNetworkTreeNode {
   id: string;
   name: string;
+  kind: string;
   children: ProjectSummaryNetworkTreeNode[];
 }
 
@@ -101,6 +102,7 @@ function mapNetworkTree(nodes: NetworkTreeNode[]): ProjectSummaryNetworkTreeNode
   return nodes.map((node) => ({
     id: node.network.id,
     name: node.network.name,
+    kind: node.network.kind,
     children: mapNetworkTree(node.children),
   }));
 }
@@ -128,8 +130,8 @@ export function registerProjectTools(server: McpServer): void {
           networks,
           archetypeGroups,
           relationTypeGroups,
-          appRootNetwork,
-          projectRootNetwork,
+          universeNetwork,
+          ontologyNetwork,
           networkTree,
         ] = await Promise.all([
           listArchetypes(targetProjectId),
@@ -138,8 +140,8 @@ export function registerProjectTools(server: McpServer): void {
           listNetworks(targetProjectId),
           listTypeGroups(targetProjectId, 'archetype'),
           listTypeGroups(targetProjectId, 'relation_type'),
-          getAppRootNetwork(),
-          getProjectRootNetwork(targetProjectId),
+          getUniverseNetwork(),
+          getProjectOntologyNetwork(targetProjectId),
           getNetworkTree(targetProjectId),
         ]);
         const archetypeNameMap = new Map<string, string>(archetypes.map((archetype) => [archetype.id, archetype.name]));
@@ -189,11 +191,11 @@ export function registerProjectTools(server: McpServer): void {
           },
           networks: {
             count: networks.length,
-            items: networks.map((n) => ({ id: n.id, name: n.name, parent_network_id: n.parent_network_id })),
+            items: networks.map((n) => ({ id: n.id, name: n.name, kind: n.kind, parent_network_id: n.parent_network_id })),
           },
-          root_networks: {
-            app_root: appRootNetwork ? { id: appRootNetwork.id, name: appRootNetwork.name } : null,
-            project_root: projectRootNetwork ? { id: projectRootNetwork.id, name: projectRootNetwork.name } : null,
+          system_networks: {
+            universe: universeNetwork ? { id: universeNetwork.id, name: universeNetwork.name } : null,
+            ontology: ontologyNetwork ? { id: ontologyNetwork.id, name: ontologyNetwork.name } : null,
           },
           network_tree: mapNetworkTree(networkTree),
         };

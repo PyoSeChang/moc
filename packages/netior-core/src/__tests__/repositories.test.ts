@@ -17,7 +17,7 @@ import {
   createNetwork, listNetworks, updateNetwork, deleteNetwork, getNetworkFull,
   getNetworkAncestors, getNetworkTree, addNetworkNode, updateNetworkNode, removeNetworkNode,
   createEdge, getEdge, updateEdge, deleteEdge,
-  ensureAppRootNetwork, getAppRootNetwork, getProjectRootNetwork,
+  ensureUniverseNetwork, getProjectOntologyNetwork, getUniverseNetwork,
 } from '../repositories/network';
 import {
   createLayout, getLayoutByNetwork, updateLayout, deleteLayout,
@@ -63,21 +63,23 @@ describe('Repositories', () => {
       expect(list[0].id).toBe(p.id);
     });
 
-    it('should auto-create app root and project root networks when creating project', () => {
+    it('should auto-create universe and ontology networks when creating project', () => {
       const project = createProject({ name: 'Rooted', root_dir: '/tmp/rooted' });
-      const appRoot = getAppRootNetwork();
-      const projectRoot = getProjectRootNetwork(project.id);
-      const appRootFull = getNetworkFull(appRoot!.id);
-      const projectPortalNode = appRootFull?.nodes.find(
+      const universe = getUniverseNetwork();
+      const ontology = getProjectOntologyNetwork(project.id);
+      const universeFull = getNetworkFull(universe!.id);
+      const projectPortalNode = universeFull?.nodes.find(
         (node) => node.object?.object_type === 'project' && node.object.ref_id === project.id,
       );
-      const projectPortalPosition = appRootFull?.nodePositions.find((position) => position.nodeId === projectPortalNode?.id);
+      const projectPortalPosition = universeFull?.nodePositions.find((position) => position.nodeId === projectPortalNode?.id);
 
-      expect(appRoot).toBeDefined();
-      expect(projectRoot).toBeDefined();
-      expect(projectRoot!.project_id).toBe(project.id);
-      expect(projectRoot!.parent_network_id).toBe(appRoot!.id);
-      expect(projectRoot!.name).toBe('Project Root');
+      expect(universe).toBeDefined();
+      expect(universe!.kind).toBe('universe');
+      expect(ontology).toBeDefined();
+      expect(ontology!.kind).toBe('ontology');
+      expect(ontology!.project_id).toBe(project.id);
+      expect(ontology!.parent_network_id).toBeNull();
+      expect(ontology!.name).toBe('Ontology');
       expect(projectPortalNode).toBeDefined();
       expect(projectPortalNode!.node_type).toBe('portal');
       expect(projectPortalPosition).toBeDefined();
@@ -388,8 +390,8 @@ describe('Repositories', () => {
       const all = listNetworks(projectId);
       const rootOnly = listNetworks(projectId, true);
       expect(all).toHaveLength(3);
-      expect(rootOnly).toHaveLength(1);
-      expect(rootOnly[0].name).toBe('Root');
+      expect(rootOnly).toHaveLength(2);
+      expect(rootOnly.map((network) => network.name)).toEqual(['Ontology', 'Root']);
     });
 
     it('should remove network node', () => {
@@ -532,35 +534,38 @@ describe('Repositories', () => {
     });
   });
 
-  // --- App Root / Project Root ---
+  // --- Universe / Ontology ---
 
-  describe('App Root Network', () => {
-    it('should create app root network', () => {
-      const root = ensureAppRootNetwork();
+  describe('System Networks', () => {
+    it('should create universe network', () => {
+      const root = ensureUniverseNetwork();
       expect(root.scope).toBe('app');
+      expect(root.kind).toBe('universe');
       expect(root.parent_network_id).toBeNull();
-      expect(root.name).toBe('App Root');
+      expect(root.name).toBe('Universe');
     });
 
-    it('should return same app root on subsequent calls', () => {
-      const root1 = ensureAppRootNetwork();
-      const root2 = ensureAppRootNetwork();
+    it('should return same universe on subsequent calls', () => {
+      const root1 = ensureUniverseNetwork();
+      const root2 = ensureUniverseNetwork();
       expect(root1.id).toBe(root2.id);
     });
 
-    it('should get app root network', () => {
-      ensureAppRootNetwork();
-      const root = getAppRootNetwork();
+    it('should get universe network', () => {
+      ensureUniverseNetwork();
+      const root = getUniverseNetwork();
       expect(root).toBeDefined();
       expect(root!.scope).toBe('app');
+      expect(root!.kind).toBe('universe');
     });
 
-    it('should get project root network', () => {
+    it('should get project ontology network', () => {
       const project = createProject({ name: 'P', root_dir: '/tmp/pr' });
-      const projectRoot = getProjectRootNetwork(project.id);
-      expect(projectRoot).toBeDefined();
-      expect(projectRoot!.parent_network_id).toBe(getAppRootNetwork()!.id);
-      expect(projectRoot!.name).toBe('Project Root');
+      const ontology = getProjectOntologyNetwork(project.id);
+      expect(ontology).toBeDefined();
+      expect(ontology!.kind).toBe('ontology');
+      expect(ontology!.parent_network_id).toBeNull();
+      expect(ontology!.name).toBe('Ontology');
     });
   });
 
@@ -706,20 +711,19 @@ describe('Repositories', () => {
     });
 
     it('should build network tree from parent_network_id', () => {
-      const projectRoot = getProjectRootNetwork(projectId)!;
-      const root = createNetwork({ project_id: projectId, name: 'Root', parent_network_id: projectRoot.id });
+      const root = createNetwork({ project_id: projectId, name: 'Root' });
       const child1 = createNetwork({ project_id: projectId, name: 'Child1', parent_network_id: root.id });
       const child2 = createNetwork({ project_id: projectId, name: 'Child2', parent_network_id: root.id });
       createNetwork({ project_id: projectId, name: 'Grandchild', parent_network_id: child1.id });
 
       const tree = getNetworkTree(projectId);
-      expect(tree).toHaveLength(1);
-      expect(tree[0].network.name).toBe('Project Root');
-      expect(tree[0].children).toHaveLength(1);
-      expect(tree[0].children[0].network.name).toBe('Root');
-      expect(tree[0].children[0].children).toHaveLength(2);
-      expect(tree[0].children[0].children[0].children).toHaveLength(1);
-      expect(tree[0].children[0].children[0].children[0].network.name).toBe('Grandchild');
+      expect(tree).toHaveLength(2);
+      expect(tree[0].network.name).toBe('Ontology');
+      expect(tree[0].children).toHaveLength(0);
+      expect(tree[1].network.name).toBe('Root');
+      expect(tree[1].children).toHaveLength(2);
+      expect(tree[1].children[0].children).toHaveLength(1);
+      expect(tree[1].children[0].children[0].network.name).toBe('Grandchild');
     });
 
     it('should get network ancestors via parent_network_id chain', () => {
@@ -1373,6 +1377,10 @@ describe('Repositories', () => {
       const list = listTypeGroups(projectId, 'archetype');
       expect(list).toHaveLength(1);
       expect(list[0].id).toBe(g.id);
+
+      const object = getObjectByRef('type_group', g.id);
+      expect(object?.object_type).toBe('type_group');
+      expect(object?.project_id).toBe(projectId);
     });
 
     it('should filter by kind', () => {
@@ -1399,6 +1407,7 @@ describe('Repositories', () => {
       const g = createTypeGroup({ project_id: projectId, kind: 'archetype', name: 'Del' });
       expect(deleteTypeGroup(g.id)).toBe(true);
       expect(listTypeGroups(projectId, 'archetype')).toHaveLength(0);
+      expect(getObjectByRef('type_group', g.id)).toBeUndefined();
     });
 
     it('should SET NULL archetype group_id when type group is deleted', () => {

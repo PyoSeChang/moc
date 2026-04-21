@@ -70,16 +70,20 @@ export interface Network {
   id: string;
   project_id: string | null;
   scope: string;
+  kind: NetworkKind;
   parent_network_id: string | null;
   name: string;
   created_at: string;
   updated_at: string;
 }
 
+export type NetworkKind = 'universe' | 'ontology' | 'network';
+
 export interface NetworkCreate {
   project_id: string | null;
   name: string;
   scope?: string;
+  kind?: NetworkKind;
   parent_network_id?: string;
 }
 
@@ -170,7 +174,7 @@ export interface ContextMember {
 
 export type NetworkObjectType =
   | 'concept' | 'network' | 'project' | 'archetype'
-  | 'relation_type' | 'agent' | 'context'
+  | 'relation_type' | 'type_group' | 'agent' | 'context'
   | 'file' | 'module' | 'folder';
 
 export type NodeType = 'basic' | 'portal' | 'group' | 'hierarchy';
@@ -246,6 +250,7 @@ export interface NetworkNodeCreate {
   object_id: string;
   node_type?: NodeType;
   parent_node_id?: string;
+  metadata?: string | null;
 }
 
 export interface NetworkNodeUpdate {
@@ -865,7 +870,13 @@ export type NarreToolCategory =
 
 export type NarreToolKind = 'query' | 'mutation' | 'analysis';
 export type NarreToolApprovalMode = 'auto' | 'prompt';
-export type NetiorMcpToolProfile = 'core' | 'discovery' | 'bootstrap-skill' | 'index-skill';
+export type NetiorMcpToolProfile =
+  | 'core'
+  | 'discovery'
+  | 'bootstrap-skill'
+  | 'bootstrap-interview'
+  | 'bootstrap-execution'
+  | 'index-skill';
 export type NetiorMcpToolScope = 'app' | 'project' | 'network' | 'object' | 'file' | 'mixed';
 
 export interface NetiorMcpToolSpec {

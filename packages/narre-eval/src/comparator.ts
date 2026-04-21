@@ -21,17 +21,17 @@ export function findBaselineRunDir(
 ): string | null {
   if (!existsSync(runsDir)) return null;
 
-  const allEntries = readdirSync(runsDir).sort().reverse();
+  const allEntries = listRunDirectories(runsDir);
 
   if (baselineArg && baselineArg !== 'latest') {
     // Match by run ID substring, pick most recent (first after reverse sort)
-    const match = allEntries.find((e) => e.includes(baselineArg));
-    return match ? join(runsDir, match) : null;
+    const match = allEntries.find((entry) => entry.name.includes(baselineArg));
+    return match?.path ?? null;
   }
 
   // Default: most recent run that is not the current one
-  const match = allEntries.find((e) => !e.includes(currentRunId));
-  return match ? join(runsDir, match) : null;
+  const match = allEntries.find((entry) => !entry.name.includes(currentRunId));
+  return match?.path ?? null;
 }
 
 /**
@@ -86,4 +86,35 @@ export function compareResults(
     judgeAvgDelta,
     metricDeltas,
   };
+}
+
+function listRunDirectories(runsDir: string): Array<{ name: string; path: string }> {
+  const entries: Array<{ name: string; path: string }> = [];
+  const seen = new Set<string>();
+  const historyDir = join(runsDir, 'history');
+
+  if (existsSync(historyDir)) {
+    for (const entry of readdirSync(historyDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      entries.push({ name: entry.name, path: join(historyDir, entry.name) });
+      seen.add(entry.name);
+    }
+  }
+
+  for (const entry of readdirSync(runsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    if (entry.name === 'history' || entry.name === 'latest') {
+      continue;
+    }
+    if (seen.has(entry.name)) {
+      continue;
+    }
+    entries.push({ name: entry.name, path: join(runsDir, entry.name) });
+  }
+
+  return entries.sort((a, b) => b.name.localeCompare(a.name));
 }

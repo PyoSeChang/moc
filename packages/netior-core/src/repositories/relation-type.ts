@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
 import { createObject, deleteObjectByRef } from './objects';
+import { syncProjectOntologyForDb } from './system-networks';
 import type {
   RelationType,
   RelationTypeCreate,
@@ -40,6 +41,7 @@ export function createRelationType(data: RelationTypeCreate): RelationType {
   );
 
   createObject('relation_type', 'project', data.project_id, id);
+  syncProjectOntologyForDb(db, data.project_id);
 
   const row = db.prepare('SELECT * FROM relation_types WHERE id = ?').get(id) as RelationTypeRow;
   return toRelationType(row);

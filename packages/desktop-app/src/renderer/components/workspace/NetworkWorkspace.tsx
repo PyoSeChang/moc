@@ -20,6 +20,7 @@ import { useEditorStore } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
+import { useTypeGroupStore } from '../../stores/type-group-store';
 import { useContextStore } from '../../stores/context-store';
 import { useProjectStore } from '../../stores/project-store';
 import { useNetworkObjectSelectionStore } from '../../stores/network-object-selection-store';
@@ -268,7 +269,7 @@ function applySystemSlotMetadata(
 
 function pickInitialNetworkId(
   projectId: string,
-  networks: Array<{ id: string; project_id: string | null; scope: string; parent_network_id: string | null }>,
+  networks: Array<{ id: string; project_id: string | null; scope: string; kind?: string; parent_network_id: string | null }>,
 ): string | null {
   const projectNetworks = networks.filter((network) => network.project_id === projectId);
   if (projectNetworks.length === 0) return null;
@@ -279,7 +280,7 @@ function pickInitialNetworkId(
   );
 
   const preferredRoot =
-    topLevelProjectNetworks.find((network) => network.scope === 'project') ??
+    topLevelProjectNetworks.find((network) => network.kind === 'ontology') ??
     topLevelProjectNetworks[0] ??
     projectNetworks[0];
 
@@ -660,6 +661,7 @@ function getGenericObjectPresentation(
   projectNames?: Map<string, string>,
   archetypeNames?: Map<string, string>,
   relationTypeNames?: Map<string, string>,
+  typeGroupNames?: Map<string, string>,
   contextNames?: Map<string, string>,
 ): { label: string; icon: string; semanticTypeLabel: string } {
   switch (objectType) {
@@ -687,6 +689,12 @@ function getGenericObjectPresentation(
         icon: 'link-2',
         semanticTypeLabel: 'Relation Type',
       };
+    case 'type_group':
+      return {
+        label: (objectRefId ? typeGroupNames?.get(objectRefId) : undefined) ?? 'Type Group',
+        icon: 'folder-tree',
+        semanticTypeLabel: 'Type Group',
+      };
     case 'context':
       return {
         label: (objectRefId ? contextNames?.get(objectRefId) : undefined) ?? 'Context',
@@ -709,9 +717,11 @@ function toRenderNodes(
   archetypes: Archetype[],
   posMap: Map<string, ParsedNodePosition>,
   networkNames: Map<string, string>,
+  networkKinds: Map<string, string>,
   projectNames: Map<string, string>,
   archetypeNames: Map<string, string>,
   relationTypeNames: Map<string, string>,
+  typeGroupNames: Map<string, string>,
   contextNames: Map<string, string>,
   portalChipsBySource: Map<string, EntryPortalChipSpec[]>,
 ): RenderNode[] {
@@ -805,8 +815,10 @@ function toRenderNodes(
     if (objectType === 'network') {
       const refId = n.object?.ref_id;
       const networkName = refId ? networkNames.get(refId) : undefined;
+      const networkKind = refId ? networkKinds.get(refId) : undefined;
       const label = networkName ?? 'Network';
-      const icon = 'globe';
+      const icon = networkKind === 'ontology' ? 'boxes' : 'globe';
+      const semanticBaseLabel = networkKind === 'ontology' ? 'Ontology' : networkKind === 'universe' ? 'Universe' : 'Network';
       const baseWidth = isPortal ? 180 : isHierarchy ? 340 : isGroup ? 320 : 160;
       return {
         id: n.id,
@@ -816,7 +828,7 @@ function toRenderNodes(
         icon,
         shape: isPortal ? 'dashed' as string | undefined : isHierarchy ? 'hierarchy' as string | undefined : isGroup ? 'group' as string | undefined : 'rectangle' as string | undefined,
         semanticType: 'network',
-        semanticTypeLabel: isPortal ? 'Network Portal' : isHierarchy ? 'Network Hierarchy' : isGroup ? 'Network Group' : 'Network',
+        semanticTypeLabel: isPortal ? `${semanticBaseLabel} Portal` : isHierarchy ? `${semanticBaseLabel} Hierarchy` : isGroup ? `${semanticBaseLabel} Group` : semanticBaseLabel,
         width: isCollapsed
           ? (isHierarchy ? HIERARCHY_COLLAPSED_SIZE.width : GROUP_COLLAPSED_SIZE.width)
           : pos?.width ?? getAutoNodeWidth({ label, icon, baseWidth, metadata: parsedMetadata, isContainer }),
@@ -843,6 +855,7 @@ function toRenderNodes(
       projectNames,
       archetypeNames,
       relationTypeNames,
+      typeGroupNames,
       contextNames,
     );
     const baseWidth = isHierarchy ? 340 : isGroup ? 320 : objectType === 'project' ? 180 : 140;
@@ -1252,7 +1265,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const isDev = import.meta.env.DEV;
   const {
     currentNetwork, currentLayout, nodes, edges, nodePositions, edgeVisuals,
-    loadAppWorkspace, loadNetworks, openNetwork,
+    loadUniverseWorkspace, loadNetworks, openNetwork,
     addNode, removeNode, setNodePosition,
     addEdge, removeEdge, saveViewport,
     navigateToChild, navigateBack,
@@ -1287,22 +1300,22 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const [pendingWorldPositionOverrides, setPendingWorldPositionOverrides] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [showEdgeDebugOverlay, setShowEdgeDebugOverlay] = useState(false);
 
-  // Load networks and open the correct root on first entry.
+  // Load networks and open the correct system network on first entry.
   useEffect(() => {
     let cancelled = false;
 
     const initialize = async () => {
       if (!projectId) {
-        const appRoot = await loadAppWorkspace();
-        if (!appRoot || cancelled) return;
+        const universe = await loadUniverseWorkspace();
+        if (!universe || cancelled) return;
 
         const store = useNetworkStore.getState();
         const needsInitialOpen =
           !store.currentNetwork
-          || store.currentNetwork.scope !== 'app'
+          || store.currentNetwork.kind !== 'universe'
           || store.currentNetwork.parent_network_id !== null;
         if (needsInitialOpen) {
-          await store.openNetwork(appRoot.id);
+          await store.openNetwork(universe.id);
         }
         return;
       }
@@ -1315,8 +1328,8 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         !store.currentNetwork || store.currentNetwork.project_id !== projectId;
       if (!needsInitialOpen) return;
 
-      const projectRoot = await networkService.getProjectRoot(projectId);
-      const initialNetworkId = projectRoot?.id ?? pickInitialNetworkId(projectId, store.networks);
+      const ontology = await networkService.getProjectOntology(projectId);
+      const initialNetworkId = ontology?.id ?? pickInitialNetworkId(projectId, store.networks);
       if (initialNetworkId) {
         await store.openNetwork(initialNetworkId);
       }
@@ -1327,7 +1340,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     return () => {
       cancelled = true;
     };
-  }, [loadAppWorkspace, loadNetworks, projectId]);
+  }, [loadUniverseWorkspace, loadNetworks, projectId]);
 
   useEffect(() => {
     if (selectedNetworkObjects.length === 0 && !networkObjectSelection) {
@@ -1449,6 +1462,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const archetypeFieldsById = useArchetypeStore((s) => s.fields);
   const loadArchetypeFields = useArchetypeStore((s) => s.loadFields);
   const relationTypes = useRelationTypeStore((s) => s.relationTypes);
+  const typeGroupsByKind = useTypeGroupStore((s) => s.groupsByKind);
   const contexts = useContextStore((s) => s.contexts);
   const membersByContext = useContextStore((s) => s.membersByContext);
   const activeContextId = useContextStore((s) => s.activeContextId);
@@ -1457,8 +1471,10 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
   const projects = useProjectStore((s) => s.projects);
   const networks = useNetworkStore((s) => s.networks);
   const networkNames = useMemo(() => new Map(networks.map((n) => [n.id, n.name])), [networks]);
+  const networkKinds = useMemo(() => new Map(networks.map((n) => [n.id, n.kind])), [networks]);
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const archetypeNames = useMemo(() => new Map(archetypes.map((archetype) => [archetype.id, archetype.name])), [archetypes]);
+  const typeGroupNames = useMemo(() => new Map(Object.values(typeGroupsByKind).flat().map((group) => [group.id, group.name])), [typeGroupsByKind]);
   const isTemporalLayout = layoutType === 'horizontal-timeline' || layoutType === 'calendar';
   const temporalArchetypeIds = useMemo(() => (
     archetypes
@@ -1605,9 +1621,11 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         archetypes,
         worldPosMap,
       networkNames,
+      networkKinds,
       projectNames,
       archetypeNames,
       relationTypeNames,
+      typeGroupNames,
         contextNames,
         entryPortalData.portalChipsBySource,
       ).map((node) => (
@@ -1638,9 +1656,11 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     archetypes,
     worldPosMap,
     networkNames,
+    networkKinds,
     projectNames,
     archetypeNames,
     relationTypeNames,
+    typeGroupNames,
     contextNames,
     entryPortalData,
     containsParentByChild,
@@ -3796,7 +3816,6 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             const network = await networkService.create({
               project_id: currentNetwork.project_id,
               name,
-              parent_network_id: currentNetwork.id,
             });
             if (node) {
               await createEntryPortalAttachment(node.id, network.id);

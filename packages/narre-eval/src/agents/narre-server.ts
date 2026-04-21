@@ -107,9 +107,16 @@ export class NarreServerAdapter implements EvalAgentAdapter {
   }
 
   async setup(ctx: EvalRunContext): Promise<void> {
-    const apiKey = ctx.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required');
+    const provider = ctx.env.NARRE_PROVIDER ?? process.env.NARRE_PROVIDER ?? 'codex';
+    const anthropicApiKey = ctx.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
+    const openAiApiKey = ctx.env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+
+    if (provider === 'claude' && !anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is required when NARRE_PROVIDER=claude');
+    }
+
+    if (provider === 'openai' && !openAiApiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required when NARRE_PROVIDER=openai');
     }
 
     const serverPath = resolveNarreServerPath();
@@ -127,10 +134,12 @@ export class NarreServerAdapter implements EvalAgentAdapter {
     this.process = spawn(process.execPath, [serverPath], {
       env: {
         ...process.env,
+        ...ctx.env,
         PORT: String(ctx.port),
         MOC_DATA_DIR: ctx.dataDir,
         NETIOR_SERVICE_URL: ctx.serviceUrl,
-        ANTHROPIC_API_KEY: apiKey,
+        ...(anthropicApiKey ? { ANTHROPIC_API_KEY: anthropicApiKey } : {}),
+        ...(openAiApiKey ? { OPENAI_API_KEY: openAiApiKey } : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -161,7 +170,6 @@ export class NarreServerAdapter implements EvalAgentAdapter {
     const body: Record<string, unknown> = {
       projectId: input.projectId,
       message: input.message,
-      projectMetadata: input.projectMetadata,
     };
     if (input.sessionId) body.sessionId = input.sessionId;
     if (input.mentions) body.mentions = input.mentions;
@@ -184,8 +192,18 @@ export class NarreServerAdapter implements EvalAgentAdapter {
 
   async teardown(): Promise<void> {
     if (this.process) {
-      this.process.kill();
+      const managedProcess = this.process;
+      const managedPid = managedProcess.pid ?? null;
       this.process = null;
+
+      if (process.platform === 'win32' && managedPid && managedProcess.exitCode === null) {
+        await killProcessTreeWindows(managedPid);
+      }
+
+      if (managedProcess.exitCode === null && !managedProcess.killed) {
+        managedProcess.kill();
+      }
+      await waitForProcessExit(managedProcess);
     }
     removePidFile(this.pidPath);
   }
@@ -293,7 +311,7 @@ export class NarreServerAdapter implements EvalAgentAdapter {
           case 'card': {
             const card = event.card;
             if (onCard && card && 'toolCallId' in card) {
-              const response = onCard(card);
+              const response = await onCard(card);
               const cardRes = await this.submitCardResponse(card.toolCallId, response);
               if (cardRes.ok) {
                 cardResponseCount++;
@@ -324,11 +342,56 @@ export class NarreServerAdapter implements EvalAgentAdapter {
 
 function resolveNarreServerPath(): string | null {
   const candidates = [
+    join(process.cwd(), 'packages/narre-server/dist/index.cjs'),
     join(process.cwd(), 'packages/narre-server/dist/index.js'),
+    join(process.cwd(), 'packages/narre-eval/../narre-server/dist/index.cjs'),
+    join(process.cwd(), 'packages/narre-eval/../narre-server/dist/index.js'),
+    join(process.cwd(), '../narre-server/dist/index.cjs'),
     join(process.cwd(), '../narre-server/dist/index.js'),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
   return null;
+}
+
+function waitForProcessExit(child: ChildProcess): Promise<void> {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null) {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    child.once('exit', finish);
+    child.once('close', finish);
+    setTimeout(finish, 10_000);
+  });
+}
+
+function killProcessTreeWindows(pid: number): Promise<void> {
+  return new Promise((resolve) => {
+    const killer = spawn('taskkill', ['/pid', String(pid), '/t', '/f'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    killer.once('error', finish);
+    killer.once('exit', finish);
+    killer.once('close', finish);
+    setTimeout(finish, 10_000);
+  });
 }

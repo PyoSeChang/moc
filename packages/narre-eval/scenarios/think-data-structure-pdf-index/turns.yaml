@@ -1,0 +1,11 @@
+turns:
+  - role: user
+    content: |
+      /index Think Data Structure PDF의 목차를 인덱싱해 주세요. 목차는 실제 PDF 11-16쪽에 있고, 책의 구조를 이해하려면 6-10쪽도 참고하면 됩니다. 목차를 추출해서 저장하기 전에 제가 승인할 수 있게 보여 주세요.
+
+      [toc_params]{"startPage":11,"endPage":16,"overviewPages":[6,7,8,9,10],"fileId":{{file_id_json}},"filePath":{{file_path_json}}}[/toc_params]
+    mentions:
+      - type: file
+        id: "{{file_id}}"
+        path: "{{file_path}}"
+        display: "{{file_name}}"

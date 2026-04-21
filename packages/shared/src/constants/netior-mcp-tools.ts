@@ -72,14 +72,14 @@ export const NETIOR_MCP_TOOL_SPECS = {
     defaultProjectBinding: true,
   },
   create_concept: {
-    description: 'Create a new concept in a project',
+    description: 'Create a new concept in a project, including either an icon or a profile image source',
     category: 'concepts',
     kind: 'mutation',
     scope: 'project',
     defaultProjectBinding: true,
   },
   update_concept: {
-    description: 'Update an existing concept',
+    description: 'Update an existing concept, including either an icon or a profile image source',
     category: 'concepts',
     kind: 'mutation',
   },
@@ -128,7 +128,7 @@ export const NETIOR_MCP_TOOL_SPECS = {
     description: 'List contents of a directory within registered module paths',
     category: 'files',
     kind: 'query',
-    profiles: ['onboarding-skill'],
+    profiles: ['bootstrap-skill', 'bootstrap-interview', 'bootstrap-execution'],
     scope: 'project',
     defaultProjectBinding: true,
   },
@@ -137,7 +137,7 @@ export const NETIOR_MCP_TOOL_SPECS = {
     description: 'Read contents of a file within registered module paths',
     category: 'files',
     kind: 'query',
-    profiles: ['onboarding-skill'],
+    profiles: ['bootstrap-skill', 'bootstrap-interview', 'bootstrap-execution'],
     scope: 'project',
     defaultProjectBinding: true,
   },
@@ -146,7 +146,7 @@ export const NETIOR_MCP_TOOL_SPECS = {
     description: 'Find files matching a glob pattern within registered module paths',
     category: 'search',
     kind: 'query',
-    profiles: ['onboarding-skill'],
+    profiles: ['bootstrap-skill', 'bootstrap-interview', 'bootstrap-execution'],
     scope: 'project',
     defaultProjectBinding: true,
   },
@@ -155,7 +155,7 @@ export const NETIOR_MCP_TOOL_SPECS = {
     description: 'Search file contents with a regex pattern within registered module paths',
     category: 'search',
     kind: 'analysis',
-    profiles: ['onboarding-skill'],
+    profiles: ['bootstrap-skill', 'bootstrap-interview', 'bootstrap-execution'],
     scope: 'project',
     defaultProjectBinding: true,
   },
@@ -176,12 +176,12 @@ export const NETIOR_MCP_TOOL_SPECS = {
     defaultProjectBinding: true,
   },
   create_network_node: {
-    description: 'Create a node in a network for an existing object record',
+    description: 'Create a node in a network for an existing object record, including optional node type and structured node config metadata',
     category: 'graph',
     kind: 'mutation',
   },
   update_network_node: {
-    description: 'Update a network node type, parent, or metadata',
+    description: 'Update a network node type, parent, raw metadata, or structured node config',
     category: 'graph',
     kind: 'mutation',
   },
@@ -221,15 +221,15 @@ export const NETIOR_MCP_TOOL_SPECS = {
     category: 'graph',
     kind: 'query',
   },
-  get_app_root_network: {
-    description: 'Get the app root network',
+  get_universe_network: {
+    description: 'Get the Universe network',
     category: 'graph',
     kind: 'query',
     profiles: ['discovery'],
     scope: 'app',
   },
-  get_project_root_network: {
-    description: 'Get the root network for a project',
+  get_project_ontology_network: {
+    description: 'Get the Ontology network for a project',
     category: 'graph',
     kind: 'query',
     profiles: ['discovery'],
@@ -402,7 +402,7 @@ function inferToolKind(toolName: string): NarreToolKind {
 }
 
 function inferToolScope(toolName: string): NetiorMcpToolScope {
-  if (toolName === 'get_app_root_network') {
+  if (toolName === 'get_universe_network') {
     return 'app';
   }
   if (toolName.includes('object')) {

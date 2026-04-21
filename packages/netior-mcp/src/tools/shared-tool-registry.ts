@@ -15,7 +15,9 @@ export function getActiveNetiorMcpToolProfile(): NetiorMcpToolProfile {
   switch (raw) {
     case 'core':
     case 'discovery':
-    case 'onboarding-skill':
+    case 'bootstrap-skill':
+    case 'bootstrap-interview':
+    case 'bootstrap-execution':
     case 'index-skill':
       return raw;
     default:
@@ -24,11 +26,15 @@ export function getActiveNetiorMcpToolProfile(): NetiorMcpToolProfile {
 }
 
 export function projectIdSchema(): z.ZodOptional<z.ZodString> {
-  return z.string().optional().describe('Project ID. Omit to use the current active project.');
+  return z.string().optional().describe(
+    'Project ID. Prefer omitting this to use the current active project binding. Provide it only for explicit cross-project work.',
+  );
 }
 
 export function projectIdOrNullSchema(description: string): z.ZodOptional<z.ZodNullable<z.ZodString>> {
-  return z.string().nullable().optional().describe(`${description}. Omit to use the current active project.`);
+  return z.string().nullable().optional().describe(
+    `${description}. Prefer omitting this to use the current active project binding. Provide it only for explicit cross-project work.`,
+  );
 }
 
 export function resolveProjectId(projectId?: string | null): string {
@@ -42,7 +48,7 @@ export function resolveProjectId(projectId?: string | null): string {
     return fallback;
   }
 
-  throw new Error('project_id is required because no current active project is bound');
+  throw new Error('No current active project is bound. Pass project_id only for explicit cross-project work.');
 }
 
 export function resolveNullableProjectId(projectId?: string | null): string | null {

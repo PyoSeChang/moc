@@ -12,7 +12,9 @@ import { runCodexTextTask } from './codex-exec.js';
 import { normalizeScenarioExecution } from './execution.js';
 import type {
   EvalProviderId,
+  EvalScenarioKind,
   EvalTesterId,
+  ResponsibilitySurfaceId,
   RunSpec,
   ScenarioExecutionConfig,
   ScenarioExecutionManifest,
@@ -134,6 +136,7 @@ interface TuiScenarioSummary {
   type: ScenarioType;
   labels: string[];
   lifecycle: ScenarioLifecycle;
+  responsibilitySurfaces: ResponsibilitySurfaceId[];
   execution: ScenarioExecutionConfig;
   verifyNames: string[];
   rubricNames: string[];
@@ -146,6 +149,7 @@ interface TuiManifest {
   type: ScenarioType;
   lifecycle: ScenarioLifecycle;
   labels?: string[];
+  responsibility_surfaces?: ResponsibilitySurfaceId[];
   execution?: ScenarioExecutionManifest;
   assets?: {
     verify?: string[];
@@ -603,8 +607,11 @@ function renderSummaryMarkdown(
     `- Scenario: ${scenario.id}`,
     `- Description: ${scenario.description}`,
     `- Target skill: ${scenario.execution.target_skill ?? '(none)'}`,
+    `- Scenario kind: ${formatScenarioKindLabel(scenario.execution.scenario_kind)}`,
+    `- Responsibility surfaces: ${scenario.responsibilitySurfaces.join(', ') || '(none)'}`,
     `- Provider: ${state.provider}`,
     `- Tester: ${state.tester}`,
+    `- Recommended tester: ${getRecommendedTesterForScenarioKind(scenario.execution.scenario_kind)}`,
     `- Judge: ${state.judge ? 'on' : 'off'}`,
     '',
     `- Status: ${result?.status ?? '(no run selected)'}`,
@@ -744,6 +751,7 @@ async function runEvalFromTui(
     run_id: 'auto',
     scenario_id: scenario.id,
     target_skill: scenario.execution.target_skill,
+    scenario_kind: scenario.execution.scenario_kind,
     agent_id: scenario.execution.agent_id,
     provider: state.provider,
     tester: state.tester,
@@ -2282,6 +2290,7 @@ function renderScenarioDetailMarkdown(scenario: TuiScenarioSummary): string {
     `- id: ${scenario.id}`,
     `- lifecycle: ${scenario.lifecycle}`,
     `- type: ${scenario.type}`,
+    `- scenario kind: ${formatScenarioKindLabel(scenario.execution.scenario_kind)}`,
     `- labels: ${scenario.labels.join(', ') || '(none)'}`,
     `- description: ${scenario.description}`,
     '',
@@ -2291,8 +2300,10 @@ function renderScenarioDetailMarkdown(scenario: TuiScenarioSummary): string {
     `- agent: ${scenario.execution.agent_id}`,
     `- provider: ${scenario.execution.provider}`,
     `- tester: ${scenario.execution.tester}`,
+    `- recommended tester: ${getRecommendedTesterForScenarioKind(scenario.execution.scenario_kind)}`,
     `- execution mode: ${scenario.execution.execution_mode}`,
     `- analysis targets: ${scenario.execution.analysis_targets.join(', ') || '(none)'}`,
+    `- responsibility surfaces: ${scenario.responsibilitySurfaces.join(', ') || '(none)'}`,
     '',
     '## Verify items',
     '',
@@ -2355,6 +2366,14 @@ function renderFindingsMarkdown(result: ScenarioResult, transcript?: Transcript)
   return lines.join('\n');
 }
 
+function formatScenarioKindLabel(kind: EvalScenarioKind): string {
+  return kind === 'interpretive' ? '해석형' : '고정형';
+}
+
+function getRecommendedTesterForScenarioKind(kind: EvalScenarioKind): EvalTesterId {
+  return kind === 'interpretive' ? 'codex-tester' : 'basic-turn-runner';
+}
+
 function getSelectedScenario(state: TuiState): TuiScenarioSummary {
   const scenario = state.scenarios[state.scenarioIndex];
   if (!scenario) {
@@ -2393,7 +2412,7 @@ function loadScenarioSummaryFromManifest(
   manifestPath: string,
 ): TuiScenarioSummary {
   const manifest = parse(readFileSync(manifestPath, 'utf-8')) as TuiManifest;
-  const execution = normalizeScenarioExecution(manifest.execution, manifest.type);
+  const execution = normalizeScenarioExecution(manifest.execution);
 
   return {
     id: manifest.id,
@@ -2402,6 +2421,7 @@ function loadScenarioSummaryFromManifest(
     type: manifest.type,
     labels: manifest.labels ?? [],
     lifecycle: manifest.lifecycle,
+    responsibilitySurfaces: manifest.responsibility_surfaces ?? [],
     execution,
     verifyNames: loadVerifyNamesFromRefs(scenarioDir, manifest.assets?.verify ?? []),
     rubricNames: loadRubricNamesFromRefs(scenarioDir, manifest.assets?.rubrics ?? []),
@@ -2410,7 +2430,7 @@ function loadScenarioSummaryFromManifest(
 
 function loadScenarioSummaryFromLegacy(legacyPath: string): TuiScenarioSummary {
   const legacy = parse(readFileSync(legacyPath, 'utf-8')) as TuiLegacyScenario;
-  const execution = normalizeScenarioExecution(undefined, legacy.type);
+  const execution = normalizeScenarioExecution(undefined);
 
   return {
     id: legacy.id,
@@ -2418,6 +2438,7 @@ function loadScenarioSummaryFromLegacy(legacyPath: string): TuiScenarioSummary {
     type: legacy.type,
     labels: legacy.tags ?? [],
     lifecycle: 'active',
+    responsibilitySurfaces: [],
     execution,
     verifyNames: (legacy.verify ?? []).flatMap((item) => (item.name ? [item.name] : [])),
     rubricNames: (legacy.qualitative ?? []).flatMap((item) => (item.rubric ? [item.rubric] : [])),

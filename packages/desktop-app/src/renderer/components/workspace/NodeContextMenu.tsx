@@ -145,13 +145,13 @@ export function NodeContextMenu({
   }, [onAddConnection, nodeId, onClose]);
 
   const handleDelete = useCallback(async () => {
-    const isAppRootProjectNode =
+    const isUniverseProjectNode =
       objectType === 'project'
       && !!objectTargetId
-      && currentNetwork?.scope === 'app'
+      && currentNetwork?.kind === 'universe'
       && currentNetwork.parent_network_id === null;
 
-    if (isAppRootProjectNode) {
+    if (isUniverseProjectNode) {
       await deleteProject(objectTargetId);
       if (currentNetwork) {
         await useNetworkStore.getState().openNetwork(currentNetwork.id);
@@ -162,7 +162,7 @@ export function NodeContextMenu({
 
     onDeleteNode?.(nodeId);
     onClose();
-  }, [currentNetwork?.parent_network_id, currentNetwork?.scope, deleteProject, nodeId, objectTargetId, objectType, onClose, onDeleteNode]);
+  }, [currentNetwork?.kind, currentNetwork?.parent_network_id, deleteProject, nodeId, objectTargetId, objectType, onClose, onDeleteNode]);
 
   return (
     <div

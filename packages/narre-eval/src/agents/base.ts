@@ -29,7 +29,6 @@ export interface SendTurnInput {
   projectId: string;
   message: string;
   mentions?: unknown[];
-  projectMetadata?: Record<string, unknown>;
   /** If provided, called inline during the SSE stream for each card event. */
   onCard?: CardHandler;
 }

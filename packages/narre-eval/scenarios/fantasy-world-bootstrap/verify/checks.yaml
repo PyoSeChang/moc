@@ -1,0 +1,132 @@
+verify:
+  - name: "network structure separates character world plot and story spaces"
+    db:
+      table: networks
+      condition: "project_id = '{{project_id}}' AND LOWER(name) IN ('character', 'characters', 'worldbuilding', 'world', 'plot', 'story', '캐릭터', '인물', '세계관', '설정', '플롯', '줄거리', '스토리', '장면')"
+      expect:
+        count_min: 4
+
+  - name: "core fantasy archetypes exist"
+    db:
+      table: archetypes
+      expect:
+        count_min: 7
+        column_includes:
+          name: ["Character", "Faction", "Region", "City", "Quest", "Event", "Scene"]
+
+  - name: "Quest uses workflow traits"
+    db:
+      table: archetypes
+      condition: "project_id = '{{project_id}}' AND name = 'Quest' AND semantic_traits LIKE '%statusful%' AND semantic_traits LIKE '%prioritizable%'"
+      expect:
+        count: 1
+
+  - name: "Scene uses temporal trait"
+    db:
+      table: archetypes
+      condition: "project_id = '{{project_id}}' AND name = 'Scene' AND semantic_traits LIKE '%temporal%'"
+      expect:
+        count: 1
+
+  - name: "Character.faction is a Faction archetype_ref"
+    db:
+      table: archetype_fields
+      condition: "name = 'faction' AND field_type = 'archetype_ref' AND archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Character') AND ref_archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Faction')"
+      expect:
+        count: 1
+
+  - name: "Quest.giver is a Character archetype_ref"
+    db:
+      table: archetype_fields
+      condition: "name = 'giver' AND field_type = 'archetype_ref' AND archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Quest') AND ref_archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Character')"
+      expect:
+        count: 1
+
+  - name: "Quest.target_region is a Region archetype_ref"
+    db:
+      table: archetype_fields
+      condition: "name = 'target_region' AND field_type = 'archetype_ref' AND archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Quest') AND ref_archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Region')"
+      expect:
+        count: 1
+
+  - name: "Scene.pov_character is a Character archetype_ref"
+    db:
+      table: archetype_fields
+      condition: "name = 'pov_character' AND field_type = 'archetype_ref' AND archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Scene') AND ref_archetype_id IN (SELECT id FROM archetypes WHERE project_id = '{{project_id}}' AND name = 'Character')"
+      expect:
+        count: 1
+
+  - name: "starter concepts were created"
+    db:
+      table: concepts
+      expect:
+        count_min: 4
+
+  - name: "starter concept nodes were created"
+    db:
+      table: network_nodes
+      condition: "network_id IN (SELECT id FROM networks WHERE project_id = '{{project_id}}') AND object_id IN (SELECT id FROM objects WHERE project_id = '{{project_id}}' AND object_type = 'concept')"
+      expect:
+        count_min: 4
+
+  - name: "no response error"
+    response:
+      no_error: true
+
+  - name: "bootstrap asks two domain interview rounds"
+    tool:
+      name: ask
+      expect:
+        count_min: 2
+        count_max: 4
+
+  - name: "bootstrap presents at least one proposal"
+    tool:
+      name: propose
+      expect:
+        count_min: 1
+        count_max: 4
+        sequence: [ask, ask, propose, create_type_group]
+
+  - name: "network creation tool usage is bounded"
+    tool:
+      name: create_network
+      expect:
+        count_min: 4
+        count_max: 20
+
+  - name: "archetype creation tool usage is bounded"
+    tool:
+      name: create_archetype
+      expect:
+        count_min: 7
+        count_max: 20
+
+  - name: "field creation tool usage is bounded"
+    tool:
+      name: create_archetype_field
+      expect:
+        count_min: 4
+        count_max: 30
+
+  - name: "starter concept creation tool usage is bounded"
+    tool:
+      name: create_concept
+      expect:
+        count_min: 4
+        count_max: 24
+
+  - name: "starter node creation tool usage is bounded"
+    tool:
+      name: create_network_node
+      expect:
+        count_min: 4
+        count_max: 24
+
+  - name: "analysis: project binding violation absent"
+    analysis:
+      tool_use:
+        findings_absent: [bootstrap_missing_interview, bootstrap_insufficient_interview, bootstrap_missing_proposal, project_binding_violation]
+        summary:
+          project_binding_violation_count:
+            count: 0

@@ -1,5 +1,6 @@
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 import { loadScenarios } from './loader.js';
 import { setupScenario, teardownScenario, setRunId } from './harness.js';
 import { runScenario } from './runner/session-runner.js';
@@ -7,9 +8,18 @@ import { NarreServerAdapter } from './agents/narre-server.js';
 import { gradeScenario, errorMetrics, skippedMetrics, GRADING_VERSION, type GradeContext } from './grader.js';
 import { recordResult, recordRunResult, printSummary } from './report.js';
 import { findBaselineRunDir, loadBaselineResult, compareResults } from './comparator.js';
-import type { EvalOptions, ScenarioResult, EvalScenario, ProvenanceInfo } from './types.js';
+import { loadRunSpec, applyRunSpecToOptions, resolveRunId, resolveScenarioExecutionForRun } from './run-spec.js';
+import { emptyScenarioAnalysis } from './analyzer.js';
+import type {
+  AgentInfo,
+  EvalOptions,
+  ScenarioResult,
+  EvalScenario,
+  ProvenanceInfo,
+  RunSpec,
+  ScenarioExecutionConfig,
+} from './types.js';
 import type { EvalAgentAdapter } from './agents/base.js';
-import { randomUUID } from 'crypto';
 
 const APPDATA = process.env.APPDATA || process.env.HOME || '.';
 const EVAL_DATA_DIR = join(APPDATA, 'netior', 'data', 'eval');
@@ -49,26 +59,76 @@ function parseArgs(argv: string[]): EvalOptions {
       case '--baseline':
         options.baseline = args[++i];
         break;
+      case '--run-spec':
+        options.runSpec = args[++i];
+        break;
     }
   }
 
   return options;
 }
 
-// ── Compatibility check ──
-
-function checkCompatibility(
-  scenario: EvalScenario,
+function buildTargetAgentInfo(
   adapter: EvalAgentAdapter,
-): string | null {
-  const info = scenario.versionInfo;
-  if (!info) return null; // Legacy scenario — no constraints
+  execution: ScenarioExecutionConfig,
+): AgentInfo {
+  return {
+    id: execution.agent_id,
+    name: execution.agent_id,
+    runtime: adapter.runtimeType,
+    adapter_id: adapter.agentId,
+    adapter_name: adapter.agentName,
+    provider: execution.provider,
+    tester: execution.tester,
+  };
+}
 
-  if (info.supported_agents.length > 0 && !info.supported_agents.includes(adapter.agentId)) {
-    return `agent "${adapter.agentId}" not in supported_agents [${info.supported_agents.join(', ')}]`;
+function buildAdapterEnv(execution: ScenarioExecutionConfig): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = {
+    NARRE_PROVIDER: execution.provider,
+  };
+
+  if (execution.provider === 'codex') {
+    const model = typeof execution.provider_settings?.model === 'string'
+      ? execution.provider_settings.model.trim()
+      : '';
+    if (model) {
+      env.NARRE_CODEX_MODEL = model;
+    }
+    if (execution.provider_settings) {
+      env.NARRE_CODEX_SETTINGS_JSON = JSON.stringify(execution.provider_settings);
+    }
   }
 
-  const missingCaps = info.required_capabilities.filter(
+  if (execution.provider === 'openai') {
+    const model = typeof execution.provider_settings?.model === 'string'
+      ? execution.provider_settings.model.trim()
+      : '';
+    if (model) {
+      env.NARRE_OPENAI_MODEL = model;
+    }
+  }
+
+  return env;
+}
+
+function checkCompatibility(
+  execution: ScenarioExecutionConfig,
+  adapter: EvalAgentAdapter,
+): string | null {
+  if (execution.execution_mode !== 'single_agent') {
+    return `execution_mode "${execution.execution_mode}" is not yet supported by the current runner`;
+  }
+
+  if (
+    execution.supported_agents.length > 0 &&
+    !execution.supported_agents.includes(execution.agent_id) &&
+    !execution.supported_agents.includes(adapter.agentId)
+  ) {
+    return `agent "${execution.agent_id}" / adapter "${adapter.agentId}" not in supported_agents [${execution.supported_agents.join(', ')}]`;
+  }
+
+  const missingCaps = execution.required_capabilities.filter(
     (cap) => !adapter.capabilities.includes(cap),
   );
   if (missingCaps.length > 0) {
@@ -81,7 +141,8 @@ function checkCompatibility(
 function buildSkippedResult(
   runId: string,
   scenario: EvalScenario,
-  adapter: EvalAgentAdapter,
+  agent: AgentInfo,
+  execution: ScenarioExecutionConfig,
   reason: string,
 ): ScenarioResult {
   return {
@@ -89,7 +150,8 @@ function buildSkippedResult(
     scenarioId: scenario.id,
     timestamp: new Date().toISOString(),
     status: 'skipped',
-    agent: adapter.getAgentInfo(),
+    agent,
+    execution,
     scenarioAuthor: scenario.versionInfo?.created_by ?? null,
     executedBy: EXECUTOR_INFO,
     scenarioVersion: scenario.versionInfo?.scenario_version ?? null,
@@ -98,19 +160,88 @@ function buildSkippedResult(
     verifyResults: { passed: 0, total: 0, results: [] },
     judgeScores: [],
     judgeAvg: null,
+    judgeReportMarkdown: null,
     durationMs: 0,
     metrics: skippedMetrics(),
-    transcript: { scenarioId: scenario.id, sessionId: null, turns: [], totalToolCalls: 0, cardResponseCount: 0, sessionResumeCount: 0 },
+    analysis: emptyScenarioAnalysis(),
+    transcript: {
+      scenarioId: scenario.id,
+      sessionId: null,
+      turns: [],
+      totalToolCalls: 0,
+      cardResponseCount: 0,
+      sessionResumeCount: 0,
+      testerInteractions: [],
+      testerInteractionCount: 0,
+    },
     skipReason: reason,
   };
 }
 
-// ── Main ──
+function buildErrorResult(
+  runId: string,
+  scenario: EvalScenario,
+  agent: AgentInfo,
+  execution: ScenarioExecutionConfig,
+  error: Error,
+): ScenarioResult {
+  return {
+    runId,
+    scenarioId: scenario.id,
+    timestamp: new Date().toISOString(),
+    status: 'error',
+    agent,
+    execution,
+    scenarioAuthor: scenario.versionInfo?.created_by ?? null,
+    executedBy: EXECUTOR_INFO,
+    scenarioVersion: scenario.versionInfo?.scenario_version ?? null,
+    schemaVersion: scenario.versionInfo?.schema_version ?? null,
+    gradingVersion: GRADING_VERSION,
+    verifyResults: { passed: 0, total: 0, results: [] },
+    judgeScores: [],
+    judgeAvg: null,
+    judgeReportMarkdown: null,
+    durationMs: 0,
+    metrics: errorMetrics(),
+    analysis: emptyScenarioAnalysis(),
+    transcript: {
+      scenarioId: scenario.id,
+      sessionId: null,
+      turns: [],
+      totalToolCalls: 0,
+      cardResponseCount: 0,
+      sessionResumeCount: 0,
+      testerInteractions: [],
+      testerInteractionCount: 0,
+    },
+    error: error.message,
+  };
+}
+
+function summarizeRunAgentInfo(results: ScenarioResult[], adapter: EvalAgentAdapter): AgentInfo {
+  const distinctKeys = new Set(results.map((result) => {
+    return `${result.agent.id}|${result.execution.provider}|${result.execution.tester}`;
+  }));
+
+  if (results.length > 0 && distinctKeys.size === 1) {
+    return results[0].agent;
+  }
+
+  return {
+    id: 'multiple',
+    name: 'multiple execution profiles',
+    runtime: adapter.runtimeType,
+    adapter_id: adapter.agentId,
+    adapter_name: adapter.agentName,
+  };
+}
 
 async function main() {
-  const options = parseArgs(process.argv);
+  const rawOptions = parseArgs(process.argv);
+  const runSpec: RunSpec | null = rawOptions.runSpec ? loadRunSpec(rawOptions.runSpec) : null;
+  const options = applyRunSpecToOptions(rawOptions, runSpec);
 
-  const runId = randomUUID().slice(0, 8);
+  const runId = resolveRunId(randomUUID().slice(0, 8), runSpec);
   setRunId(runId);
 
   const startedAt = new Date().toISOString();
@@ -126,31 +257,37 @@ async function main() {
   }
 
   const adapter = new NarreServerAdapter();
-  const agentInfo = adapter.getAgentInfo();
 
-  // Resolve baseline for comparison
   const baselineRunDir = options.baseline !== undefined
     ? findBaselineRunDir(runsDir, runId, options.baseline || 'latest')
     : findBaselineRunDir(runsDir, runId, 'latest');
 
   console.log(`\nLoaded ${scenarios.length} scenario(s)  [run: ${runId}]`);
+  if (rawOptions.runSpec) console.log(`Run spec: ${rawOptions.runSpec}`);
   if (baselineRunDir) console.log(`Baseline: ${baselineRunDir}`);
   if (!options.judge) console.log('LLM judge: disabled');
   if (options.repeat > 1) console.log(`Repeat: ${options.repeat}x`);
 
   const allResults: ScenarioResult[] = [];
+  const scenarioExecutions: Array<{ scenarioId: string; execution: ScenarioExecutionConfig }> = [];
 
   for (let rep = 0; rep < options.repeat; rep++) {
     if (options.repeat > 1) console.log(`\n--- Run ${rep + 1}/${options.repeat} ---`);
 
     for (const scenario of scenarios) {
-      console.log(`\n> Running: ${scenario.id} — ${scenario.description}`);
+      const execution = resolveScenarioExecutionForRun(scenario.execution, scenario.type, runSpec);
+      const targetAgent = buildTargetAgentInfo(adapter, execution);
 
-      // Check compatibility before execution
-      const skipReason = checkCompatibility(scenario, adapter);
+      if (rep === 0) {
+        scenarioExecutions.push({ scenarioId: scenario.id, execution });
+      }
+
+      console.log(`\n> Running: ${scenario.id} [${execution.agent_id}/${execution.provider}/${execution.tester}] - ${scenario.description}`);
+
+      const skipReason = checkCompatibility(execution, adapter);
       if (skipReason) {
         console.log(`  SKIPPED: ${skipReason}`);
-        const skipped = buildSkippedResult(runId, scenario, adapter, skipReason);
+        const skipped = buildSkippedResult(runId, scenario, targetAgent, execution, skipReason);
         recordResult(scenario.scenarioDir, skipped);
         allResults.push(skipped);
         continue;
@@ -162,19 +299,19 @@ async function main() {
         console.log('  Setting up scenario...');
         setup = await setupScenario(scenario.scenarioDir, scenario.seed, scenario.id);
 
-        console.log('  Starting narre-server...');
+        console.log(`  Starting narre-server (${execution.provider})...`);
         await adapter.setup({
           runId,
           port: options.port,
           dbPath: setup.dbPath,
           dataDir: EVAL_DATA_DIR,
           serviceUrl: setup.serviceUrl,
-          env: {},
+          env: buildAdapterEnv(execution),
         });
 
         console.log('  Sending turns...');
         const startTime = Date.now();
-        const transcript = await runScenario(adapter, scenario, setup.projectId, setup.serviceUrl, setup.templateVars);
+        const transcript = await runScenario(adapter, scenario, setup.projectId, setup.templateVars);
         const durationMs = Date.now() - startTime;
 
         console.log(`  Completed in ${(durationMs / 1000).toFixed(1)}s (${transcript.totalToolCalls} tool calls)`);
@@ -182,10 +319,15 @@ async function main() {
         console.log('  Grading...');
         const gradeCtx: GradeContext = {
           runId,
-          agent: agentInfo,
+          agent: targetAgent,
+          execution,
           durationMs,
           versionInfo: scenario.versionInfo,
           executedBy: EXECUTOR_INFO,
+          scenarioDescription: scenario.description,
+          scenarioType: scenario.type,
+          scenarioTags: scenario.tags,
+          scenarioResponsibilitySurfaces: scenario.responsibilitySurfaces,
         };
         const result = await gradeScenario(
           scenario.id,
@@ -198,7 +340,6 @@ async function main() {
           gradeCtx,
         );
 
-        // Baseline comparison
         if (baselineRunDir) {
           const baseline = loadBaselineResult(baselineRunDir, scenario.id);
           if (baseline) {
@@ -209,45 +350,43 @@ async function main() {
         recordResult(scenario.scenarioDir, result);
         allResults.push(result);
       } catch (error) {
-        const errResult: ScenarioResult = {
+        const errResult = buildErrorResult(
           runId,
-          scenarioId: scenario.id,
-            timestamp: new Date().toISOString(),
-            status: 'error',
-            agent: agentInfo,
-            scenarioAuthor: scenario.versionInfo?.created_by ?? null,
-            executedBy: EXECUTOR_INFO,
-            scenarioVersion: scenario.versionInfo?.scenario_version ?? null,
-            schemaVersion: scenario.versionInfo?.schema_version ?? null,
-          gradingVersion: GRADING_VERSION,
-          verifyResults: { passed: 0, total: 0, results: [] },
-          judgeScores: [],
-          judgeAvg: null,
-          durationMs: 0,
-          metrics: errorMetrics(),
-          transcript: { scenarioId: scenario.id, sessionId: null, turns: [], totalToolCalls: 0, cardResponseCount: 0, sessionResumeCount: 0 },
-          error: (error as Error).message,
-        };
+          scenario,
+          targetAgent,
+          execution,
+          error as Error,
+        );
         recordResult(scenario.scenarioDir, errResult);
         allResults.push(errResult);
         console.error(`  ERROR: ${(error as Error).message}`);
       } finally {
-        await adapter.teardown();
+        try {
+          await adapter.teardown();
+        } catch (error) {
+          console.warn(`  WARNING: adapter teardown failed: ${(error as Error).message}`);
+        }
         if (setup) {
-          await teardownScenario(setup);
+          try {
+            await teardownScenario(setup);
+          } catch (error) {
+            console.warn(`  WARNING: scenario cleanup failed for ${scenario.id}: ${(error as Error).message}`);
+          }
         }
       }
     }
   }
 
-  // Write run-level output to packages/narre-eval/runs/ (intentionally package-local)
   const finishedAt = new Date().toISOString();
   recordRunResult(packageRoot, {
     runId,
     startedAt,
     finishedAt,
-    agent: agentInfo,
+    agent: summarizeRunAgentInfo(allResults, adapter),
     executedBy: EXECUTOR_INFO,
+    runSpecPath: rawOptions.runSpec ?? null,
+    runSpec,
+    scenarioExecutions,
     scenarioIds: allResults.map((r) => r.scenarioId),
   }, allResults);
 

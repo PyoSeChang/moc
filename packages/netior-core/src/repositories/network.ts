@@ -3,11 +3,11 @@ import { getDatabase } from '../connection';
 import { createLayout, getLayoutByNetwork, getNodePositions, getEdgeVisuals } from './layout';
 import { createObject, deleteObjectByRef } from './objects';
 import {
-  ensureAppRootNetworkForDb,
-  ensureProjectRootNetworkForDb,
-  getAppRootNetworkForDb,
-  getProjectRootNetworkForDb,
-} from './network-roots';
+  ensureProjectOntologyNetworkForDb,
+  ensureUniverseNetworkForDb,
+  getProjectOntologyNetworkForDb,
+  getUniverseNetworkForDb,
+} from './system-networks';
 import type {
   Network, NetworkCreate, NetworkUpdate,
   NetworkNode, NetworkNodeCreate, NetworkNodeUpdate,
@@ -27,13 +27,18 @@ export function createNetwork(data: NetworkCreate): Network {
   const id = randomUUID();
   const now = new Date().toISOString();
   const scope = data.scope ?? 'project';
+  const kind = data.kind ?? 'network';
+  if (kind !== 'network') {
+    throw new Error('System networks must be created through the system network repository');
+  }
 
   db.prepare(
-    `INSERT INTO networks (id, project_id, name, scope, parent_network_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO networks (id, project_id, name, scope, kind, parent_network_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id, data.project_id, data.name,
     scope,
+    kind,
     data.parent_network_id ?? null,
     now, now,
   );
@@ -49,9 +54,10 @@ export function createNetwork(data: NetworkCreate): Network {
 
 export function listNetworks(projectId: string, rootOnly = false): Network[] {
   const db = getDatabase();
+  const orderBy = `ORDER BY CASE kind WHEN 'ontology' THEN 0 ELSE 1 END, created_at`;
   const sql = rootOnly
-    ? 'SELECT * FROM networks WHERE project_id = ? AND parent_network_id IS NULL ORDER BY created_at'
-    : 'SELECT * FROM networks WHERE project_id = ? ORDER BY created_at';
+    ? `SELECT * FROM networks WHERE project_id = ? AND parent_network_id IS NULL ${orderBy}`
+    : `SELECT * FROM networks WHERE project_id = ? ${orderBy}`;
   return db.prepare(sql).all(projectId) as Network[];
 }
 
@@ -64,7 +70,9 @@ export function getNetworkTree(projectId: string): NetworkTreeNode[] {
   const db = getDatabase();
 
   const allNetworks = db.prepare(
-    'SELECT * FROM networks WHERE project_id = ? ORDER BY created_at',
+    `SELECT * FROM networks
+      WHERE project_id = ?
+      ORDER BY CASE kind WHEN 'ontology' THEN 0 ELSE 1 END, created_at`,
   ).all(projectId) as Network[];
   const networkIds = new Set(allNetworks.map((network) => network.id));
 
@@ -100,11 +108,11 @@ export function getNetworkAncestors(networkId: string): NetworkBreadcrumbItem[] 
 
   // Recursive CTE following parent_network_id chain
   const rows = db.prepare(`
-    WITH RECURSIVE ancestors(id, project_id, name, scope, parent_network_id, created_at, updated_at, depth) AS (
-      SELECT id, project_id, name, scope, parent_network_id, created_at, updated_at, 0
+    WITH RECURSIVE ancestors(id, project_id, name, scope, kind, parent_network_id, created_at, updated_at, depth) AS (
+      SELECT id, project_id, name, scope, kind, parent_network_id, created_at, updated_at, 0
         FROM networks WHERE id = ?
       UNION ALL
-      SELECT n.id, n.project_id, n.name, n.scope, n.parent_network_id, n.created_at, n.updated_at, a.depth + 1
+      SELECT n.id, n.project_id, n.name, n.scope, n.kind, n.parent_network_id, n.created_at, n.updated_at, a.depth + 1
         FROM networks n
         JOIN ancestors a ON n.id = a.parent_network_id
     )
@@ -121,6 +129,16 @@ export function updateNetwork(id: string, data: NetworkUpdate): Network | undefi
   const db = getDatabase();
   const existing = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network | undefined;
   if (!existing) return undefined;
+
+  if (existing.kind === 'universe' || existing.kind === 'ontology') {
+    const nameChanged = data.name !== undefined && data.name !== existing.name;
+    const scopeChanged = data.scope !== undefined && data.scope !== existing.scope;
+    const parentChanged = data.parent_network_id !== undefined && data.parent_network_id !== existing.parent_network_id;
+    if (nameChanged || scopeChanged || parentChanged) {
+      throw new Error(`${existing.name} is a system network and cannot be edited`);
+    }
+    return existing;
+  }
 
   const now = new Date().toISOString();
 
@@ -139,6 +157,11 @@ export function updateNetwork(id: string, data: NetworkUpdate): Network | undefi
 
 export function deleteNetwork(id: string): boolean {
   const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM networks WHERE id = ?').get(id) as Network | undefined;
+  if (!existing) return false;
+  if (existing.kind === 'universe' || existing.kind === 'ontology') {
+    throw new Error(`${existing.name} is a system network and cannot be deleted`);
+  }
   const result = db.prepare('DELETE FROM networks WHERE id = ?').run(id);
   if (result.changes > 0) {
     deleteObjectByRef('network', id);
@@ -147,22 +170,22 @@ export function deleteNetwork(id: string): boolean {
   return false;
 }
 
-// ── App / Project Root ──
+// ── System Networks ──
 
-export function getAppRootNetwork(): Network | undefined {
-  return getAppRootNetworkForDb(getDatabase());
+export function getUniverseNetwork(): Network | undefined {
+  return getUniverseNetworkForDb(getDatabase());
 }
 
-export function ensureAppRootNetwork(): Network {
-  return ensureAppRootNetworkForDb(getDatabase());
+export function ensureUniverseNetwork(): Network {
+  return ensureUniverseNetworkForDb(getDatabase());
 }
 
-export function getProjectRootNetwork(projectId: string): Network | undefined {
-  return getProjectRootNetworkForDb(getDatabase(), projectId);
+export function getProjectOntologyNetwork(projectId: string): Network | undefined {
+  return getProjectOntologyNetworkForDb(getDatabase(), projectId);
 }
 
-export function ensureProjectRootNetwork(projectId: string): Network {
-  return ensureProjectRootNetworkForDb(getDatabase(), projectId);
+export function ensureProjectOntologyNetwork(projectId: string): Network {
+  return ensureProjectOntologyNetworkForDb(getDatabase(), projectId);
 }
 
 // ── Network Full Data ──
@@ -299,11 +322,16 @@ export function addNetworkNode(data: NetworkNodeCreate): NetworkNode {
     data.object_id,
     data.node_type ?? 'basic',
     data.parent_node_id ?? null,
-    null,
+    data.metadata ?? null,
     now, now,
   );
 
   return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode;
+}
+
+export function getNetworkNode(id: string): NetworkNode | undefined {
+  const db = getDatabase();
+  return db.prepare('SELECT * FROM network_nodes WHERE id = ?').get(id) as NetworkNode | undefined;
 }
 
 export function updateNetworkNode(id: string, data: NetworkNodeUpdate): NetworkNode {

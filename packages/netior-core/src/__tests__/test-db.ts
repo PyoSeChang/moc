@@ -22,6 +22,9 @@ import { migrate016 } from '../migrations/016-backfill-object-records';
 import { migrate017 } from '../migrations/017-edge-system-contract-and-group-node-type';
 import { migrate018 } from '../migrations/018-unify-hierarchy-parent-contract';
 import { migrate019 } from '../migrations/019-module-path';
+import { migrate020 } from '../migrations/020-archetype-semantics';
+import { migrate021 } from '../migrations/021-concept-recurrence-materialization';
+import { migrate022 } from '../migrations/022-network-universe-ontology';
 
 let testDb: Database.Database | null = null;
 
@@ -49,6 +52,9 @@ export function setupTestDb(): Database.Database {
   migrate017(testDb);
   migrate018(testDb);
   migrate019(testDb);
+  migrate020(testDb);
+  migrate021(testDb);
+  migrate022(testDb);
   testDb.pragma('foreign_keys = ON');
   return testDb;
 }

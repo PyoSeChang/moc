@@ -50,6 +50,18 @@ function joinPath(base: string, relativePath: string): string {
   return normalizeJoinedPath(`${base}/${strippedRelative}`);
 }
 
+export function normalizeFilePathInput(inputPath: string): string {
+  return normalizeAbsoluteInputPath(inputPath.trim().replace(/^["'`]+|["'`]+$/g, ''));
+}
+
+export function resolveFileInputPath(inputPath: string, baseDir?: string): string | null {
+  const input = normalizeFilePathInput(inputPath);
+  if (!input) return null;
+  if (isAbsolutePath(input)) return normalizeJoinedPath(input);
+  if (baseDir) return joinPath(baseDir, input);
+  return normalizeJoinedPath(input);
+}
+
 async function pushIfExists(
   candidates: ResolvedFilePath[],
   seen: Set<string>,
@@ -67,7 +79,7 @@ async function pushIfExists(
 }
 
 export async function resolveFilePathCandidates(inputPath: string, terminalCwd?: string): Promise<ResolvedFilePath[]> {
-  const input = normalizeAbsoluteInputPath(inputPath.trim().replace(/^["'`]+|["'`]+$/g, ''));
+  const input = normalizeFilePathInput(inputPath);
   const candidates: ResolvedFilePath[] = [];
   const seen = new Set<string>();
 

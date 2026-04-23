@@ -36,7 +36,7 @@ export function FullModeEditor(): JSX.Element | null {
   const {
     tabs, activeTabId, fullLayout,
     setActiveTab, requestCloseTab, setViewMode, toggleMinimize,
-    updateSplitRatio, splitTab, moveTabToPane,
+    updateSplitRatio, splitTab, moveTabToPane, moveTabWithinStrip,
   } = useEditorStore();
   const layoutActiveTabId = useEditorStore((s) => {
     if (!s.activeTabId || !s.fullLayout) return null;
@@ -75,6 +75,7 @@ export function FullModeEditor(): JSX.Element | null {
             onActivate={setActiveTab}
             onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'full')}
+            onTabReorder={moveTabWithinStrip}
             onFileDrop={(filePaths) => { void openDroppedFilesInFullLeaf(filePaths, leaf); }}
             rightSlot={
               <EditorViewModeSwitch
@@ -108,7 +109,7 @@ export function FullModeEditor(): JSX.Element | null {
         </div>
       );
     },
-    [tabs, isDragging, activeTabId, layoutActiveTabId, fullLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab],
+    [tabs, isDragging, activeTabId, layoutActiveTabId, fullLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, moveTabWithinStrip, splitTab],
   );
 
   if (!fullLayout) return null;

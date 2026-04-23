@@ -768,6 +768,8 @@ export interface EditorTab {
   title: string;
   /** Target entity identifier: conceptId for concept tabs, absolutePath for file tabs */
   targetId: string;
+  /** Owning project id for project-scoped tabs */
+  projectId?: string;
   /** Host window this tab belongs to */
   hostId: string;
   viewMode: EditorViewMode;

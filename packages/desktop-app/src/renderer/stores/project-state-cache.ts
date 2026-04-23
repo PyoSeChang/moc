@@ -32,6 +32,10 @@ interface EditorSnapshot {
   activeTabId: string | null;
   sideLayout: SplitNode | null;
   fullLayout: SplitNode | null;
+  sideLastActiveTabId: string | null;
+  fullLastActiveTabId: string | null;
+  hosts: Record<string, { id: string; label: string; activeTabId: string | null }>;
+  focusedHostId: string;
 }
 
 interface ModuleSnapshot {
@@ -83,6 +87,34 @@ interface WorkspaceSnapshot {
 const APP_WORKSPACE_CACHE_KEY = '__app__';
 const cache = new Map<string, WorkspaceSnapshot>();
 
+function containsTab(node: SplitNode | null, tabId: string): boolean {
+  if (!node) return false;
+  if (node.type === 'leaf') return node.tabIds.includes(tabId);
+  return containsTab(node.children[0], tabId) || containsTab(node.children[1], tabId);
+}
+
+function setActiveInLeaf(node: SplitNode, tabId: string): SplitNode {
+  if (node.type === 'leaf') {
+    if (!node.tabIds.includes(tabId)) return node;
+    return node.activeTabId === tabId ? node : { ...node, activeTabId: tabId };
+  }
+
+  const newLeft = setActiveInLeaf(node.children[0], tabId);
+  const newRight = setActiveInLeaf(node.children[1], tabId);
+  if (newLeft === node.children[0] && newRight === node.children[1]) return node;
+  return { ...node, children: [newLeft, newRight] };
+}
+
+function normalizeEditorSnapshot(editor: EditorSnapshot): EditorSnapshot {
+  return {
+    ...editor,
+    sideLastActiveTabId: editor.sideLastActiveTabId ?? null,
+    fullLastActiveTabId: editor.fullLastActiveTabId ?? null,
+    hosts: editor.hosts ?? {},
+    focusedHostId: editor.focusedHostId ?? 'main',
+  };
+}
+
 function capture(): WorkspaceSnapshot {
   const network = useNetworkStore.getState();
   const editor = useEditorStore.getState();
@@ -108,6 +140,10 @@ function capture(): WorkspaceSnapshot {
       activeTabId: editor.activeTabId,
       sideLayout: editor.sideLayout,
       fullLayout: editor.fullLayout,
+      sideLastActiveTabId: editor.sideLastActiveTabId,
+      fullLastActiveTabId: editor.fullLastActiveTabId,
+      hosts: editor.hosts,
+      focusedHostId: editor.focusedHostId,
     },
     module: {
       modules: module.modules,
@@ -140,7 +176,7 @@ function capture(): WorkspaceSnapshot {
 
 function restore(snapshot: WorkspaceSnapshot): void {
   useNetworkStore.setState(snapshot.network);
-  useEditorStore.setState(snapshot.editor);
+  useEditorStore.setState({ ...normalizeEditorSnapshot(snapshot.editor), pendingCloseTabId: null });
   useModuleStore.setState(snapshot.module);
   useConceptStore.setState(snapshot.concept);
   useArchetypeStore.setState(snapshot.archetype);
@@ -178,6 +214,80 @@ export function deleteWorkspaceState(workspaceKey: string): void {
 
 export function hasCachedState(workspaceKey: string): boolean {
   return cache.has(workspaceKey);
+}
+
+export interface CachedEditorTabRef {
+  projectId: string;
+  tab: EditorTab;
+}
+
+export function findCachedProjectEditorTab(tabId: string): CachedEditorTabRef | null {
+  for (const [workspaceKey, snapshot] of cache.entries()) {
+    if (workspaceKey === APP_WORKSPACE_CACHE_KEY) continue;
+    const tab = snapshot.editor.tabs.find((entry) => entry.id === tabId);
+    if (tab) {
+      return { projectId: tab.projectId ?? workspaceKey, tab };
+    }
+  }
+
+  return null;
+}
+
+export function updateCachedProjectEditorTab(
+  tabId: string,
+  updater: (tab: EditorTab) => EditorTab,
+): void {
+  for (const [workspaceKey, snapshot] of cache.entries()) {
+    if (workspaceKey === APP_WORKSPACE_CACHE_KEY) continue;
+    const nextTabs = snapshot.editor.tabs.map((tab) => (tab.id === tabId ? updater(tab) : tab));
+    if (nextTabs === snapshot.editor.tabs || !nextTabs.some((tab, index) => tab !== snapshot.editor.tabs[index])) {
+      continue;
+    }
+
+    cache.set(workspaceKey, {
+      ...snapshot,
+      editor: {
+        ...normalizeEditorSnapshot(snapshot.editor),
+        tabs: nextTabs,
+      },
+    });
+  }
+}
+
+export function focusCachedProjectEditorTab(projectId: string, tabId: string): void {
+  const snapshot = cache.get(projectId);
+  if (!snapshot) return;
+
+  const editor = normalizeEditorSnapshot(snapshot.editor);
+  const tab = editor.tabs.find((entry) => entry.id === tabId);
+  if (!tab) return;
+
+  const sideLayout = containsTab(editor.sideLayout, tabId)
+    ? setActiveInLeaf(editor.sideLayout!, tabId)
+    : editor.sideLayout;
+  const fullLayout = containsTab(editor.fullLayout, tabId)
+    ? setActiveInLeaf(editor.fullLayout!, tabId)
+    : editor.fullLayout;
+  const hosts = tab.hostId !== 'main' && editor.hosts[tab.hostId]
+    ? {
+        ...editor.hosts,
+        [tab.hostId]: { ...editor.hosts[tab.hostId], activeTabId: tabId },
+      }
+    : editor.hosts;
+
+  cache.set(projectId, {
+    ...snapshot,
+    editor: {
+      ...editor,
+      activeTabId: tab.hostId === 'main' ? tabId : editor.activeTabId,
+      sideLayout,
+      fullLayout,
+      sideLastActiveTabId: containsTab(sideLayout, tabId) ? tabId : editor.sideLastActiveTabId,
+      fullLastActiveTabId: containsTab(fullLayout, tabId) ? tabId : editor.fullLastActiveTabId,
+      hosts,
+      focusedHostId: tab.hostId,
+    },
+  });
 }
 
 export function saveProjectState(projectId: string): void {

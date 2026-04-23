@@ -352,6 +352,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('agent:notifyNative', (event, payload: {
     tabId: string;
+    projectId?: string | null;
     title: string;
     message: string;
     playSound: boolean;
@@ -385,7 +386,7 @@ app.whenReady().then(async () => {
       }
       win.show();
       win.focus();
-      win.webContents.send('agent:focusTab', { tabId: payload.tabId });
+      win.webContents.send('agent:focusTab', { tabId: payload.tabId, projectId: payload.projectId ?? null });
     });
 
     notification.show();

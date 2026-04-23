@@ -19,12 +19,14 @@ export function openTerminalTab(
   options: OpenTerminalTabOptions = {},
 ): void {
   const sessionId = `term-${Date.now()}`;
-  const terminalCwd = options.terminalCwd ?? resolveTerminalCwd();
+  const currentProject = useProjectStore.getState().currentProject;
+  const terminalCwd = options.terminalCwd ?? currentProject?.root_dir ?? resolveTerminalCwd();
 
   void useEditorStore.getState().openTab({
     type: 'terminal',
     targetId: sessionId,
     title,
+    projectId: currentProject?.id,
     hostId,
     terminalCwd,
     terminalLaunchConfig: options.terminalLaunchConfig,

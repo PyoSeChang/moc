@@ -34,11 +34,13 @@ interface EditorTabStripProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onTabDrop?: (tabId: string) => void;
+  onTabReorder?: (tabId: string, targetTabId: string, position: TabDropPosition) => void;
   onFileDrop?: (filePaths: string[]) => void;
   rightSlot?: React.ReactNode;
 }
 
 const ICON_SIZE = 15;
+type TabDropPosition = 'before' | 'after';
 
 function toFileSignature(fileStat: Awaited<ReturnType<typeof fsService.statItem>>): string {
   return fileStat.exists
@@ -108,7 +110,7 @@ function TabStatusDot({ tab, agentState }: { tab: EditorTab; agentState: AgentSe
     } as React.CSSProperties;
     return (
       <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-opacity group-hover:opacity-0 ${shouldAnimate ? 'animate-agent-breathe' : ''}`}
+        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-opacity group-hover:opacity-0 ${shouldAnimate ? 'animate-agent-breathe group-hover:animate-none' : ''}`}
         style={dotStyle}
       />
     );
@@ -131,10 +133,29 @@ interface TabItemProps {
   onContextMenu: (e: React.MouseEvent, tab: EditorTab) => void;
   onRenameSubmit: (tabId: string, newTitle: string) => void;
   onRenameCancel: () => void;
+  onTabDragOverTarget: (e: React.DragEvent<HTMLDivElement>, targetTabId: string, position: TabDropPosition) => void;
+  onTabDragLeaveTarget: (e: React.DragEvent<HTMLDivElement>, targetTabId: string) => void;
+  onTabDropOnTarget: (e: React.DragEvent<HTMLDivElement>, targetTabId: string, position: TabDropPosition) => void;
+  dropPosition: TabDropPosition | null;
   activeRef: React.RefObject<HTMLDivElement>;
 }
 
-function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose, onContextMenu, onRenameSubmit, onRenameCancel, activeRef }: TabItemProps): JSX.Element {
+function TabItem({
+  tab,
+  isActive,
+  isFocusedPane,
+  isRenaming,
+  onActivate,
+  onClose,
+  onContextMenu,
+  onRenameSubmit,
+  onRenameCancel,
+  onTabDragOverTarget,
+  onTabDragLeaveTarget,
+  onTabDropOnTarget,
+  dropPosition,
+  activeRef,
+}: TabItemProps): JSX.Element {
   const { t } = useI18n();
   const agentState = useAgentState(tab.targetId);
   const label = tab.type === 'terminal' && agentState?.name ? agentState.name : tab.title;
@@ -171,17 +192,36 @@ function TabItem({ tab, isActive, isFocusedPane, isRenaming, onActivate, onClose
       draggable={!isRenaming}
       onDragStart={(e) => setTabDragData(e, tab.id)}
       onDragEnd={() => clearTabDragData()}
-      className={`group flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
+      className={`group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
         isActive
           ? `tab-active bg-[var(--surface-editor)] text-default ${
               isFocusedPane ? 'tab-active-focused' : 'tab-active-unfocused'
             }`
-          : 'relative text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'
+          : 'text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'
       }`}
       style={{ height: 30, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onClick={() => !isRenaming && onActivate(tab.id)}
       onContextMenu={(e) => onContextMenu(e, tab)}
+      onDragOver={(e) => {
+        if (isRenaming || !isTabDrag(e)) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const position: TabDropPosition = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+        onTabDragOverTarget(e, tab.id, position);
+      }}
+      onDragLeave={(e) => onTabDragLeaveTarget(e, tab.id)}
+      onDrop={(e) => {
+        if (!dropPosition || !isTabDrag(e)) return;
+        onTabDropOnTarget(e, tab.id, dropPosition);
+      }}
     >
+      {dropPosition && (
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute bottom-1 top-1 z-10 w-0.5 rounded-full bg-accent ${
+            dropPosition === 'before' ? 'left-0' : 'right-0'
+          }`}
+        />
+      )}
       <TabIcon tab={tab} />
       {isRenaming ? (
         <InlineRenameInput
@@ -247,8 +287,20 @@ function InlineRenameInput({ value, onSubmit, onCancel }: { value: string; onSub
   );
 }
 
-export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId, onActivate, onClose, onTabDrop, onFileDrop, rightSlot }: EditorTabStripProps): JSX.Element {
+export function EditorTabStrip({
+  tabs,
+  activeTabId,
+  isFocusedPane = true,
+  hostId,
+  onActivate,
+  onClose,
+  onTabDrop,
+  onTabReorder,
+  onFileDrop,
+  rightSlot,
+}: EditorTabStripProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false);
+  const [tabDropTarget, setTabDropTarget] = useState<{ tabId: string; position: TabDropPosition } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; items: ContextMenuEntry[] } | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -310,6 +362,46 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
     setCtxMenu({ x: e.clientX, y: e.clientY, items: buildStripContextMenu(tabs, hostId) });
   }, [tabs, hostId]);
 
+  const handleTabDragOverTarget = useCallback((
+    e: React.DragEvent<HTMLDivElement>,
+    targetTabId: string,
+    position: TabDropPosition,
+  ) => {
+    if (!onTabReorder) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOver(false);
+    setTabDropTarget((current) => (
+      current?.tabId === targetTabId && current.position === position
+        ? current
+        : { tabId: targetTabId, position }
+    ));
+  }, [onTabReorder]);
+
+  const handleTabDragLeaveTarget = useCallback((e: React.DragEvent<HTMLDivElement>, targetTabId: string) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setTabDropTarget((current) => (current?.tabId === targetTabId ? null : current));
+  }, []);
+
+  const handleTabDropOnTarget = useCallback(async (
+    e: React.DragEvent<HTMLDivElement>,
+    targetTabId: string,
+    position: TabDropPosition,
+  ) => {
+    if (!onTabReorder) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    setTabDropTarget(null);
+    const tabId = await getTabDragDataAsync(e);
+    flushTabDragData();
+    console.log(`[EditorTabStrip] tab reorder host=${hostId ?? 'main'}, tabId=${tabId}, targetTabId=${targetTabId}, position=${position}`);
+    if (tabId && tabId !== targetTabId) {
+      onTabReorder(tabId, targetTabId, position);
+    }
+  }, [hostId, onTabReorder]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!isTabDrag(e) && !isFileOpenDrag(e)) return;
     e.preventDefault();
@@ -321,11 +413,13 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setDragOver(false);
+    setTabDropTarget(null);
   }, []);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
+    setTabDropTarget(null);
     if (isFileOpenDrag(e)) {
       const filePaths = getFileOpenDragData(e);
       console.log(`[EditorTabStrip] file drop host=${hostId ?? 'main'}, count=${filePaths.length}`);
@@ -402,6 +496,10 @@ export function EditorTabStrip({ tabs, activeTabId, isFocusedPane = true, hostId
             onContextMenu={handleTabContextMenu}
             onRenameSubmit={handleRenameSubmit}
             onRenameCancel={() => setRenamingTabId(null)}
+            onTabDragOverTarget={handleTabDragOverTarget}
+            onTabDragLeaveTarget={handleTabDragLeaveTarget}
+            onTabDropOnTarget={handleTabDropOnTarget}
+            dropPosition={tabDropTarget?.tabId === tab.id ? tabDropTarget.position : null}
             activeRef={activeRef}
           />
         ))}

@@ -64,14 +64,15 @@ const electronAPI = {
   notifications: {
     notifyAgent: (payload: {
       tabId: string;
+      projectId?: string | null;
       title: string;
       message: string;
       playSound: boolean;
     }) => ipcRenderer.invoke('agent:notifyNative', payload) as Promise<boolean>,
     playSound: (kind: 'completion' | 'attention' | 'error') =>
       ipcRenderer.invoke('agent:playInAppSound', kind) as Promise<boolean>,
-    onFocusTab: (callback: (payload: { tabId: string }) => void) => {
-      const handler = (_event: IpcRendererEvent, payload: { tabId: string }) => callback(payload);
+    onFocusTab: (callback: (payload: { tabId: string; projectId?: string | null }) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: { tabId: string; projectId?: string | null }) => callback(payload);
       ipcRenderer.on('agent:focusTab', handler);
       return () => { ipcRenderer.removeListener('agent:focusTab', handler); };
     },

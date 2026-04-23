@@ -31,6 +31,7 @@ interface OpenTabParams {
   viewMode?: EditorViewMode;
   isDirty?: boolean;
   draftData?: EditorTab['draftData'];
+  projectId?: string;
   networkId?: string;
   nodeId?: string;
   terminalCwd?: string;
@@ -85,6 +86,7 @@ interface EditorStore {
   // Split layout operations
   splitTab: (targetTabId: string, newTabId: string, direction: SplitDirection, position: 'before' | 'after') => void;
   moveTabToPane: (tabId: string, targetPaneTabId: string, mode: 'side' | 'full') => void;
+  moveTabWithinStrip: (tabId: string, targetTabId: string, position: 'before' | 'after') => void;
   updateSplitRatio: (mode: 'side' | 'full', path: number[], ratio: number) => void;
 
   // Host operations
@@ -324,6 +326,64 @@ function addTabToLeaf(node: SplitNode, targetLeafTabId: string, newTabId: string
   return node;
 }
 
+function insertTabNearTab(
+  node: SplitNode,
+  targetTabId: string,
+  tabId: string,
+  position: 'before' | 'after',
+  activateMovedTab: boolean,
+): SplitNode {
+  if (node.type === 'leaf') {
+    if (!node.tabIds.includes(targetTabId)) return node;
+    const tabIdsWithoutMoving = node.tabIds.filter((id) => id !== tabId);
+    const targetIndex = tabIdsWithoutMoving.indexOf(targetTabId);
+    if (targetIndex < 0) return node;
+    const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+    const nextTabIds = [
+      ...tabIdsWithoutMoving.slice(0, insertIndex),
+      tabId,
+      ...tabIdsWithoutMoving.slice(insertIndex),
+    ];
+    const nextActiveTabId = activateMovedTab
+      ? tabId
+      : nextTabIds.includes(node.activeTabId)
+        ? node.activeTabId
+        : tabId;
+    const orderUnchanged = nextTabIds.length === node.tabIds.length
+      && nextTabIds.every((id, index) => id === node.tabIds[index]);
+    if (orderUnchanged && nextActiveTabId === node.activeTabId) return node;
+    return { ...node, tabIds: nextTabIds, activeTabId: nextActiveTabId };
+  }
+
+  const newLeft = insertTabNearTab(node.children[0], targetTabId, tabId, position, activateMovedTab);
+  if (newLeft !== node.children[0]) return { ...node, children: [newLeft, node.children[1]] };
+  const newRight = insertTabNearTab(node.children[1], targetTabId, tabId, position, activateMovedTab);
+  if (newRight !== node.children[1]) return { ...node, children: [node.children[0], newRight] };
+  return node;
+}
+
+function moveTabRecordNearTab(
+  tabs: EditorTab[],
+  tabId: string,
+  targetTabId: string,
+  position: 'before' | 'after',
+): EditorTab[] {
+  const movingTab = tabs.find((tab) => tab.id === tabId);
+  if (!movingTab) return tabs;
+  const tabsWithoutMoving = tabs.filter((tab) => tab.id !== tabId);
+  const targetIndex = tabsWithoutMoving.findIndex((tab) => tab.id === targetTabId);
+  if (targetIndex < 0) return tabs;
+  const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+  const nextTabs = [
+    ...tabsWithoutMoving.slice(0, insertIndex),
+    movingTab,
+    ...tabsWithoutMoving.slice(insertIndex),
+  ];
+  const orderUnchanged = nextTabs.length === tabs.length
+    && nextTabs.every((tab, index) => tab.id === tabs[index].id);
+  return orderUnchanged ? tabs : nextTabs;
+}
+
 /** Split the leaf containing targetTabId: original leaf keeps its tabs, new leaf gets newTabId */
 function splitLeafContaining(
   node: SplitNode,
@@ -454,7 +514,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   focusedHostId: MAIN_HOST_ID,
   pendingCloseTabId: null,
 
-  openTab: async ({ type, targetId, title, viewMode, isDirty, draftData, networkId, nodeId, terminalCwd, terminalLaunchConfig, sideSplitRatio, hostId }) => {
+  openTab: async ({ type, targetId, title, viewMode, isDirty, draftData, projectId, networkId, nodeId, terminalCwd, terminalLaunchConfig, sideSplitRatio, hostId }) => {
     const { tabs } = get();
     const tabId = makeTabId(type, targetId);
     const resolvedHostId = hostId ?? MAIN_HOST_ID;
@@ -554,6 +614,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       type,
       targetId,
       title,
+      projectId,
       hostId: resolvedHostId,
       viewMode: resolvedMode,
       floatRect: normalizeFloatRect({
@@ -1129,6 +1190,145 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         ...(mode === 'side' ? { sideLastActiveTabId: tabId } : {}),
         ...(mode === 'full' ? { fullLastActiveTabId: tabId } : {}),
         hosts: hostsUpdate,
+      };
+    });
+  },
+
+  moveTabWithinStrip: (tabId, targetTabId, position) => {
+    console.log(`[EditorStore] moveTabWithinStrip start tabId=${tabId}, targetTabId=${targetTabId}, position=${position}`);
+    if (tabId === targetTabId) return;
+
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === tabId);
+    const targetTab = state.tabs.find((t) => t.id === targetTabId);
+    if (!tab || !targetTab) return;
+
+    const sourceHostId = tab.hostId;
+    const targetHostId = targetTab.hostId;
+
+    if (targetHostId === MAIN_HOST_ID) {
+      const mode = targetTab.viewMode;
+      if (mode !== 'side' && mode !== 'full') return;
+
+      let layout = getLayoutForMode(state, mode);
+      if (!layout || !containsTab(layout, targetTabId)) return;
+
+      const sourceLeaf = sourceHostId === MAIN_HOST_ID && tab.viewMode === mode
+        ? findLeafWithTab(layout, tabId)
+        : null;
+      const isSameLeafReorder = Boolean(sourceLeaf?.tabIds.includes(targetTabId));
+
+      const oldLayoutUpdate: Partial<EditorStore> = {};
+      if (sourceHostId === MAIN_HOST_ID && (tab.viewMode === 'side' || tab.viewMode === 'full')) {
+        if (tab.viewMode === mode) {
+          if (containsTab(layout, tabId)) {
+            const { tree } = removeTabFromTree(layout, tabId);
+            if (!tree) return;
+            layout = tree;
+          }
+        } else {
+          Object.assign(oldLayoutUpdate, removeFromLayout(state, tab.viewMode, tabId));
+        }
+      }
+
+      const keepMovedTabActive = isSameLeafReorder && sourceLeaf?.activeTabId === tabId;
+      const activateMovedTab = !isSameLeafReorder || keepMovedTabActive;
+      const nextLayout = insertTabNearTab(layout, targetTabId, tabId, position, activateMovedTab);
+      if (nextLayout === layout && sourceHostId === targetHostId && tab.viewMode === mode) return;
+
+      set((s) => {
+        let hostsUpdate = s.hosts;
+        let sourceHostRemoved = false;
+
+        if (sourceHostId !== MAIN_HOST_ID) {
+          const remainingHostTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === sourceHostId);
+          if (remainingHostTabs.length === 0) {
+            const { [sourceHostId]: _, ...rest } = hostsUpdate;
+            hostsUpdate = rest;
+            sourceHostRemoved = true;
+            closeDetachedHostSoon(sourceHostId);
+          } else {
+            const host = hostsUpdate[sourceHostId];
+            if (host && host.activeTabId === tabId) {
+              hostsUpdate = {
+                ...hostsUpdate,
+                [sourceHostId]: { ...host, activeTabId: remainingHostTabs[remainingHostTabs.length - 1].id },
+              };
+            }
+          }
+        }
+
+        const updatedTabs = s.tabs.map((t) => (
+          t.id === tabId
+            ? { ...t, hostId: MAIN_HOST_ID, viewMode: mode, isMinimized: false }
+            : t
+        ));
+
+        return {
+          ...oldLayoutUpdate,
+          ...setLayoutForMode(mode, nextLayout),
+          tabs: moveTabRecordNearTab(updatedTabs, tabId, targetTabId, position),
+          activeTabId: activateMovedTab ? tabId : s.activeTabId,
+          ...(activateMovedTab && mode === 'side' ? { sideLastActiveTabId: tabId } : {}),
+          ...(activateMovedTab && mode === 'full' ? { fullLastActiveTabId: tabId } : {}),
+          hosts: hostsUpdate,
+          ...(sourceHostRemoved && s.focusedHostId === sourceHostId ? { focusedHostId: MAIN_HOST_ID } : {}),
+        };
+      });
+      return;
+    }
+
+    const oldLayoutUpdate: Partial<EditorStore> & { fallbackTabId?: string | null } = {};
+    if (sourceHostId === MAIN_HOST_ID && (tab.viewMode === 'side' || tab.viewMode === 'full')) {
+      Object.assign(oldLayoutUpdate, removeFromLayout(state, tab.viewMode, tabId));
+    }
+
+    const activateMovedTab = sourceHostId !== targetHostId;
+
+    set((s) => {
+      let hostsUpdate = s.hosts;
+      let sourceHostRemoved = false;
+
+      if (sourceHostId !== MAIN_HOST_ID && sourceHostId !== targetHostId) {
+        const remainingHostTabs = s.tabs.filter((t) => t.id !== tabId && t.hostId === sourceHostId);
+        if (remainingHostTabs.length === 0) {
+          const { [sourceHostId]: _, ...rest } = hostsUpdate;
+          hostsUpdate = rest;
+          sourceHostRemoved = true;
+          closeDetachedHostSoon(sourceHostId);
+        } else {
+          const host = hostsUpdate[sourceHostId];
+          if (host && host.activeTabId === tabId) {
+            hostsUpdate = {
+              ...hostsUpdate,
+              [sourceHostId]: { ...host, activeTabId: remainingHostTabs[remainingHostTabs.length - 1].id },
+            };
+          }
+        }
+      }
+
+      if (activateMovedTab && hostsUpdate[targetHostId]) {
+        hostsUpdate = {
+          ...hostsUpdate,
+          [targetHostId]: { ...hostsUpdate[targetHostId], activeTabId: tabId },
+        };
+      }
+
+      const updatedTabs = s.tabs.map((t) => (
+        t.id === tabId
+          ? { ...t, hostId: targetHostId, viewMode: 'side' as const, isMinimized: false }
+          : t
+      ));
+      const nextActiveTabId = sourceHostId === MAIN_HOST_ID && s.activeTabId === tabId
+        ? oldLayoutUpdate.fallbackTabId ?? null
+        : s.activeTabId;
+
+      return {
+        ...oldLayoutUpdate,
+        tabs: moveTabRecordNearTab(updatedTabs, tabId, targetTabId, position),
+        activeTabId: nextActiveTabId,
+        hosts: hostsUpdate,
+        ...(sourceHostRemoved && s.focusedHostId === sourceHostId ? { focusedHostId: targetHostId } : {}),
       };
     });
   },

@@ -44,7 +44,7 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
   const activeTabId = host?.activeTabId ?? null;
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0] ?? null;
 
-  const { setHostActiveTab, requestCloseTab, moveTabToHost } = useEditorStore();
+  const { setHostActiveTab, requestCloseTab, moveTabToHost, moveTabWithinStrip } = useEditorStore();
 
   const handleHostDragOver = (e: React.DragEvent) => {
     if (!isTabDrag(e)) return;
@@ -115,6 +115,7 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
         onActivate={(tabId) => setHostActiveTab(hostId, tabId)}
         onClose={requestCloseTab}
         onTabDrop={(tabId) => moveTabToHost(tabId, hostId)}
+        onTabReorder={moveTabWithinStrip}
       />
 
       {/* Editor content */}

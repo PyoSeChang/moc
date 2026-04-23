@@ -16,7 +16,7 @@ import {
   EditorView,
   WidgetType,
 } from '@codemirror/view';
-import { type EditorState, type Range, StateField } from '@codemirror/state';
+import { type EditorState, type Extension, type Range, StateField } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 
 // ══════════════════════════════════════
@@ -239,6 +239,7 @@ function parseFrontmatterEntries(text: string): [string, string][] {
 // ══════════════════════════════════════
 
 interface MR { marks: DecorationSet; reps: DecorationSet }
+export type MarkdownLinkHandler = (href: string, event: MouseEvent) => void;
 
 function buildMR(view: EditorView): MR {
   const { state } = view;
@@ -371,10 +372,26 @@ function buildMR(view: EditorView): MR {
 }
 
 // ── Cache ──
-let ck = ''; let cc: MR = { marks: Decoration.none, reps: Decoration.none };
+interface MrCacheEntry {
+  doc: EditorState['doc'];
+  head: number;
+  anchor: number;
+  value: MR;
+}
+
+const mrCache = new WeakMap<EditorView, MrCacheEntry>();
+
 function getMR(v: EditorView): MR {
-  const k = `${v.state.doc.length}:${v.state.selection.main.head}:${v.state.selection.main.anchor}`;
-  if (k !== ck) { ck = k; cc = buildMR(v); } return cc;
+  const { doc, selection } = v.state;
+  const { head, anchor } = selection.main;
+  const cached = mrCache.get(v);
+  if (cached && cached.doc === doc && cached.head === head && cached.anchor === anchor) {
+    return cached.value;
+  }
+
+  const value = buildMR(v);
+  mrCache.set(v, { doc, head, anchor, value });
+  return value;
 }
 
 // ══════════════════════════════════════
@@ -495,19 +512,24 @@ const checkboxPlugin = ViewPlugin.fromClass(class {
 //  LINK CLICK
 // ══════════════════════════════════════
 
-const linkHandler = EditorView.domEventHandlers({
-  click(e) {
-    const el = (e.target as HTMLElement).closest('.md-link');
-    if (!el) return false;
-    const href = el.getAttribute('data-href');
-            if (href) {
-              e.preventDefault();
-              void import('../../../lib/open-external').then(({ openExternal }) => openExternal(href));
-              return true;
-            }
-    return false;
-  },
-});
+function createLinkHandler(onLinkClick?: MarkdownLinkHandler): Extension {
+  return EditorView.domEventHandlers({
+    click(e) {
+      const el = (e.target as HTMLElement).closest('.md-link');
+      if (!el) return false;
+      const href = el.getAttribute('data-href');
+      if (!href) return false;
+
+      e.preventDefault();
+      if (onLinkClick) {
+        onLinkClick(href, e);
+      } else {
+        void import('../../../lib/open-external').then(({ openExternal }) => openExternal(href));
+      }
+      return true;
+    },
+  });
+}
 
 // ══════════════════════════════════════
 //  MARK + REPLACE PLUGINS
@@ -517,7 +539,7 @@ const markPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(v: EditorView) { this.decorations = getMR(v).marks; }
-    update(u: ViewUpdate) { if (u.docChanged || u.selectionSet || u.viewportChanged) { ck = ''; this.decorations = getMR(u.view).marks; } }
+    update(u: ViewUpdate) { if (u.docChanged || u.selectionSet || u.viewportChanged) { this.decorations = getMR(u.view).marks; } }
   },
   { decorations: v => v.decorations },
 );
@@ -535,7 +557,9 @@ const replacePlugin = ViewPlugin.fromClass(
 //  EXPORT
 // ══════════════════════════════════════
 
-export const livePreviewPlugin = [markPlugin, replacePlugin, frontmatterField, tableField, checkboxPlugin, linkHandler];
+export function createLivePreviewPlugin(onLinkClick?: MarkdownLinkHandler): Extension[] {
+  return [markPlugin, replacePlugin, frontmatterField, tableField, checkboxPlugin, createLinkHandler(onLinkClick)];
+}
 
 // ══════════════════════════════════════
 //  THEME

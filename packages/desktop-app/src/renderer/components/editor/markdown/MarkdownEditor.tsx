@@ -7,13 +7,14 @@ import { GFM } from '@lezer/markdown';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { livePreviewPlugin, livePreviewTheme } from './live-preview';
+import { createLivePreviewPlugin, livePreviewTheme } from './live-preview';
 import { MarkdownToc, extractHeadings } from './MarkdownToc';
 import { useI18n } from '../../../hooks/useI18n';
 import { useViewState } from '../../../hooks/useViewState';
 import { getCssColorAsHex } from '../editor-utils';
 import { useSettingsStore } from '../../../stores/settings-store';
 import { useEditorStore, MAIN_HOST_ID } from '../../../stores/editor-store';
+import { openMarkdownLink } from '../../../lib/markdown-link';
 
 const codeHighlightStyle = HighlightStyle.define([
   { tag: tags.keyword, color: '#c678dd' },
@@ -138,16 +139,22 @@ export function MarkdownEditor({ tabId, content, filePath, onChange }: MarkdownE
     },
   ), [setViewState]);
 
+  const handleLinkClick = useCallback((href: string) => {
+    void openMarkdownLink({ href, currentFilePath: filePath, sourceTabId: tabId }).catch((error) => {
+      console.error('[MarkdownEditor] Failed to open link:', error);
+    });
+  }, [filePath, tabId]);
+
   const extensions = useMemo(() => [
     history(),
     keymap.of([...defaultKeymap, ...historyKeymap]),
     markdown({ extensions: GFM, codeLanguages: languages }),
     cursorPlugin,
-    ...livePreviewPlugin,
+    ...createLivePreviewPlugin(handleLinkClick),
     livePreviewTheme,
     syntaxHighlighting(codeHighlightStyle),
     EditorView.lineWrapping,
-  ], [cursorPlugin]);
+  ], [cursorPlugin, handleLinkClick]);
 
   const theme = useMemo(() => {
     const bg = getCssColorAsHex('--surface-editor', isDark ? '#242424' : '#f5f5f5');

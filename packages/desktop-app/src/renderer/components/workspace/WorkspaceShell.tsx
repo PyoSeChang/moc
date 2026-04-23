@@ -59,7 +59,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const sideLayout = useEditorStore((s) => s.sideLayout);
   const {
     setActiveTab, closeTab, requestCloseTab, setViewMode, toggleMinimize,
-    updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, moveTabToHost, updateFloatRect,
+    updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, moveTabWithinStrip, moveTabToHost, updateFloatRect,
   } = useEditorStore();
   const { sidebarOpen, setSidebarWidth } = useUIStore();
 
@@ -246,6 +246,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             onActivate={setActiveTab}
             onClose={requestCloseTab}
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'side')}
+            onTabReorder={moveTabWithinStrip}
             onFileDrop={(filePaths) => { void openDroppedFilesInSideLeaf(filePaths, leaf); }}
             rightSlot={
               <EditorViewModeSwitch
@@ -279,7 +280,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
         </div>
       );
     },
-    [tabs, isTabDragging, activeTabId, sideFocusedTabId, sideLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, splitTab, clearShellDropState],
+    [tabs, isTabDragging, activeTabId, sideFocusedTabId, sideLayout, setActiveTab, requestCloseTab, setViewMode, toggleMinimize, moveTabToPane, moveTabWithinStrip, splitTab, clearShellDropState],
   );
 
   // Global drag tracking for drop zone activation

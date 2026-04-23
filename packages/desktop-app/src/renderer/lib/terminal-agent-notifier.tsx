@@ -4,12 +4,15 @@ import {
   subscribeAgentSessionStore,
   type AgentSessionState,
 } from './agent-session-store';
+import type { EditorTab } from '@netior/shared/types';
 import completionSoundUrl from '../assets/agent-sounds/completion-pixabay-universfield-new-notification-07-210334.mp3';
 import attentionSoundUrl from '../assets/agent-sounds/attention-pixabay-dragon-studio-new-notification-3-398649.mp3';
 import { dismissToastByKey, showCustomToast } from '../components/ui/Toast';
 import { ClaudeIcon, CodexIcon } from '../components/ui/AgentProviderIcons';
-import { useEditorStore } from '../stores/editor-store';
+import { MAIN_HOST_ID, useEditorStore } from '../stores/editor-store';
 import { useSettingsStore } from '../stores/settings-store';
+import { useProjectStore } from '../stores/project-store';
+import { findCachedProjectEditorTab, focusCachedProjectEditorTab } from '../stores/project-state-cache';
 
 type AgentProvider = AgentSessionState['provider'];
 type AgentTurnState = AgentSessionState['turnState'];
@@ -41,9 +44,17 @@ type AgentNotifierGlobal = {
 
 interface UnacknowledgedEntry {
   tabId: string;
+  projectId: string | null;
   provider: AgentProvider;
   title: string;
   timestamp: number;
+}
+
+interface AgentTabRef {
+  tabId: string;
+  tab: EditorTab | null;
+  projectId: string | null;
+  isCurrentProject: boolean;
 }
 
 const unacknowledgedQueue: UnacknowledgedEntry[] = [];
@@ -62,13 +73,14 @@ const AGENT_SOUND_ASSETS: Record<'completion' | 'attention' | 'error', string> =
   error: attentionSoundUrl,
 };
 
-function getAgentToastKey(tabId: string, kind: 'attention' | 'completion'): string {
+function getAgentToastKey(tabId: string, kind: 'attention' | 'completion' | 'error'): string {
   return `agent-toast:${kind}:${tabId}`;
 }
 
 function dismissAgentToasts(tabId: string): void {
   dismissToastByKey(getAgentToastKey(tabId, 'attention'));
   dismissToastByKey(getAgentToastKey(tabId, 'completion'));
+  dismissToastByKey(getAgentToastKey(tabId, 'error'));
 }
 
 function getWindowContext(): WindowContext {
@@ -97,15 +109,9 @@ export function jumpToNextUnacknowledgedAgent(): void {
   if (unacknowledgedQueue.length === 0) return;
 
   const entry = unacknowledgedQueue[0];
-  const store = useEditorStore.getState();
-  const tab = store.tabs.find((candidate) => candidate.id === entry.tabId);
-  if (!tab) {
-    unacknowledgedQueue.shift();
-    return;
-  }
-
-  store.setHostActiveTab(tab.hostId, tab.id);
-  store.setFocusedHost(tab.hostId);
+  void focusAgentTab(entry.tabId, entry.projectId).then((focused) => {
+    if (!focused) unacknowledgedQueue.shift();
+  });
 }
 
 let activeTabListenerInitialized = false;
@@ -137,6 +143,7 @@ function initActiveTabListener(): void {
 }
 
 const previousSnapshots = new Map<string, { uxState: AgentUxState; turnState: AgentTurnState }>();
+const completionNotifiedKeys = new Set<string>();
 const agentNotifierGlobal = window as Window & { __netiorAgentNotifier?: AgentNotifierGlobal };
 agentNotifierGlobal.__netiorAgentNotifier ??= {};
 
@@ -157,6 +164,81 @@ const SOURCES: AgentTerminalSource[] = [
 
 function getTerminalTabId(sessionId: string): string {
   return `terminal:${sessionId}`;
+}
+
+function resolveAgentTabRef(tabId: string): AgentTabRef {
+  const currentProjectId = useProjectStore.getState().currentProject?.id ?? null;
+  const currentTab = useEditorStore.getState().tabs.find((candidate) => candidate.id === tabId);
+  if (currentTab) {
+    return {
+      tabId,
+      tab: currentTab,
+      projectId: currentTab.projectId ?? currentProjectId,
+      isCurrentProject: true,
+    };
+  }
+
+  const cached = findCachedProjectEditorTab(tabId);
+  if (cached) {
+    return {
+      tabId,
+      tab: cached.tab,
+      projectId: cached.projectId,
+      isCurrentProject: false,
+    };
+  }
+
+  return {
+    tabId,
+    tab: null,
+    projectId: null,
+    isCurrentProject: false,
+  };
+}
+
+async function focusAgentTab(tabId: string, projectId?: string | null): Promise<boolean> {
+  const store = useEditorStore.getState();
+  const currentTab = store.tabs.find((candidate) => candidate.id === tabId);
+  if (currentTab) {
+    store.setHostActiveTab(currentTab.hostId, currentTab.id);
+    store.setFocusedHost(currentTab.hostId);
+    acknowledgeAgent(currentTab.id);
+    return true;
+  }
+
+  const cachedProjectId = projectId ?? findCachedProjectEditorTab(tabId)?.projectId ?? null;
+  if (!cachedProjectId) {
+    return false;
+  }
+
+  focusCachedProjectEditorTab(cachedProjectId, tabId);
+
+  let project = useProjectStore.getState().projects.find((candidate) => candidate.id === cachedProjectId) ?? null;
+  if (!project) {
+    await useProjectStore.getState().loadProjects();
+    project = useProjectStore.getState().projects.find((candidate) => candidate.id === cachedProjectId) ?? null;
+  }
+  if (!project) {
+    return false;
+  }
+
+  await useProjectStore.getState().openProject(project);
+
+  const nextStore = useEditorStore.getState();
+  let tab = nextStore.tabs.find((candidate) => candidate.id === tabId);
+  if (!tab) {
+    return false;
+  }
+
+  if (tab.hostId !== MAIN_HOST_ID) {
+    nextStore.moveTabToHost(tab.id, MAIN_HOST_ID);
+    tab = useEditorStore.getState().tabs.find((candidate) => candidate.id === tabId) ?? tab;
+  }
+
+  useEditorStore.getState().setHostActiveTab(tab.hostId, tab.id);
+  useEditorStore.getState().setFocusedHost(tab.hostId);
+  acknowledgeAgent(tab.id);
+  return true;
 }
 
 function getProviderLabel(provider: AgentProvider): string {
@@ -257,6 +339,7 @@ function initSoundUnlockListener(): void {
     cleanup();
     getAgentSoundElement('completion').load();
     getAgentSoundElement('attention').load();
+    getAgentSoundElement('error').load();
     void getAgentAudioContext();
   };
 
@@ -338,7 +421,12 @@ async function playAgentSound(kind: 'completion' | 'attention' | 'error'): Promi
   }
 }
 
-async function maybeShowNativeNotification(tabId: string, title: string, message: string): Promise<boolean> {
+async function maybeShowNativeNotification(
+  tabId: string,
+  title: string,
+  message: string,
+  projectId?: string | null,
+): Promise<boolean> {
   if (!useSettingsStore.getState().nativeAgentNotificationsEnabled) {
     console.log('[AgentNotify] native notification skipped, disabled in settings', { tabId });
     return false;
@@ -347,6 +435,7 @@ async function maybeShowNativeNotification(tabId: string, title: string, message
   try {
     const shown = await window.electron.notifications.notifyAgent({
       tabId,
+      projectId,
       title,
       message,
       playSound: useSettingsStore.getState().agentNotificationSoundEnabled,
@@ -363,31 +452,54 @@ function getUnreadCount(isActive: boolean): number {
   return isActive ? unacknowledgedQueue.length : Math.max(unacknowledgedQueue.length - 1, 0);
 }
 
-function maybeQueueUnacknowledged(tabId: string, snapshot: AgentTerminalSnapshot, title: string, isActive: boolean): void {
+function maybeQueueUnacknowledged(
+  tabId: string,
+  projectId: string | null,
+  snapshot: AgentTerminalSnapshot,
+  title: string,
+  isActive: boolean,
+): void {
   if (!isActive && !unacknowledgedQueue.find((entry) => entry.tabId === tabId)) {
-    unacknowledgedQueue.push({ tabId, provider: snapshot.provider, title, timestamp: Date.now() });
+    unacknowledgedQueue.push({ tabId, projectId, provider: snapshot.provider, title, timestamp: Date.now() });
   }
+}
+
+function shouldShowAgentToast(tabRef: AgentTabRef): boolean {
+  if (!tabRef.tab) return windowContext.kind === 'main';
+  if (!tabRef.isCurrentProject) return windowContext.kind === 'main';
+  return shouldShowToast(tabRef.tab.hostId, tabRef.tabId);
+}
+
+function getAgentToastAction(tabRef: AgentTabRef): Pick<
+  Parameters<typeof showCustomToast>[0],
+  'actionLabel' | 'onAction'
+> {
+  return {
+    actionLabel: 'Go to Agent (Ctrl+.)',
+    onAction: () => {
+      void focusAgentTab(tabRef.tabId, tabRef.projectId);
+    },
+  };
 }
 
 async function maybeNotifyCompletion(snapshot: AgentTerminalSnapshot): Promise<void> {
   const tabId = getTerminalTabId(snapshot.terminalSessionId);
-  const store = useEditorStore.getState();
-  const tab = store.tabs.find((entry) => entry.id === tabId);
-  const title = tab?.title || snapshot.terminalName || `${getProviderLabel(snapshot.provider)} Terminal`;
-  const isActive = isTabActiveInHost(tabId);
+  const tabRef = resolveAgentTabRef(tabId);
+  const title = tabRef.tab?.title || snapshot.terminalName || `${getProviderLabel(snapshot.provider)} Terminal`;
+  const isActive = tabRef.isCurrentProject && tabRef.tab ? isTabActiveInHost(tabId) : false;
 
-  if (!tab) return;
-
-  maybeQueueUnacknowledged(tabId, snapshot, title, isActive);
+  maybeQueueUnacknowledged(tabId, tabRef.projectId, snapshot, title, isActive);
   const otherUnread = getUnreadCount(isActive);
   const message = otherUnread > 0
     ? `${getProviderLabel(snapshot.provider)} finished responding. (${otherUnread} more unread)`
     : `${getProviderLabel(snapshot.provider)} finished responding.`;
   dismissAgentToasts(tabId);
 
-  const nativeShown = await maybeShowNativeNotification(tabId, title, message);
+  const nativeShown = windowContext.kind === 'main' || tabRef.isCurrentProject
+    ? await maybeShowNativeNotification(tabId, title, message, tabRef.projectId)
+    : false;
   if (nativeShown) return;
-  if (!shouldShowToast(tab.hostId, tabId)) return;
+  if (!shouldShowAgentToast(tabRef)) return;
 
   showCustomToast({
     toastKey: getAgentToastKey(tabId, 'completion'),
@@ -400,11 +512,7 @@ async function maybeNotifyCompletion(snapshot: AgentTerminalSnapshot): Promise<v
       : snapshot.provider === 'codex'
         ? <CodexIcon />
         : undefined,
-    actionLabel: 'Go to Agent (Ctrl+.)',
-    onAction: () => {
-      store.setHostActiveTab(tab.hostId, tab.id);
-      store.setFocusedHost(tab.hostId);
-    },
+    ...getAgentToastAction(tabRef),
   });
   void playAgentSound('completion');
 }
@@ -427,13 +535,8 @@ function initNativeFocusListener(): void {
   if (nativeFocusListenerInitialized) return;
   nativeFocusListenerInitialized = true;
 
-  window.electron.notifications.onFocusTab(({ tabId }) => {
-    const store = useEditorStore.getState();
-    const tab = store.tabs.find((candidate) => candidate.id === tabId);
-    if (!tab) return;
-    store.setHostActiveTab(tab.hostId, tab.id);
-    store.setFocusedHost(tab.hostId);
-    acknowledgeAgent(tab.id);
+  window.electron.notifications.onFocusTab(({ tabId, projectId }) => {
+    void focusAgentTab(tabId, projectId);
   });
 }
 
@@ -449,21 +552,20 @@ function getAttentionMessage(snapshot: AgentTerminalSnapshot, otherUnread: numbe
 
 async function maybeNotifyAttention(snapshot: AgentTerminalSnapshot): Promise<void> {
   const tabId = getTerminalTabId(snapshot.terminalSessionId);
-  const store = useEditorStore.getState();
-  const tab = store.tabs.find((entry) => entry.id === tabId);
-  const title = tab?.title || snapshot.terminalName || `${getProviderLabel(snapshot.provider)} Terminal`;
-  const isActive = isTabActiveInHost(tabId);
+  const tabRef = resolveAgentTabRef(tabId);
+  const title = tabRef.tab?.title || snapshot.terminalName || `${getProviderLabel(snapshot.provider)} Terminal`;
+  const isActive = tabRef.isCurrentProject && tabRef.tab ? isTabActiveInHost(tabId) : false;
 
-  if (!tab) return;
-
-  maybeQueueUnacknowledged(tabId, snapshot, title, isActive);
+  maybeQueueUnacknowledged(tabId, tabRef.projectId, snapshot, title, isActive);
   const otherUnread = getUnreadCount(isActive);
   dismissAgentToasts(tabId);
   const message = getAttentionMessage(snapshot, otherUnread);
 
-  const nativeShown = await maybeShowNativeNotification(tabId, title, message);
+  const nativeShown = windowContext.kind === 'main' || tabRef.isCurrentProject
+    ? await maybeShowNativeNotification(tabId, title, message, tabRef.projectId)
+    : false;
   if (nativeShown) return;
-  if (!shouldShowToast(tab.hostId, tabId)) return;
+  if (!shouldShowAgentToast(tabRef)) return;
 
   showCustomToast({
     toastKey: getAgentToastKey(tabId, 'attention'),
@@ -476,13 +578,47 @@ async function maybeNotifyAttention(snapshot: AgentTerminalSnapshot): Promise<vo
       : snapshot.provider === 'codex'
         ? <CodexIcon />
         : undefined,
-    actionLabel: 'Go to Agent (Ctrl+.)',
-    onAction: () => {
-      store.setHostActiveTab(tab.hostId, tab.id);
-      store.setFocusedHost(tab.hostId);
-    },
+    ...getAgentToastAction(tabRef),
   });
   void playAgentSound('attention');
+}
+
+function getErrorMessage(snapshot: AgentTerminalSnapshot, otherUnread: number): string {
+  const baseMessage = `${getProviderLabel(snapshot.provider)} hit an error.`;
+  return otherUnread > 0 ? `${baseMessage} (${otherUnread} more unread)` : baseMessage;
+}
+
+async function maybeNotifyError(snapshot: AgentTerminalSnapshot): Promise<void> {
+  const tabId = getTerminalTabId(snapshot.terminalSessionId);
+  const tabRef = resolveAgentTabRef(tabId);
+  const title = tabRef.tab?.title || snapshot.terminalName || `${getProviderLabel(snapshot.provider)} Terminal`;
+  const isActive = tabRef.isCurrentProject && tabRef.tab ? isTabActiveInHost(tabId) : false;
+
+  maybeQueueUnacknowledged(tabId, tabRef.projectId, snapshot, title, isActive);
+  const otherUnread = getUnreadCount(isActive);
+  dismissAgentToasts(tabId);
+  const message = getErrorMessage(snapshot, otherUnread);
+
+  const nativeShown = windowContext.kind === 'main' || tabRef.isCurrentProject
+    ? await maybeShowNativeNotification(tabId, title, message, tabRef.projectId)
+    : false;
+  if (nativeShown) return;
+  if (!shouldShowAgentToast(tabRef)) return;
+
+  showCustomToast({
+    toastKey: getAgentToastKey(tabId, 'error'),
+    type: 'error',
+    title,
+    message,
+    duration: 9000,
+    icon: snapshot.provider === 'claude'
+      ? <ClaudeIcon />
+      : snapshot.provider === 'codex'
+        ? <CodexIcon />
+        : undefined,
+    ...getAgentToastAction(tabRef),
+  });
+  void playAgentSound('error');
 }
 
 function processSnapshots(snapshots: AgentTerminalSnapshot[]): void {
@@ -496,17 +632,34 @@ function processSnapshots(snapshots: AgentTerminalSnapshot[]): void {
     const prev = previousSnapshots.get(key);
     const completedTurn = prev?.turnState === 'working' && snapshot.turnState === 'idle';
     const completedByIdleTransition = prev?.uxState === 'working' && snapshot.uxState === 'idle';
+    const enteredAttention = snapshot.uxState === 'needs_attention' && prev?.uxState !== 'needs_attention';
+    const enteredError = snapshot.uxState === 'error' && prev?.uxState !== 'error';
     const attentionCleared = prev?.uxState === 'needs_attention' && snapshot.uxState !== 'needs_attention';
+    const errorCleared = prev?.uxState === 'error' && snapshot.uxState !== 'error';
+    const isWorkingLike = snapshot.turnState === 'working' || snapshot.uxState === 'working';
 
-    if (snapshot.uxState === 'needs_attention') {
+    if (isWorkingLike) {
+      completionNotifiedKeys.delete(key);
+    }
+
+    if (enteredAttention) {
       void maybeNotifyAttention(snapshot);
+    }
+
+    if (enteredError) {
+      void maybeNotifyError(snapshot);
     }
 
     if (attentionCleared) {
       dismissToastByKey(getAgentToastKey(tabId, 'attention'));
     }
 
-    if (completedTurn || completedByIdleTransition) {
+    if (errorCleared) {
+      dismissToastByKey(getAgentToastKey(tabId, 'error'));
+    }
+
+    if ((completedTurn || completedByIdleTransition) && !completionNotifiedKeys.has(key)) {
+      completionNotifiedKeys.add(key);
       void maybeNotifyCompletion(snapshot);
     }
 
@@ -517,7 +670,10 @@ function processSnapshots(snapshots: AgentTerminalSnapshot[]): void {
   }
 
   for (const key of Array.from(previousSnapshots.keys())) {
-    if (!activeKeys.has(key)) previousSnapshots.delete(key);
+    if (!activeKeys.has(key)) {
+      previousSnapshots.delete(key);
+      completionNotifiedKeys.delete(key);
+    }
   }
 }
 

@@ -22,6 +22,7 @@ import { fsService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
 import { openFileTab } from '../../lib/open-file-tab';
 import { ProjectCreateDialog } from '../home/ProjectCreateDialog';
+import { AgentSessionPanel } from './AgentSessionPanel';
 
 interface SidebarProps {
   project: Project | null;
@@ -171,40 +172,45 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
       className="flex h-full shrink-0 flex-col bg-[var(--surface-sidebar-panel)]"
       style={{ width: sidebarWidth }}
     >
-      <ScrollArea className="flex-1">
-        {!project ? (
+      {!project ? (
+        <ScrollArea className="flex-1">
           <AppWorkspaceSidebar />
-        ) : (
-          <div className="flex min-h-full flex-col py-2">
-            {sidebarView === 'networks' && <NetworkList projectId={project.id} />}
-            {sidebarView === 'files' && (
-            <>
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <ModuleSelector projectId={project.id} projectRootDir={project.root_dir} />
+        </ScrollArea>
+      ) : (
+        <>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex min-h-full flex-col py-2">
+              {sidebarView === 'networks' && <NetworkList projectId={project.id} />}
+              {sidebarView === 'files' && (
+              <>
+                <div className="flex items-center">
+                  <div className="flex-1">
+                    <ModuleSelector projectId={project.id} projectRootDir={project.root_dir} />
+                  </div>
+                  <Tooltip content={t('fileTree.refresh')} position="bottom">
+                    <button
+                      className="mr-2 shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+                      onClick={handleRefresh}
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </Tooltip>
                 </div>
-                <Tooltip content={t('fileTree.refresh')} position="bottom">
-                  <button
-                    className="mr-2 shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
-                    onClick={handleRefresh}
-                  >
-                    <RefreshCw size={14} />
-                  </button>
-                </Tooltip>
-              </div>
-              {fileLoading ? (
-                <div className="flex justify-center py-8">
-                  <Spinner size="sm" />
-                </div>
-              ) : (
-                <FileTree nodes={fileTree} onFileClick={handleFileClick} />
+                {fileLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spinner size="sm" />
+                  </div>
+                ) : (
+                  <FileTree nodes={fileTree} onFileClick={handleFileClick} />
+                )}
+              </>
               )}
-            </>
-            )}
-            {sidebarView === 'objects' && <ObjectPanel />}
-          </div>
-        )}
-      </ScrollArea>
+              {sidebarView === 'objects' && <ObjectPanel />}
+            </div>
+          </ScrollArea>
+          <AgentSessionPanel projectId={project.id} />
+        </>
+      )}
     </div>
   );
 }

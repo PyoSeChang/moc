@@ -11,6 +11,10 @@ import type {
 } from '@netior/shared/types';
 import { ClaudeHookAdapter } from './adapters/claude-hook-adapter';
 import { CodexAppServerAdapter } from './adapters/codex-app-server-adapter';
+import {
+  terminalAgentSupervisorSync,
+  type TerminalSupervisorContext,
+} from '../narre/terminal-agent-supervisor-sync';
 
 export interface AgentRuntimeSink {
   emitSessionEvent(event: AgentSessionEvent): void;
@@ -36,6 +40,7 @@ export interface AgentRuntimeAdapter {
 class AgentRuntimeManager implements AgentRuntimeSink {
   private readonly terminalAdapters = new Map<string, AgentRuntimeAdapter[]>();
   private readonly sessionSnapshots = new Map<string, AgentSessionSnapshot>();
+  private readonly terminalSessionContexts = new Map<string, TerminalSupervisorContext>();
 
   constructor(private readonly adapters: AgentRuntimeAdapter[]) {}
 
@@ -52,8 +57,14 @@ class AgentRuntimeManager implements AgentRuntimeSink {
   }
 
   emitSessionEvent(event: AgentSessionEvent): void {
+    const prev = this.sessionSnapshots.get(this.getSessionKey(event.provider, event.sessionId));
+    if (event.type === 'stop') {
+      this.reportTerminalStop(event, prev);
+    }
+
     this.applySessionEvent(event);
     this.broadcast(IPC_CHANNELS.AGENT_SESSION_EVENT, event);
+    this.syncTerminalMirror(event.provider, event.sessionId);
 
     if (event.provider === 'claude' && event.surface.kind === 'terminal') {
       this.broadcast(IPC_CHANNELS.CLAUDE_SESSION_EVENT, {
@@ -67,6 +78,7 @@ class AgentRuntimeManager implements AgentRuntimeSink {
   emitStatusEvent(event: AgentStatusEvent): void {
     this.applyStatusEvent(event);
     this.broadcast(IPC_CHANNELS.AGENT_STATUS_EVENT, event);
+    this.syncTerminalMirror(event.provider, event.sessionId);
 
     if (event.provider === 'claude' && (event.status === 'idle' || event.status === 'working')) {
       this.broadcast(IPC_CHANNELS.CLAUDE_STATUS_EVENT, {
@@ -79,6 +91,7 @@ class AgentRuntimeManager implements AgentRuntimeSink {
   emitNameEvent(event: AgentNameEvent): void {
     this.applyNameEvent(event);
     this.broadcast(IPC_CHANNELS.AGENT_NAME_CHANGED, event);
+    this.syncTerminalMirror(event.provider, event.sessionId);
 
     if (event.provider === 'claude') {
       this.broadcast(IPC_CHANNELS.CLAUDE_NAME_CHANGED, {
@@ -91,6 +104,7 @@ class AgentRuntimeManager implements AgentRuntimeSink {
   emitTurnEvent(event: AgentTurnEvent): void {
     this.applyTurnEvent(event);
     this.broadcast(IPC_CHANNELS.AGENT_TURN_EVENT, event);
+    this.syncTerminalMirror(event.provider, event.sessionId);
   }
 
   getSessionSnapshots(): AgentSessionSnapshot[] {
@@ -116,6 +130,11 @@ class AgentRuntimeManager implements AgentRuntimeSink {
       }
     }
 
+    this.terminalSessionContexts.set(terminalSessionId, {
+      cwd: resolvedLaunchConfig.cwd,
+      launchTitle: resolvedLaunchConfig.title ?? null,
+    });
+
     if (activeAdapters.length > 0) {
       this.terminalAdapters.set(terminalSessionId, activeAdapters);
     }
@@ -128,6 +147,10 @@ class AgentRuntimeManager implements AgentRuntimeSink {
     reason: TerminalCleanupReason,
     exitCode: number | null = null,
   ): void {
+    for (const snapshot of this.getTerminalSnapshots(terminalSessionId)) {
+      terminalAgentSupervisorSync.reportStopped(snapshot, this.terminalSessionContexts.get(terminalSessionId));
+    }
+
     const adapters = this.terminalAdapters.get(terminalSessionId);
     if (!adapters || adapters.length === 0) {
       return;
@@ -226,6 +249,59 @@ class AgentRuntimeManager implements AgentRuntimeSink {
         win.webContents.send(channel, payload);
       }
     }
+  }
+
+  private syncTerminalMirror(provider: AgentProvider, sessionId: string): void {
+    if (provider === 'narre') {
+      return;
+    }
+
+    const snapshot = this.sessionSnapshots.get(this.getSessionKey(provider, sessionId));
+    if (!snapshot || snapshot.surface.kind !== 'terminal') {
+      return;
+    }
+
+    terminalAgentSupervisorSync.syncSnapshot(snapshot, this.terminalSessionContexts.get(sessionId));
+  }
+
+  private reportTerminalStop(
+    event: AgentSessionEvent,
+    snapshot?: AgentSessionSnapshot,
+  ): void {
+    if (event.provider === 'narre' || event.surface.kind !== 'terminal') {
+      return;
+    }
+
+    const terminalSnapshot: AgentSessionSnapshot = snapshot
+      ? {
+        ...snapshot,
+        externalSessionId: event.externalSessionId ?? snapshot.externalSessionId ?? null,
+      }
+      : {
+        provider: event.provider,
+        sessionId: event.sessionId,
+        surface: event.surface,
+        externalSessionId: event.externalSessionId ?? null,
+        status: 'offline',
+        reason: null,
+        name: null,
+        turnState: 'idle',
+      };
+
+    terminalAgentSupervisorSync.reportStopped(terminalSnapshot, this.terminalSessionContexts.get(event.sessionId));
+  }
+
+  private getTerminalSnapshots(sessionId: string): AgentSessionSnapshot[] {
+    const snapshots: AgentSessionSnapshot[] = [];
+
+    for (const snapshot of this.sessionSnapshots.values()) {
+      if (snapshot.provider === 'narre' || snapshot.surface.kind !== 'terminal' || snapshot.sessionId !== sessionId) {
+        continue;
+      }
+      snapshots.push({ ...snapshot });
+    }
+
+    return snapshots;
   }
 }
 

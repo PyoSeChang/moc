@@ -1,8 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { EditorTab } from '@netior/shared/types';
 import { NarreSessionList } from './narre/NarreSessionList';
 import { NarreChat } from './narre/NarreChat';
-import { getNarreProjectUiState, updateNarreProjectUiState } from '../../lib/narre-ui-state';
+import {
+  getNarreProjectUiState,
+  subscribeNarreProjectUiState,
+  updateNarreProjectUiState,
+} from '../../lib/narre-ui-state';
 
 interface NarreEditorProps {
   tab: EditorTab;
@@ -30,6 +34,14 @@ export function NarreEditor({ tab }: NarreEditorProps): JSX.Element {
       activeSessionId: sid,
     }));
   };
+
+  useEffect(() => {
+    return subscribeNarreProjectUiState(projectId, (next) => {
+      narreStateCache.set(projectId, { view: next.view, sessionId: next.activeSessionId });
+      setView(next.view);
+      setActiveSessionId(next.activeSessionId);
+    });
+  }, [projectId]);
 
   const handleSelectSession = useCallback((sessionId: string) => {
     setActiveSessionId(sessionId);

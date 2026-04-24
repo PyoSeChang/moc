@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, RefreshCw } from 'lucide-react';
 import type { AgentStatus, SupervisorAgentSessionSnapshot } from '@netior/shared/types';
 import { narreService } from '../../services/narre-service';
+import { useEditorStore } from '../../stores/editor-store';
+import { updateNarreProjectUiState } from '../../lib/narre-ui-state';
 import { Badge } from '../ui/Badge';
 import { IconButton } from '../ui/IconButton';
 import { Spinner } from '../ui/Spinner';
@@ -56,6 +58,44 @@ export function AgentSessionPanel({ projectId }: AgentSessionPanelProps): JSX.El
   const workingCount = projectSessions.filter((session) => session.status === 'working').length;
   const issueCount = projectSessions.filter((session) => session.status === 'blocked' || session.status === 'error').length;
 
+  const handleSessionOpen = useCallback(async (session: SupervisorAgentSessionSnapshot): Promise<void> => {
+    const editorStore = useEditorStore.getState();
+    const resolvedProjectId = session.projectId ?? projectId;
+
+    if (session.surface.kind === 'terminal') {
+      const tabId = `terminal:${session.surface.id}`;
+      const existingTab = editorStore.tabs.find((tab) => tab.id === tabId);
+      if (session.status === 'offline' && !existingTab) {
+        return;
+      }
+
+      await editorStore.openTab({
+        type: 'terminal',
+        targetId: session.surface.id,
+        title: session.title?.trim() || session.agent.name,
+        projectId: resolvedProjectId,
+      });
+      return;
+    }
+
+    if (!resolvedProjectId) {
+      return;
+    }
+
+    updateNarreProjectUiState(resolvedProjectId, (prev) => ({
+      ...prev,
+      view: session.externalSessionId ? 'chat' : prev.view,
+      activeSessionId: session.externalSessionId ?? prev.activeSessionId,
+    }));
+
+    await editorStore.openTab({
+      type: 'narre',
+      targetId: resolvedProjectId,
+      title: 'Narre',
+      projectId: resolvedProjectId,
+    });
+  }, [projectId]);
+
   return (
     <section className="flex min-h-full flex-col gap-2">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
@@ -83,9 +123,13 @@ export function AgentSessionPanel({ projectId }: AgentSessionPanelProps): JSX.El
       ) : (
         <div className="flex flex-col gap-2 px-2 pb-2">
           {projectSessions.map((session) => (
-            <div
+            <button
               key={session.id}
-              className="rounded border border-subtle bg-surface-card px-3 py-2"
+              type="button"
+              className="rounded border border-subtle bg-surface-card px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+              onClick={() => {
+                void handleSessionOpen(session);
+              }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -113,7 +157,7 @@ export function AgentSessionPanel({ projectId }: AgentSessionPanelProps): JSX.El
                   {formatUpdatedAt(session.updatedAt)}
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

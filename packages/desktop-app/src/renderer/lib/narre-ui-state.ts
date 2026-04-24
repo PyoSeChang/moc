@@ -16,6 +16,8 @@ export interface NarreProjectUiState {
   pendingSkillInvocations: Record<string, NarrePendingSkillInvocationState>;
 }
 
+type NarreProjectUiStateListener = (state: NarreProjectUiState) => void;
+
 const STORAGE_PREFIX = 'netior:narre-ui:';
 const DEFAULT_PROJECT_UI_STATE: NarreProjectUiState = {
   view: 'sessionList',
@@ -23,6 +25,7 @@ const DEFAULT_PROJECT_UI_STATE: NarreProjectUiState = {
   drafts: {},
   pendingSkillInvocations: {},
 };
+const projectUiStateListeners = new Map<string, Set<NarreProjectUiStateListener>>();
 
 function canUseStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -30,6 +33,17 @@ function canUseStorage(): boolean {
 
 function getStorageKey(projectId: string): string {
   return `${STORAGE_PREFIX}${projectId}`;
+}
+
+function notifyNarreProjectUiState(projectId: string, state: NarreProjectUiState): void {
+  const listeners = projectUiStateListeners.get(projectId);
+  if (!listeners || listeners.size === 0) {
+    return;
+  }
+
+  for (const listener of listeners) {
+    listener(state);
+  }
 }
 
 function sanitizeProjectUiState(value: unknown): NarreProjectUiState {
@@ -118,7 +132,29 @@ export function updateNarreProjectUiState(
     // Ignore storage failures; Narre still works with in-memory state.
   }
 
+  notifyNarreProjectUiState(projectId, next);
   return next;
+}
+
+export function subscribeNarreProjectUiState(
+  projectId: string,
+  listener: NarreProjectUiStateListener,
+): () => void {
+  const listeners = projectUiStateListeners.get(projectId) ?? new Set<NarreProjectUiStateListener>();
+  listeners.add(listener);
+  projectUiStateListeners.set(projectId, listeners);
+
+  return () => {
+    const current = projectUiStateListeners.get(projectId);
+    if (!current) {
+      return;
+    }
+
+    current.delete(listener);
+    if (current.size === 0) {
+      projectUiStateListeners.delete(projectId);
+    }
+  };
 }
 
 export function setNarreProjectDraft(

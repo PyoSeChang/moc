@@ -21,9 +21,11 @@ import {
   MAIN_HOST_ID,
 } from '../../stores/editor-store';
 import { useUIStore } from '../../stores/ui-store';
+import { useSettingsStore } from '../../stores/settings-store';
 import { isTabDrag, getTabDragDataAsync, flushTabDragData } from '../../hooks/useTabDrag';
 import { getFileOpenDragData, isFileOpenDrag } from '../../hooks/useFileOpenDrag';
 import { openFileBesideTab, openFileInPane, openFileTab } from '../../lib/open-file-tab';
+import { getAllowedViewModes } from '../../lib/editor-view-mode-rules';
 import type { DropResult } from '../editor/DropZoneOverlay';
 import { useFileTabStaleWatcher } from '../../hooks/useFileTabStaleWatcher';
 
@@ -62,6 +64,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, moveTabWithinStrip, moveTabToHost, updateFloatRect,
   } = useEditorStore();
   const { sidebarOpen, setSidebarWidth } = useUIStore();
+  const networkViewerPlacement = useSettingsStore((s) => s.networkViewerPlacement);
+  const isNetworkPaneLeft = networkViewerPlacement === 'network-left';
 
   // Listen for detached window close events (host-level).
   // Window close semantics: closing a detached window destroys its tabs,
@@ -167,7 +171,10 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
       const handleMove = (ev: MouseEvent) => {
         if (!editorDraggingRef.current || !container) return;
         const rect = container.getBoundingClientRect();
-        const ratio = Math.max(0.2, Math.min(0.8, (ev.clientX - rect.left) / rect.width));
+        const rawRatio = isNetworkPaneLeft
+          ? (ev.clientX - rect.left) / rect.width
+          : (rect.right - ev.clientX) / rect.width;
+        const ratio = Math.max(0.2, Math.min(0.8, rawRatio));
         // Direct DOM update — no React re-render during drag
         if (workspacePane) workspacePane.style.width = `${ratio * 100}%`;
         if (editorPane) editorPane.style.width = `${(1 - ratio) * 100}%`;
@@ -188,7 +195,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('mouseup', handleUp);
     },
-    [sideActiveTab, updateSideSplitRatio],
+    [isNetworkPaneLeft, sideActiveTab, updateSideSplitRatio],
   );
 
   // Sidebar resize drag
@@ -251,6 +258,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             rightSlot={
               <EditorViewModeSwitch
                 currentMode="side"
+                availableModes={getAllowedViewModes(activeLeafTab)}
                 onModeChange={(mode) => setViewMode(leaf.activeTabId, mode)}
                 onMinimize={() => toggleMinimize(leaf.activeTabId)}
               />
@@ -352,6 +360,33 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     if (tabId) applyDropModeToMain(tabId, 'side');
   }, [applyDropModeToMain, clearShellDropState]);
 
+  const workspacePane = (
+    <div
+      data-pane="workspace"
+      className="relative flex min-h-0 min-w-0 flex-col overflow-hidden"
+      style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
+      onDragOver={handleWorkspaceDragOver}
+      onDrop={handleWorkspaceDrop}
+    >
+      <NetworkWorkspace projectId={project?.id ?? null} />
+    </div>
+  );
+
+  const editorPane = hasSideEditor && sideLayout ? (
+    <div
+      data-pane="editor"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-panel"
+      style={{ width: `${(1 - splitRatio) * 100}%` }}
+    >
+      <SplitPaneRenderer
+        node={sideLayout}
+        mode="side"
+        renderLeaf={renderSideLeaf}
+        onRatioChange={updateSplitRatio}
+      />
+    </div>
+  ) : null;
+
   return (
     <div className="relative flex h-full">
       <ActivityBar />
@@ -376,35 +411,21 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             <FullModeEditor />
           ) : (
             <>
-              {/* Workspace area */}
-              <div
-                data-pane="workspace"
-                className="relative flex min-h-0 min-w-0 flex-col overflow-hidden"
-                style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
-                onDragOver={handleWorkspaceDragOver}
-                onDrop={handleWorkspaceDrop}
-              >
-                <NetworkWorkspace projectId={project?.id ?? null} />
-              </div>
-
-              {/* Side editor */}
-              {hasSideEditor && sideLayout && (
-                <>
-                  <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
-                  <div
-                    data-pane="editor"
-                    className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-panel"
-                    style={{ width: `${(1 - splitRatio) * 100}%` }}
-                  >
-                    <SplitPaneRenderer
-                      node={sideLayout}
-                      mode="side"
-                      renderLeaf={renderSideLeaf}
-                      onRatioChange={updateSplitRatio}
-                    />
-                  </div>
-                </>
-              )}
+              {hasSideEditor && editorPane ? (
+                isNetworkPaneLeft ? (
+                  <>
+                    {workspacePane}
+                    <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
+                    {editorPane}
+                  </>
+                ) : (
+                  <>
+                    {editorPane}
+                    <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
+                    {workspacePane}
+                  </>
+                )
+              ) : workspacePane}
             </>
           )}
           {isTabDragging && !hasSideEditor && !isFullMode && (
@@ -422,11 +443,13 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               )}
               {showSideDropHint && (
                 <div
-                  className="absolute right-0 top-0 bottom-0 z-20 w-20 bg-interactive-selected border-l-2 border-accent flex items-center justify-center"
+                  className={`absolute top-0 bottom-0 z-20 flex w-20 items-center justify-center bg-interactive-selected border-accent ${
+                    isNetworkPaneLeft ? 'right-0 border-l-2' : 'left-0 border-r-2'
+                  }`}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
                   onDrop={handleSideHintDrop}
                 >
-                  <span className="text-xs text-accent font-medium -rotate-90 whitespace-nowrap">Side</span>
+                  <span className={`whitespace-nowrap text-xs font-medium text-accent ${isNetworkPaneLeft ? '-rotate-90' : 'rotate-90'}`}>Side</span>
                 </div>
               )}
             </>

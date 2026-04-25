@@ -7,6 +7,7 @@ import { TerminalEditor } from './TerminalEditor';
 import { RelationTypeEditor } from './RelationTypeEditor';
 import { EdgeEditor } from './EdgeEditor';
 import { NetworkEditor } from './NetworkEditor';
+import { NetworkViewerEditor } from './NetworkViewerEditor';
 import { ProjectEditor } from './ProjectEditor';
 import { NarreEditor } from './NarreEditor';
 import { AgentEditor } from './AgentEditor';
@@ -70,6 +71,8 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       content = <EdgeEditor tab={tab} />; break;
     case 'network':
       content = <NetworkEditor tab={tab} />; break;
+    case 'networkViewer':
+      content = <NetworkViewerEditor tab={tab} />; break;
     case 'project':
       content = <ProjectEditor tab={tab} />; break;
     case 'narre':

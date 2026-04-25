@@ -6,6 +6,7 @@ import { translate, type TranslationKey } from '@netior/shared/i18n';
 import { useSettingsStore } from '../../stores/settings-store';
 import { isTodoEnabled, toggleTodoEnabled } from '../../lib/terminal-todo-store';
 import { openTerminalTab } from '../../lib/terminal/open-terminal-tab';
+import { getAllowedViewModes } from '../../lib/editor-view-mode-rules';
 
 // ── Common items (all tab types) ──
 
@@ -42,6 +43,7 @@ function buildCommonItems(tab: EditorTab, tabs: EditorTab[]): ContextMenuEntry[]
 function buildViewModeItems(tab: EditorTab): ContextMenuEntry[] {
   const store = useEditorStore.getState();
   const current = tab.viewMode;
+  const allowedModes = new Set(getAllowedViewModes(tab));
 
   const modes = [
     { label: 'Side 모드', mode: 'side' as const },
@@ -49,7 +51,7 @@ function buildViewModeItems(tab: EditorTab): ContextMenuEntry[] {
     { label: 'Float 모드', mode: 'float' as const },
   ];
 
-  return modes.map((m) => ({
+  return modes.filter((m) => allowedModes.has(m.mode)).map((m) => ({
     label: m.mode === current ? `${m.label} ✓` : m.label,
     disabled: m.mode === current,
     onClick: () => store.setViewMode(tab.id, m.mode),
@@ -189,8 +191,11 @@ export function buildTabContextMenu(tab: EditorTab, tabs: EditorTab[], callbacks
 
   // View mode items (main host only)
   if (tab.hostId === MAIN_HOST_ID) {
-    items.push({ type: 'divider' });
-    items.push(...buildViewModeItems(tab));
+    const viewModeItems = buildViewModeItems(tab);
+    if (viewModeItems.length > 0) {
+      items.push({ type: 'divider' });
+      items.push(...viewModeItems);
+    }
   }
 
   // Host move items

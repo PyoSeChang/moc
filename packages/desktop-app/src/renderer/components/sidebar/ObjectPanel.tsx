@@ -37,6 +37,7 @@ import { Input } from '../ui/Input';
 import { getIconComponent } from '../ui/lucide-utils';
 import { TypeGroupModal } from './TypeGroupModal';
 import { NodeVisual } from '../workspace/node-components/NodeVisual';
+import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 
 type PanelObjectType = 'concept' | 'network' | 'archetype' | 'relation_type' | 'context';
 type GroupablePanelObjectType = Extract<PanelObjectType, 'archetype' | 'relation_type'>;
@@ -653,7 +654,7 @@ export function ObjectPanel(): JSX.Element {
         break;
       case 'network':
         await openNetwork(item.id);
-        await useEditorStore.getState().openTab({ type: 'network', targetId: item.id, title: item.title });
+        await openNetworkViewerTab({ networkId: item.id, title: item.title, projectId: currentProject?.id ?? null });
         break;
       case 'archetype':
         await useEditorStore.getState().openTab({ type: 'archetype', targetId: item.id, title: item.title });
@@ -706,7 +707,12 @@ export function ObjectPanel(): JSX.Element {
         });
         await loadNetworkTree(currentProject.id);
         await openNetwork(created.id);
-        await useEditorStore.getState().openTab({ type: 'network', targetId: created.id, title: created.name, isDirty: true });
+        await openNetworkViewerTab({
+          networkId: created.id,
+          title: created.name,
+          projectId: currentProject.id,
+          isDirty: true,
+        });
         break;
       }
       case 'archetype': {

@@ -33,6 +33,7 @@ export type AppearanceMode = 'system' | 'dark' | 'light';
 export type ThemePrimaryMode = 'preset' | 'custom';
 export type DetachedAgentToastMode = 'always' | 'inactive-only';
 export type FieldComplexityLevel = 'basic' | 'standard' | 'advanced';
+export type NetworkViewerPlacement = 'network-left' | 'network-right';
 export type ThemeFamily = ThemeFamilyDefinition['id'];
 export type ResolvedThemeMode = 'dark' | 'light';
 export type PrimaryPresetId = string;
@@ -95,6 +96,7 @@ interface SettingsSyncState {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  networkViewerPlacement: NetworkViewerPlacement;
   typography: TypographyConfig;
   terminalPresetId: TerminalPresetId;
   terminalAppearance: TerminalAppearanceConfig;
@@ -941,6 +943,7 @@ export interface SettingsStore {
   nativeAgentNotificationsEnabled: boolean;
   agentNotificationSoundEnabled: boolean;
   fieldComplexityLevel: FieldComplexityLevel;
+  networkViewerPlacement: NetworkViewerPlacement;
   typography: TypographyConfig;
   terminalPresetId: TerminalPresetId;
   terminalAppearance: TerminalAppearanceConfig;
@@ -956,6 +959,7 @@ export interface SettingsStore {
   setNativeAgentNotificationsEnabled: (enabled: boolean) => void;
   setAgentNotificationSoundEnabled: (enabled: boolean) => void;
   setFieldComplexityLevel: (level: FieldComplexityLevel) => void;
+  setNetworkViewerPlacement: (placement: NetworkViewerPlacement) => void;
   updateTypography: (role: AppFontRole, patch: Partial<FontRoleConfig>) => void;
   setTerminalPresetId: (presetId: TerminalPresetId) => void;
   updateTerminalAppearance: (patch: Partial<TerminalAppearanceConfig>) => void;
@@ -982,6 +986,7 @@ function getSettingsSyncState(state: Pick<
   | 'detachedAgentToastMode'
   | 'nativeAgentNotificationsEnabled'
   | 'agentNotificationSoundEnabled'
+  | 'networkViewerPlacement'
 > & {
   fieldComplexityLevel?: FieldComplexityLevel;
   typography?: Partial<TypographyConfig>;
@@ -997,6 +1002,7 @@ function getSettingsSyncState(state: Pick<
     detachedAgentToastMode: state.detachedAgentToastMode,
     nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
+    networkViewerPlacement: state.networkViewerPlacement ?? 'network-left',
     fieldComplexityLevel: state.fieldComplexityLevel ?? 'standard',
     typography: normalizeTypographyConfig(state.typography),
     terminalPresetId,
@@ -1032,6 +1038,7 @@ export const useSettingsStore = create<SettingsStore>()(
       nativeAgentNotificationsEnabled: true,
       agentNotificationSoundEnabled: true,
       fieldComplexityLevel: 'standard',
+      networkViewerPlacement: 'network-left',
       typography: getDefaultTypographyConfig(),
       terminalPresetId: DEFAULT_TERMINAL_PRESET_ID,
       terminalAppearance: getTerminalAppearanceFromPreset(DEFAULT_TERMINAL_PRESET_ID),
@@ -1134,6 +1141,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setNativeAgentNotificationsEnabled: (nativeAgentNotificationsEnabled) => set({ nativeAgentNotificationsEnabled }),
       setAgentNotificationSoundEnabled: (agentNotificationSoundEnabled) => set({ agentNotificationSoundEnabled }),
       setFieldComplexityLevel: (fieldComplexityLevel) => set({ fieldComplexityLevel }),
+      setNetworkViewerPlacement: (networkViewerPlacement) => set({ networkViewerPlacement }),
       updateTypography: (role, patch) => {
         set((state) => ({
           typography: normalizeTypographyConfig({
@@ -1179,6 +1187,7 @@ export const useSettingsStore = create<SettingsStore>()(
         nativeAgentNotificationsEnabled: state.nativeAgentNotificationsEnabled,
         agentNotificationSoundEnabled: state.agentNotificationSoundEnabled,
         fieldComplexityLevel: state.fieldComplexityLevel,
+        networkViewerPlacement: state.networkViewerPlacement,
         typography: state.typography,
         terminalPresetId: state.terminalPresetId,
         terminalAppearance: state.terminalAppearance,
@@ -1189,6 +1198,7 @@ export const useSettingsStore = create<SettingsStore>()(
           appearanceMode: state.appearanceMode,
           lightTheme: normalizeThemeSlot(state.lightTheme),
           darkTheme: normalizeThemeSlot(state.darkTheme),
+          networkViewerPlacement: state.networkViewerPlacement ?? 'network-left',
           typography: normalizeTypographyConfig(state.typography),
           terminalAppearance: normalizeTerminalAppearanceConfig(
             state.terminalAppearance,
@@ -1198,6 +1208,7 @@ export const useSettingsStore = create<SettingsStore>()(
         const resolvedThemeMode = applyThemeToDocument(normalizedState);
         state.lightTheme = normalizedState.lightTheme;
         state.darkTheme = normalizedState.darkTheme;
+        state.networkViewerPlacement = normalizedState.networkViewerPlacement;
         state.typography = normalizedState.typography;
         state.resolvedThemeMode = resolvedThemeMode;
         state.terminalPresetId = findTerminalPreset(state.terminalPresetId ?? DEFAULT_TERMINAL_PRESET_ID).id;
@@ -1257,6 +1268,7 @@ export function initializeSettingsStore(): void {
         nextState.nativeAgentNotificationsEnabled === prevState.nativeAgentNotificationsEnabled &&
         nextState.agentNotificationSoundEnabled === prevState.agentNotificationSoundEnabled &&
         nextState.fieldComplexityLevel === prevState.fieldComplexityLevel &&
+        nextState.networkViewerPlacement === prevState.networkViewerPlacement &&
         nextState.typography === prevState.typography &&
         nextState.terminalPresetId === prevState.terminalPresetId &&
         nextState.terminalAppearance === prevState.terminalAppearance

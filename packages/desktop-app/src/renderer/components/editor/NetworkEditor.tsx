@@ -12,6 +12,7 @@ import { useTypeGroupStore } from '../../stores/type-group-store';
 import { useEditorSession } from '../../hooks/useEditorSession';
 import { layoutService } from '../../services';
 import { useI18n } from '../../hooks/useI18n';
+import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 import { Input } from '../ui/Input';
 import { NumberInput } from '../ui/NumberInput';
 import { Select } from '../ui/Select';
@@ -717,14 +718,29 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
           subtitle={t('editorShell.networkObject' as never)}
           description={t('network.layoutSettings')}
           actions={(
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-status-error hover:text-status-error"
-              onClick={handleDelete}
-            >
-              {t('common.delete')}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  void openNetworkViewerTab({
+                    networkId,
+                    title: session.state.name || network?.name || selectedItem.title,
+                    projectId: network?.project_id ?? currentNetwork?.project_id ?? null,
+                  });
+                }}
+              >
+                {t('network.openViewer' as never)}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-status-error hover:text-status-error"
+                onClick={handleDelete}
+              >
+                {t('common.delete')}
+              </Button>
+            </div>
           )}
         >
           <NetworkObjectEditorSection title={t('editorShell.overview' as never)}>

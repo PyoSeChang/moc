@@ -7,6 +7,7 @@ import { EditorContent } from '../EditorContent';
 import { useI18n } from '../../../hooks/useI18n';
 import { IconButton } from '../../ui/IconButton';
 import { setTabDragData } from '../../../hooks/useTabDrag';
+import { getAllowedViewModes } from '../../../lib/editor-view-mode-rules';
 
 interface FloatWindowProps {
   tab: EditorTab;
@@ -126,6 +127,7 @@ export function FloatWindow({ tab, isActive, onActivate }: FloatWindowProps): JS
 
         <EditorViewModeSwitch
           currentMode={tab.viewMode}
+          availableModes={getAllowedViewModes(tab)}
           onModeChange={(mode) => setViewMode(tab.id, mode)}
           onMinimize={() => toggleMinimize(tab.id)}
         />

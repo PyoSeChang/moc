@@ -726,7 +726,7 @@ export interface NetworkBreadcrumbItem {
 // ============================================
 
 export type EditorViewMode = 'float' | 'full' | 'side' | 'detached';
-export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'network' | 'project' | 'narre' | 'agent' | 'fileMetadata' | 'context';
+export type EditorTabType = 'concept' | 'file' | 'archetype' | 'terminal' | 'edge' | 'relationType' | 'network' | 'networkViewer' | 'project' | 'narre' | 'agent' | 'fileMetadata' | 'context';
 
 /** Identifies a window that hosts editor tabs (main window or detached window) */
 export interface EditorHostState {

@@ -10,6 +10,7 @@ interface EditorViewModeSwitchProps {
   currentMode: EditorViewMode;
   onModeChange: (mode: EditorViewMode) => void;
   onMinimize?: () => void;
+  availableModes?: EditorViewMode[];
 }
 
 interface ModeButtonConfig {
@@ -23,6 +24,7 @@ export function EditorViewModeSwitch({
   currentMode,
   onModeChange,
   onMinimize,
+  availableModes = ['side', 'full', 'float', 'detached'],
 }: EditorViewModeSwitchProps): JSX.Element {
   const { t } = useI18n();
   const preferredDockMode = useEditorStore((s) => {
@@ -31,20 +33,34 @@ export function EditorViewModeSwitch({
     return hasFull ? 'full' : 'side';
   });
 
-  const layoutToggle: { mode: 'side' | 'full'; icon: typeof Maximize; titleKey: TranslationKey } =
-    currentMode === 'full'
-      ? { mode: 'side', icon: PanelRight, titleKey: 'editor.modeSide' }
-      : currentMode === 'side'
-        ? { mode: 'full', icon: Maximize, titleKey: 'editor.modeFull' }
-        : preferredDockMode === 'full'
-          ? { mode: 'full', icon: Maximize, titleKey: 'editor.modeFull' }
-          : { mode: 'side', icon: PanelRight, titleKey: 'editor.modeSide' };
+  const canUseSide = availableModes.includes('side');
+  const canUseFull = availableModes.includes('full');
+  const canUseFloat = availableModes.includes('float');
+  const canUseDetached = availableModes.includes('detached');
 
-  const tabModeButtons: ModeButtonConfig[] = [
-    { mode: 'float', icon: Maximize2, titleKey: 'editor.modeFloat', isActive: currentMode === 'float' },
-    { mode: 'detached', icon: ExternalLink, titleKey: 'editor.modeDetached', isActive: currentMode === 'detached' },
-  ];
-  const layoutButton: ModeButtonConfig = { ...layoutToggle, isActive: currentMode === 'side' || currentMode === 'full' };
+  const layoutToggle: { mode: 'side' | 'full'; icon: typeof Maximize; titleKey: TranslationKey } | null =
+    canUseSide && canUseFull
+      ? (
+        currentMode === 'full'
+          ? { mode: 'side', icon: PanelRight, titleKey: 'editor.modeSide' }
+          : currentMode === 'side'
+            ? { mode: 'full', icon: Maximize, titleKey: 'editor.modeFull' }
+            : preferredDockMode === 'full'
+              ? { mode: 'full', icon: Maximize, titleKey: 'editor.modeFull' }
+              : { mode: 'side', icon: PanelRight, titleKey: 'editor.modeSide' }
+      )
+      : null;
+
+  const tabModeButtons: ModeButtonConfig[] = [];
+  if (canUseFloat) {
+    tabModeButtons.push({ mode: 'float', icon: Maximize2, titleKey: 'editor.modeFloat', isActive: currentMode === 'float' });
+  }
+  if (canUseDetached) {
+    tabModeButtons.push({ mode: 'detached', icon: ExternalLink, titleKey: 'editor.modeDetached', isActive: currentMode === 'detached' });
+  }
+  const layoutButton: ModeButtonConfig | null = layoutToggle
+    ? { ...layoutToggle, isActive: currentMode === 'side' || currentMode === 'full' }
+    : null;
 
   const renderButton = ({ mode, icon: Icon, titleKey, isActive }: ModeButtonConfig, key: string) => (
     <Tooltip key={key} content={t(titleKey)} position="bottom">
@@ -74,7 +90,7 @@ export function EditorViewModeSwitch({
           </button>
         </Tooltip>
       )}
-      {renderButton(layoutButton, `layout:${layoutButton.mode}`)}
+      {layoutButton && renderButton(layoutButton, `layout:${layoutButton.mode}`)}
     </div>
   );
 }

@@ -1073,6 +1073,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     nativeAgentNotificationsEnabled,
     agentNotificationSoundEnabled,
     fieldComplexityLevel,
+    networkViewerPlacement,
     typography,
     terminalPresetId,
     terminalAppearance,
@@ -1085,6 +1086,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     setNativeAgentNotificationsEnabled,
     setAgentNotificationSoundEnabled,
     setFieldComplexityLevel,
+    setNetworkViewerPlacement,
     updateTypography,
     setTerminalPresetId,
     updateTerminalAppearance,
@@ -1106,6 +1108,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
       label: t('settings.categoryAppearance'),
       anchors: [
         t('settings.appearanceMode'),
+        t('settings.networkViewerPlacement' as never),
         t('settings.primaryPalette'),
         t('settings.typography'),
         t('settings.terminalPreset'),
@@ -1211,6 +1214,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
   const showAppearance = [
     t('settings.categoryAppearance'),
     t('settings.appearanceMode'),
+    t('settings.networkViewerPlacement' as never),
+    t('settings.networkViewerPlacementDesc' as never),
+    t('settings.networkViewerPlacementNetworkLeft' as never),
+    t('settings.networkViewerPlacementNetworkRight' as never),
     t('settings.primaryPalette'),
     t('settings.typography'),
     t('settings.typographyDesc'),
@@ -1359,6 +1366,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                   </div>
                   <div className="mt-3 text-xs text-muted">
                     {t('settings.currentResolvedMode')}: <span className="font-medium text-default">{resolvedThemeMode === 'dark' ? t('settings.dark') : t('settings.light')}</span>
+                  </div>
+                </section>
+
+                <section data-section={t('settings.networkViewerPlacement' as never).toLowerCase().replace(/\s+/g, '-')} className="mb-10">
+                  <h3 className="text-base font-semibold text-default">{t('settings.networkViewerPlacement' as never)}</h3>
+                  <p className="mb-4 text-sm text-secondary">{t('settings.networkViewerPlacementDesc' as never)}</p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {([
+                      { key: 'network-left' as const, label: t('settings.networkViewerPlacementNetworkLeft' as never) },
+                      { key: 'network-right' as const, label: t('settings.networkViewerPlacementNetworkRight' as never) },
+                    ]).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        className={`rounded-xl border p-4 text-left transition-all ${
+                          networkViewerPlacement === key
+                            ? 'border-accent bg-interactive-selected text-accent shadow-sm'
+                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                        }`}
+                        onClick={() => setNetworkViewerPlacement(key)}
+                      >
+                        <div className="text-sm font-semibold">{label}</div>
+                      </button>
+                    ))}
                   </div>
                 </section>
 

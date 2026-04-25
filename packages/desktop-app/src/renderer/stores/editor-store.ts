@@ -15,6 +15,7 @@ import { clearDraftCache } from '../hooks/useEditorSession';
 import { clearViewState } from '../hooks/useViewState';
 import { isTerminalAlive } from '../lib/terminal-tracker';
 import { cleanupSession as cleanupTodoSession } from '../lib/terminal-todo-store';
+import { coerceViewModeForTab } from '../lib/editor-view-mode-rules';
 
 export const MAIN_HOST_ID = 'main';
 
@@ -596,16 +597,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       // Detached hosts don't use side/full/float — tabs just live in the host
       resolvedMode = 'side';
     } else if (viewMode) {
-      resolvedMode = viewMode;
+      resolvedMode = coerceViewModeForTab({ type }, viewMode);
     } else {
       const savedMode = prefs?.view_mode as EditorViewMode | undefined;
-      if (savedMode === 'float') {
-        resolvedMode = 'float';
+      if (savedMode) {
+        resolvedMode = coerceViewModeForTab({ type }, savedMode);
       } else {
         const mainTabs = tabs.filter((t) => t.hostId === MAIN_HOST_ID);
         const hasSide = mainTabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
         const hasFull = mainTabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
-        resolvedMode = hasFull ? 'full' : hasSide ? 'side' : 'side';
+        resolvedMode = coerceViewModeForTab({ type }, hasFull ? 'full' : hasSide ? 'side' : 'side');
       }
     }
 
@@ -814,16 +815,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!oldTab) return;
     if (oldTab.hostId !== MAIN_HOST_ID) return; // view mode changes only apply to main host tabs
 
+    const nextMode = coerceViewModeForTab(oldTab, mode);
     const oldMode = oldTab.viewMode;
+    if (nextMode === oldMode) return;
 
     // Detached mode → use detachTab instead
-    if (mode === 'detached') {
+    if (nextMode === 'detached') {
       get().detachTab(tabId);
       return;
     }
 
     // Float mode
-    if (mode === 'float') {
+    if (nextMode === 'float') {
       const layoutUpdate = removeFromLayout(get(), oldMode, tabId);
       set((s) => ({
         ...layoutUpdate,
@@ -832,12 +835,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           t.id === tabId ? { ...t, viewMode: 'float', floatRect: normalizeFloatRect(t.floatRect) } : t
         )),
       }));
-      if (oldTab.type === 'concept') debouncedSavePrefs(oldTab.targetId, { view_mode: mode });
+      if (oldTab.type === 'concept') debouncedSavePrefs(oldTab.targetId, { view_mode: nextMode });
       return;
     }
 
     // full ↔ side: group switch
-    if ((oldMode === 'side' || oldMode === 'full') && (mode === 'side' || mode === 'full') && oldMode !== mode) {
+    if ((oldMode === 'side' || oldMode === 'full') && (nextMode === 'side' || nextMode === 'full')) {
       const tabsInOldMode = get().tabs.filter((t) => t.viewMode === oldMode && t.hostId === MAIN_HOST_ID);
       const tabIds = tabsInOldMode.map((t) => t.id);
 
@@ -853,18 +856,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
       set((s) => ({
         ...layoutUpdate,
-        tabs: s.tabs.map((t) => (tabIds.includes(t.id) ? { ...t, viewMode: mode } : t)),
+        tabs: s.tabs.map((t) => (tabIds.includes(t.id) ? { ...t, viewMode: nextMode } : t)),
       }));
 
       tabsInOldMode.forEach((t) => {
-        if (t.type === 'concept') debouncedSavePrefs(t.targetId, { view_mode: mode });
+        if (t.type === 'concept') debouncedSavePrefs(t.targetId, { view_mode: nextMode });
       });
       return;
     }
 
     // Default: single tab joining side or full
-    if (mode === 'side' || mode === 'full') {
-      let layout = getLayoutForMode(get(), mode);
+    if (nextMode === 'side' || nextMode === 'full') {
+      let layout = getLayoutForMode(get(), nextMode);
       if (!layout) {
         layout = { type: 'leaf', tabIds: [tabId], activeTabId: tabId };
       } else {
@@ -874,16 +877,16 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         layout = addTabToLeaf(layout, targetLeafTabId, tabId);
       }
       set((s) => ({
-        ...setLayoutForMode(mode, layout),
-        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode, isMinimized: false } : t)),
+        ...setLayoutForMode(nextMode, layout),
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: nextMode, isMinimized: false } : t)),
       }));
     } else {
       set((s) => ({
-        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: mode } : t)),
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, viewMode: nextMode } : t)),
       }));
     }
 
-    if (oldTab.type === 'concept') debouncedSavePrefs(oldTab.targetId, { view_mode: mode });
+    if (oldTab.type === 'concept') debouncedSavePrefs(oldTab.targetId, { view_mode: nextMode });
   },
 
   toggleMinimize: (tabId) => {
@@ -1436,7 +1439,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
         return {
           ...layoutUpdate,
-          tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, hostId: targetHostId, viewMode: 'side' } : t)),
+          tabs: s.tabs.map((t) => (
+            t.id === tabId
+              ? { ...t, hostId: targetHostId, viewMode: coerceViewModeForTab(t, 'side') }
+              : t
+          )),
           activeTabId: newActiveTabId,
           hosts: targetHostId !== MAIN_HOST_ID
             ? { ...s.hosts, [targetHostId]: { ...s.hosts[targetHostId], activeTabId: tabId } }
@@ -1475,13 +1482,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         const tabUpdate: Partial<EditorTab> = { hostId: targetHostId };
         if (targetHostId === MAIN_HOST_ID) {
           if (viewMode && viewMode !== 'detached') {
-            tabUpdate.viewMode = viewMode;
+            tabUpdate.viewMode = coerceViewModeForTab(tab, viewMode);
           } else {
             // Determine view mode for main based on what's currently open
             const mainTabs = s.tabs.filter((t) => t.hostId === MAIN_HOST_ID);
             const hasFull = mainTabs.some((t) => t.viewMode === 'full' && !t.isMinimized);
             const hasSide = mainTabs.some((t) => t.viewMode === 'side' && !t.isMinimized);
-            tabUpdate.viewMode = hasFull ? 'full' : hasSide ? 'side' : 'side';
+            tabUpdate.viewMode = coerceViewModeForTab(tab, hasFull ? 'full' : hasSide ? 'side' : 'side');
           }
         }
 

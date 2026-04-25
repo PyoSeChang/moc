@@ -5,6 +5,7 @@ import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
 import { useI18n } from '../../hooks/useI18n';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 
 interface NetworkListProps {
   projectId: string;
@@ -142,6 +143,17 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   const contextMenuIsSystem = contextMenu?.networkKind === 'universe' || contextMenu?.networkKind === 'ontology';
   const contextMenuItems: ContextMenuEntry[] = contextMenu ? [
     {
+      label: t('network.openViewer' as never),
+      icon: <Waypoints size={14} />,
+      onClick: () => {
+        void openNetworkViewerTab({
+          networkId: contextMenu.networkId,
+          title: contextMenu.networkName,
+          projectId: contextMenu.networkProjectId ?? projectId,
+        });
+      },
+    },
+    {
       label: t('editor.openInEditor'),
       icon: <ExternalLink size={14} />,
       onClick: () => {
@@ -165,10 +177,10 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
           });
           await loadNetworkTree(projectId);
           await openNetwork(child.id);
-          useEditorStore.getState().openTab({
-            type: 'network',
-            targetId: child.id,
+          void openNetworkViewerTab({
+            networkId: child.id,
             title: child.name,
+            projectId: child.project_id ?? projectId,
             isDirty: true,
           });
         },

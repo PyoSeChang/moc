@@ -10,6 +10,7 @@ import { DropZoneOverlay } from '../DropZoneOverlay';
 import { isTabDrag } from '../../../hooks/useTabDrag';
 import { isFileOpenDrag } from '../../../hooks/useFileOpenDrag';
 import { openFileBesideTab, openFileInPane } from '../../../lib/open-file-tab';
+import { getAllowedViewModes } from '../../../lib/editor-view-mode-rules';
 import type { DropResult } from '../DropZoneOverlay';
 
 async function openDroppedFilesInFullLeaf(
@@ -80,6 +81,7 @@ export function FullModeEditor(): JSX.Element | null {
             rightSlot={
               <EditorViewModeSwitch
                 currentMode="full"
+                availableModes={getAllowedViewModes(activeTab)}
                 onModeChange={(mode) => setViewMode(leaf.activeTabId, mode)}
                 onMinimize={() => toggleMinimize(leaf.activeTabId)}
               />

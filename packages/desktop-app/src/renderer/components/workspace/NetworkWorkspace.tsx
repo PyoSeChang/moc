@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bug } from 'lucide-react';
+import { Bug, SlidersHorizontal } from 'lucide-react';
 import { NodeLayer } from './NodeLayer';
 import { EdgeLayer } from './EdgeLayer';
 import { EdgeDebugOverlay } from './EdgeDebugOverlay';
@@ -35,9 +35,12 @@ import { dateToEpochDays, isoToEpochDays } from './layout-plugins/horizontal-tim
 import { formatTemporalSlotValueForWriteback, getOccurrenceKey, getSourceNodeId } from './layout-plugins/temporal-utils';
 import { useNetworkShortcuts } from './useNetworkShortcuts';
 import { HIERARCHY_PARENT_CONTRACT, isHierarchyParentContract } from '../../lib/hierarchy-contract';
+import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 
 interface NetworkWorkspaceProps {
   projectId: string | null;
+  initialNetworkId?: string | null;
+  onOpenLayoutSettings?: (() => void) | null;
 }
 
 interface ParsedNodePosition {
@@ -1261,7 +1264,11 @@ function hasCollapsedAncestor(
   return false;
 }
 
-export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Element {
+export function NetworkWorkspace({
+  projectId,
+  initialNetworkId = null,
+  onOpenLayoutSettings = null,
+}: NetworkWorkspaceProps): JSX.Element {
   const isDev = import.meta.env.DEV;
   const {
     currentNetwork, currentLayout, nodes, edges, nodePositions, edgeVisuals,
@@ -1310,12 +1317,15 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         if (!universe || cancelled) return;
 
         const store = useNetworkStore.getState();
+        const targetNetworkId = initialNetworkId ?? universe.id;
         const needsInitialOpen =
-          !store.currentNetwork
-          || store.currentNetwork.kind !== 'universe'
-          || store.currentNetwork.parent_network_id !== null;
+          store.currentNetwork?.id !== targetNetworkId
+          || (initialNetworkId == null && (
+            store.currentNetwork?.kind !== 'universe'
+            || store.currentNetwork.parent_network_id !== null
+          ));
         if (needsInitialOpen) {
-          await store.openNetwork(universe.id);
+          await store.openNetwork(targetNetworkId);
         }
         return;
       }
@@ -1324,6 +1334,13 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       if (cancelled) return;
 
       const store = useNetworkStore.getState();
+      if (initialNetworkId) {
+        if (store.currentNetwork?.id !== initialNetworkId) {
+          await store.openNetwork(initialNetworkId);
+        }
+        return;
+      }
+
       const needsInitialOpen =
         !store.currentNetwork || store.currentNetwork.project_id !== projectId;
       if (!needsInitialOpen) return;
@@ -1340,7 +1357,7 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
     return () => {
       cancelled = true;
     };
-  }, [loadUniverseWorkspace, loadNetworks, projectId]);
+  }, [initialNetworkId, loadUniverseWorkspace, loadNetworks, projectId]);
 
   useEffect(() => {
     if (selectedNetworkObjects.length === 0 && !networkObjectSelection) {
@@ -3520,7 +3537,17 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
       },
     })) ?? [];
 
+    const layoutSettingsItem = onOpenLayoutSettings
+      ? [{
+        key: 'layout-settings',
+        icon: <SlidersHorizontal size={14} />,
+        label: t('network.layoutSettings'),
+        onClick: onOpenLayoutSettings,
+      }]
+      : [];
+
     return isDev ? [
+      ...layoutSettingsItem,
       ...pluginItems,
       {
         key: 'edge-debug-overlay',
@@ -3528,8 +3555,25 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
         label: showEdgeDebugOverlay ? t('network.hideEdgeDebugOverlay') : t('network.showEdgeDebugOverlay'),
         onClick: () => setShowEdgeDebugOverlay((value) => !value),
       },
-    ] : pluginItems;
-  }, [isDev, layoutConfig, layoutPlugin.controlItems, panX, panY, setPanX, setPanY, setZoom, showEdgeDebugOverlay, t, updatePluginConfig, zoom]);
+    ] : [
+      ...layoutSettingsItem,
+      ...pluginItems,
+    ];
+  }, [
+    isDev,
+    layoutConfig,
+    layoutPlugin.controlItems,
+    onOpenLayoutSettings,
+    panX,
+    panY,
+    setPanX,
+    setPanY,
+    setZoom,
+    showEdgeDebugOverlay,
+    t,
+    updatePluginConfig,
+    zoom,
+  ]);
 
   const controlsRendererProps = useMemo(() => ({
     mode: workspaceMode,
@@ -3825,11 +3869,10 @@ export function NetworkWorkspace({ projectId }: NetworkWorkspaceProps): JSX.Elem
             if (currentNetwork.project_id) {
               await useNetworkStore.getState().loadNetworks(currentNetwork.project_id);
             }
-            // Open NetworkEditor for the new network
-            useEditorStore.getState().openTab({
-              type: 'network',
-              targetId: network.id,
+            void openNetworkViewerTab({
+              networkId: network.id,
               title: network.name,
+              projectId: network.project_id,
               isDirty: true,
             });
           }}

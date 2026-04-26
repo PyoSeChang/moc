@@ -6,6 +6,7 @@ import type {
   SemanticFacetKey,
   SemanticTraitKey,
   SlotSemanticAnnotationKey,
+  SlotSemanticAspectKey,
   RelationSemanticAnnotationKey,
   SlotContractLevel,
   SystemContract,
@@ -276,6 +277,7 @@ export const DEFAULTS = {
 export interface SystemSlotDefinition {
   key: SystemSlotKey;
   annotation: SlotSemanticAnnotationKey;
+  aspects?: readonly SlotSemanticAspectKey[];
   category: SemanticCategoryKey;
   label: string;
   allowedFieldTypes: readonly FieldType[];
@@ -294,6 +296,14 @@ export interface SemanticAnnotationDefinition {
   multiValue?: boolean;
 }
 
+export interface SemanticAspectDefinition {
+  key: SlotSemanticAspectKey;
+  category: SemanticCategoryKey;
+  label: string;
+  description?: string;
+  impliedByAnnotations?: readonly SlotSemanticAnnotationKey[];
+}
+
 export interface SemanticTraitDefinition {
   key: SemanticTraitKey;
   category: SemanticCategoryKey;
@@ -308,6 +318,8 @@ export interface SemanticFacetDefinition {
   label: string;
   coreAnnotations: readonly SlotSemanticAnnotationKey[];
   optionalAnnotations: readonly SlotSemanticAnnotationKey[];
+  coreAspects: readonly SlotSemanticAspectKey[];
+  optionalAspects: readonly SlotSemanticAspectKey[];
   legacyTrait: SemanticTraitKey;
 }
 
@@ -396,6 +408,31 @@ export const SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION: Readonly<Record<SystemSlotKey, 
 export const SEMANTIC_ANNOTATION_TO_SYSTEM_SLOT: Readonly<Partial<Record<SlotSemanticAnnotationKey, SystemSlotKey>>> =
   Object.fromEntries(SYSTEM_SLOT_DEFINITIONS.map((definition) => [definition.annotation, definition.key])) as Partial<Record<SlotSemanticAnnotationKey, SystemSlotKey>>;
 
+const SLOT_SEMANTIC_ASPECT_OVERRIDES: Readonly<Partial<Record<SlotSemanticAnnotationKey, readonly SlotSemanticAspectKey[]>>> = {
+  'time.start': ['time.start', 'temporal.point', 'temporal.boundary.start'],
+  'time.end': ['time.end', 'temporal.point', 'temporal.boundary.end'],
+  'time.due': ['time.due', 'temporal.point', 'temporal.deadline', 'obligation.due', 'boundary.deadline', 'consequence.trigger'],
+  'time.recurrence_until': ['time.recurrence_until', 'temporal.boundary.end'],
+  'workflow.completed_at': ['workflow.completed_at', 'temporal.point', 'workflow.completion'],
+  'structure.parent': ['structure.parent', 'relation.parent', 'structure.hierarchy'],
+  'knowledge.source_url': ['knowledge.source_url', 'provenance.source'],
+  'knowledge.source_ref': ['knowledge.source_ref', 'provenance.source', 'relation.citation'],
+  'knowledge.citation': ['knowledge.citation', 'provenance.source'],
+  'governance.owner': ['governance.owner', 'responsibility.accountable_agent'],
+  'governance.approved_by': ['governance.approved_by', 'authority.approver'],
+  'governance.approved_at': ['governance.approved_at', 'temporal.point', 'governance.approval_event'],
+} as const;
+
+function dedupeSemanticAspects(aspects: readonly SlotSemanticAspectKey[]): SlotSemanticAspectKey[] {
+  return [...new Set(aspects)];
+}
+
+export const SEMANTIC_ANNOTATION_TO_SLOT_ASPECTS: Readonly<Record<SlotSemanticAnnotationKey, readonly SlotSemanticAspectKey[]>> =
+  Object.fromEntries(SYSTEM_SLOT_DEFINITIONS.map((definition) => [
+    definition.annotation,
+    dedupeSemanticAspects(SLOT_SEMANTIC_ASPECT_OVERRIDES[definition.annotation] ?? [definition.annotation]),
+  ])) as unknown as Record<SlotSemanticAnnotationKey, readonly SlotSemanticAspectKey[]>;
+
 export const SYSTEM_CONTRACT_TO_RELATION_ANNOTATION: Readonly<Record<SystemContract, RelationSemanticAnnotationKey>> = {
   'core:contains': 'structure.contains',
   'core:entry_portal': 'structure.entry_portal',
@@ -424,12 +461,42 @@ export const SEMANTIC_ANNOTATION_DEFINITIONS: readonly SemanticAnnotationDefinit
   { key: 'structure.parent', legacyKey: 'core:hierarchy_parent', scope: 'relation', category: 'structure', label: 'Parent Relation' },
 ] as const;
 
+const EXTRA_SEMANTIC_ASPECT_DEFINITIONS: readonly SemanticAspectDefinition[] = [
+  { key: 'temporal.point', category: 'time', label: 'Temporal Point', description: 'A point on a temporal axis.' },
+  { key: 'temporal.boundary.start', category: 'time', label: 'Temporal Start Boundary' },
+  { key: 'temporal.boundary.end', category: 'time', label: 'Temporal End Boundary' },
+  { key: 'temporal.deadline', category: 'time', label: 'Temporal Deadline' },
+  { key: 'obligation.due', category: 'workflow', label: 'Obligation Due' },
+  { key: 'boundary.deadline', category: 'structure', label: 'Deadline Boundary' },
+  { key: 'consequence.trigger', category: 'workflow', label: 'Consequence Trigger' },
+  { key: 'workflow.completion', category: 'workflow', label: 'Workflow Completion' },
+  { key: 'relation.parent', category: 'structure', label: 'Parent Relation' },
+  { key: 'structure.hierarchy', category: 'structure', label: 'Hierarchy Structure' },
+  { key: 'provenance.source', category: 'knowledge', label: 'Provenance Source' },
+  { key: 'relation.citation', category: 'knowledge', label: 'Citation Relation' },
+  { key: 'responsibility.accountable_agent', category: 'governance', label: 'Accountable Agent' },
+  { key: 'authority.approver', category: 'governance', label: 'Approving Authority' },
+  { key: 'governance.approval_event', category: 'governance', label: 'Approval Event' },
+] as const;
+
+export const SEMANTIC_ASPECT_DEFINITIONS: readonly SemanticAspectDefinition[] = [
+  ...SYSTEM_SLOT_DEFINITIONS.map((definition) => ({
+    key: definition.annotation,
+    category: definition.category,
+    label: definition.label,
+    impliedByAnnotations: [definition.annotation],
+  })),
+  ...EXTRA_SEMANTIC_ASPECT_DEFINITIONS,
+] as const;
+
 export const SEMANTIC_FACET_DEFINITIONS: readonly SemanticFacetDefinition[] = SEMANTIC_TRAIT_DEFINITIONS.map((definition) => ({
   key: definition.key,
   category: definition.category,
   label: definition.label,
   coreAnnotations: definition.coreSlots.map((slot) => SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION[slot]),
   optionalAnnotations: definition.optionalSlots.map((slot) => SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION[slot]),
+  coreAspects: definition.coreSlots.flatMap((slot) => SEMANTIC_ANNOTATION_TO_SLOT_ASPECTS[SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION[slot]]),
+  optionalAspects: definition.optionalSlots.flatMap((slot) => SEMANTIC_ANNOTATION_TO_SLOT_ASPECTS[SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION[slot]]),
   legacyTrait: definition.key,
 }));
 
@@ -441,8 +508,20 @@ export function getSemanticAnnotationDefinition(annotation: SemanticAnnotationKe
   return SEMANTIC_ANNOTATION_DEFINITIONS.find((definition) => definition.key === annotation);
 }
 
+export function getSemanticAspectDefinition(aspect: SlotSemanticAspectKey): SemanticAspectDefinition | undefined {
+  return SEMANTIC_ASPECT_DEFINITIONS.find((definition) => definition.key === aspect);
+}
+
 export function systemSlotToSemanticAnnotation(slot: SystemSlotKey | null | undefined): SlotSemanticAnnotationKey | null {
   return slot ? SYSTEM_SLOT_TO_SEMANTIC_ANNOTATION[slot] ?? null : null;
+}
+
+export function semanticAnnotationToSlotAspects(annotation: SlotSemanticAnnotationKey | null | undefined): SlotSemanticAspectKey[] {
+  return annotation ? [...(SEMANTIC_ANNOTATION_TO_SLOT_ASPECTS[annotation] ?? [annotation])] : [];
+}
+
+export function systemSlotToSemanticAspects(slot: SystemSlotKey | null | undefined): SlotSemanticAspectKey[] {
+  return semanticAnnotationToSlotAspects(systemSlotToSemanticAnnotation(slot));
 }
 
 export function semanticAnnotationToSystemSlot(annotation: SlotSemanticAnnotationKey | null | undefined): SystemSlotKey | null {

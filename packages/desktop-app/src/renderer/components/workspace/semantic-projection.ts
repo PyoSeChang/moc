@@ -1,4 +1,5 @@
 import {
+  semanticAnnotationToSlotAspects,
   semanticAnnotationToSystemSlot,
   systemSlotToSemanticAnnotation,
 } from '@netior/shared/constants';
@@ -6,6 +7,7 @@ import type {
   ArchetypeField,
   SemanticFacetKey,
   SlotSemanticAnnotationKey,
+  SlotSemanticAspectKey,
   SystemSlotKey,
 } from '@netior/shared/types';
 import type { LayoutSemanticProjection } from './layout-plugins/types';
@@ -170,7 +172,7 @@ function parseNumericMetadataValue(value: string): number | null {
 
 function parseSemanticValue(
   field: ArchetypeField,
-  annotation: SlotSemanticAnnotationKey,
+  annotation: SlotSemanticAnnotationKey | null,
   rawValue: string,
   timeZone?: string | null,
 ): {
@@ -181,7 +183,7 @@ function parseSemanticValue(
     return { value: parseBooleanMetadataValue(rawValue) ?? rawValue === 'true' };
   }
 
-  if (TEMPORAL_ANNOTATIONS.has(annotation)) {
+  if (annotation && TEMPORAL_ANNOTATIONS.has(annotation)) {
     const temporal = parseTemporalMetadataValue(rawValue, timeZone);
     if (temporal) {
       return { value: temporal.epochDay, temporal };
@@ -191,12 +193,19 @@ function parseSemanticValue(
   if (
     field.field_type === 'number'
     || field.field_type === 'rating'
-    || NUMERIC_ANNOTATIONS.has(annotation)
+    || (annotation && NUMERIC_ANNOTATIONS.has(annotation))
   ) {
     return { value: parseNumericMetadataValue(rawValue) ?? rawValue };
   }
 
   return { value: rawValue };
+}
+
+function getFieldSemanticAspects(field: ArchetypeField, annotation: SlotSemanticAnnotationKey | null): SlotSemanticAspectKey[] {
+  const rawAspects = field.semantic_aspects && field.semantic_aspects.length > 0
+    ? field.semantic_aspects
+    : semanticAnnotationToSlotAspects(annotation);
+  return [...new Set(rawAspects.filter((aspect): aspect is SlotSemanticAspectKey => typeof aspect === 'string' && aspect.trim().length > 0))];
 }
 
 export function applyConceptSemanticProjection({
@@ -210,7 +219,9 @@ export function applyConceptSemanticProjection({
     schemaId,
     facets: facets ?? [],
     slots: {},
+    slotsByAspect: {},
     slotFieldIds: {},
+    aspectFieldIds: {},
     legacySlotFieldIds: {},
     legacySlotFieldTypes: {},
   };
@@ -218,36 +229,50 @@ export function applyConceptSemanticProjection({
 
   for (const field of fields) {
     const annotation = field.semantic_annotation ?? systemSlotToSemanticAnnotation(field.system_slot);
-    if (!annotation) continue;
-    const legacySlot = field.system_slot ?? semanticAnnotationToSystemSlot(annotation);
-    semantic.slotFieldIds[annotation] = field.id;
-    if (legacySlot) {
-      semantic.legacySlotFieldIds[legacySlot] = field.id;
-      semantic.legacySlotFieldTypes[legacySlot] = field.field_type;
+    const aspects = getFieldSemanticAspects(field, annotation);
+    if (!annotation && aspects.length === 0) continue;
+    if (annotation) {
+      const legacySlot = field.system_slot ?? semanticAnnotationToSystemSlot(annotation);
+      semantic.slotFieldIds[annotation] = field.id;
+      if (legacySlot) {
+        semantic.legacySlotFieldIds[legacySlot] = field.id;
+        semantic.legacySlotFieldTypes[legacySlot] = field.field_type;
+      }
+    }
+    for (const aspect of aspects) {
+      semantic.aspectFieldIds[aspect] = [...(semantic.aspectFieldIds[aspect] ?? []), field.id];
     }
 
     const rawValue = propertyValues.get(field.id);
-    if (rawValue == null) continue;
+    if (rawValue == null || !annotation) continue;
     rawValuesByAnnotation.set(annotation, rawValue);
   }
 
   const timeZone = rawValuesByAnnotation.get('time.timezone');
   for (const field of fields) {
     const annotation = field.semantic_annotation ?? systemSlotToSemanticAnnotation(field.system_slot);
-    if (!annotation) continue;
+    const aspects = getFieldSemanticAspects(field, annotation);
+    if (!annotation && aspects.length === 0) continue;
     const rawValue = propertyValues.get(field.id);
     if (rawValue == null) continue;
 
-    const legacySlot = field.system_slot ?? semanticAnnotationToSystemSlot(annotation);
+    const legacySlot = annotation ? field.system_slot ?? semanticAnnotationToSystemSlot(annotation) : field.system_slot ?? null;
     const parsed = parseSemanticValue(field, annotation, rawValue, timeZone);
-    semantic.slots[annotation] = {
+    const projected = {
       annotation,
+      aspects,
       fieldId: field.id,
       fieldType: field.field_type,
       rawValue,
       value: parsed.value,
       legacySlot,
     };
+    if (annotation) {
+      semantic.slots[annotation] = projected;
+    }
+    for (const aspect of aspects) {
+      semantic.slotsByAspect[aspect] = [...(semantic.slotsByAspect[aspect] ?? []), projected];
+    }
     if (legacySlot) {
       metadata[legacySlot] = parsed.value;
       if (parsed.temporal) {
@@ -269,6 +294,9 @@ export function applyConceptSemanticProjection({
   }
   if (Object.keys(semantic.slotFieldIds).length > 0) {
     metadata.__semanticSlotFieldIds = semantic.slotFieldIds;
+  }
+  if (Object.keys(semantic.aspectFieldIds).length > 0) {
+    metadata.__semanticAspectFieldIds = semantic.aspectFieldIds;
   }
   if (propertyValues.size > 0) {
     metadata.__fieldValues = Object.fromEntries(propertyValues);

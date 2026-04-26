@@ -4,6 +4,8 @@ import type {
   NodeSortConfig,
   NodeSortDirection,
   NodeSortEmptyPlacement,
+  SlotSemanticAnnotationKey,
+  SlotSemanticAspectKey,
   SystemSlotKey,
 } from '@netior/shared/types';
 
@@ -32,6 +34,24 @@ function normalizeSortConfig(raw: unknown): NodeSortConfig | null {
     return {
       kind: 'system_slot',
       slot: raw.slot as SystemSlotKey,
+      direction: normalizeDirection(raw.direction),
+      emptyPlacement: normalizeEmptyPlacement(raw.emptyPlacement),
+    };
+  }
+
+  if (raw.kind === 'semantic_annotation' && typeof raw.annotation === 'string' && raw.annotation.trim() !== '') {
+    return {
+      kind: 'semantic_annotation',
+      annotation: raw.annotation as SlotSemanticAnnotationKey,
+      direction: normalizeDirection(raw.direction),
+      emptyPlacement: normalizeEmptyPlacement(raw.emptyPlacement),
+    };
+  }
+
+  if (raw.kind === 'semantic_aspect' && typeof raw.aspect === 'string' && raw.aspect.trim() !== '') {
+    return {
+      kind: 'semantic_aspect',
+      aspect: raw.aspect as SlotSemanticAspectKey,
       direction: normalizeDirection(raw.direction),
       emptyPlacement: normalizeEmptyPlacement(raw.emptyPlacement),
     };

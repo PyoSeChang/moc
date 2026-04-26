@@ -2,6 +2,7 @@ import type { NodeConfig, NodeSortConfig } from '@netior/shared/types';
 import type { RenderEdge } from '../../types';
 import type { WorkspaceLayoutPlugin, LayoutRenderNode } from '../types';
 import { extractNodeConfig } from '../../../../lib/node-config';
+import { getFirstSemanticAspectValue, getSemanticSlotValue } from '../semantic';
 import { FreeformBackground } from './FreeformBackground';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,6 +101,14 @@ function getGroupNodeConfig(node: LayoutRenderNode): NodeConfig | null {
 function getSortValue(node: LayoutRenderNode, sort: NodeSortConfig): unknown {
   if (sort.kind === 'system_slot') {
     return node.metadata[sort.slot];
+  }
+
+  if (sort.kind === 'semantic_annotation') {
+    return getSemanticSlotValue(node, sort.annotation);
+  }
+
+  if (sort.kind === 'semantic_aspect') {
+    return getFirstSemanticAspectValue(node, sort.aspect);
   }
 
   const fieldValues = node.metadata.__fieldValues;

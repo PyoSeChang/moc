@@ -3,6 +3,7 @@ import { getDatabase } from '../connection';
 import { createObject, deleteObjectByRef } from './objects';
 import { syncProjectOntologyForDb } from './system-networks';
 import {
+  semanticAnnotationToSlotAspects,
   semanticAnnotationToSystemSlot,
   systemSlotToSemanticAnnotation,
 } from '@netior/shared/constants';
@@ -13,13 +14,14 @@ import type {
   ArchetypeField,
   ArchetypeFieldCreate,
   ArchetypeFieldUpdate,
+  SlotSemanticAspectKey,
 } from '@netior/shared/types';
 
 type ArchetypeRow = Omit<Archetype, 'semantic_traits' | 'facets'> & {
   semantic_traits: string | null;
   facets?: string | null;
 };
-type ArchetypeFieldRow = Omit<ArchetypeField, 'required' | 'slot_binding_locked' | 'generated_by_trait'> & {
+type ArchetypeFieldRow = Omit<ArchetypeField, 'required' | 'slot_binding_locked' | 'generated_by_trait' | 'semantic_aspects'> & {
   required: number;
   slot_binding_locked: number;
   generated_by_trait: number;
@@ -48,14 +50,67 @@ function toArchetype(row: ArchetypeRow): Archetype {
   };
 }
 
-function toField(row: ArchetypeFieldRow): ArchetypeField {
+function normalizeSemanticAspects(aspects: readonly SlotSemanticAspectKey[] | null | undefined, annotation: ArchetypeField['semantic_annotation']): SlotSemanticAspectKey[] {
+  const raw = aspects && aspects.length > 0
+    ? aspects
+    : semanticAnnotationToSlotAspects(annotation);
+  return [...new Set(raw.filter((item): item is SlotSemanticAspectKey => typeof item === 'string' && item.trim().length > 0))];
+}
+
+function getFieldSemanticAspects(db: ReturnType<typeof getDatabase>, fieldId: string): SlotSemanticAspectKey[] {
+  const rows = db.prepare(
+    `SELECT aspect_key FROM slot_semantic_aspects WHERE field_id = ? ORDER BY sort_order, aspect_key`,
+  ).all(fieldId) as { aspect_key: string }[];
+  return rows.map((row) => row.aspect_key as SlotSemanticAspectKey);
+}
+
+function getFieldSemanticAspectsByFieldId(db: ReturnType<typeof getDatabase>, fieldIds: string[]): Map<string, SlotSemanticAspectKey[]> {
+  const byField = new Map<string, SlotSemanticAspectKey[]>();
+  if (fieldIds.length === 0) return byField;
+
+  const placeholders = fieldIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT field_id, aspect_key FROM slot_semantic_aspects WHERE field_id IN (${placeholders}) ORDER BY field_id, sort_order, aspect_key`,
+  ).all(...fieldIds) as { field_id: string; aspect_key: string }[];
+
+  for (const row of rows) {
+    const current = byField.get(row.field_id) ?? [];
+    current.push(row.aspect_key as SlotSemanticAspectKey);
+    byField.set(row.field_id, current);
+  }
+  return byField;
+}
+
+function replaceFieldSemanticAspects(
+  db: ReturnType<typeof getDatabase>,
+  fieldId: string,
+  aspects: readonly SlotSemanticAspectKey[],
+  source: 'manual' | 'facet' | 'migration' | 'system',
+): void {
+  db.prepare('DELETE FROM slot_semantic_aspects WHERE field_id = ?').run(fieldId);
+  const normalized = normalizeSemanticAspects(aspects, null);
+  if (normalized.length === 0) return;
+
+  const now = new Date().toISOString();
+  const insert = db.prepare(
+    `INSERT INTO slot_semantic_aspects (id, field_id, aspect_key, source, sort_order, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  normalized.forEach((aspect, index) => {
+    insert.run(randomUUID(), fieldId, aspect, source, index, now);
+  });
+}
+
+function toField(row: ArchetypeFieldRow, semanticAspects?: readonly SlotSemanticAspectKey[]): ArchetypeField {
   const semanticAnnotation = row.semantic_annotation ?? systemSlotToSemanticAnnotation(row.system_slot);
   const systemSlot = row.system_slot ?? semanticAnnotationToSystemSlot(row.semantic_annotation);
+  const aspects = normalizeSemanticAspects(semanticAspects, semanticAnnotation);
 
   return {
     ...row,
     system_slot: systemSlot ?? null,
     semantic_annotation: semanticAnnotation ?? null,
+    semantic_aspects: aspects,
     required: !!row.required,
     slot_binding_locked: !!row.slot_binding_locked,
     generated_by_trait: !!row.generated_by_trait,
@@ -229,8 +284,15 @@ export function createField(data: ArchetypeFieldCreate): ArchetypeField {
     now,
   );
 
+  replaceFieldSemanticAspects(
+    db,
+    id,
+    data.semantic_aspects ?? semanticAnnotationToSlotAspects(semanticAnnotation),
+    data.semantic_aspects !== undefined ? 'manual' : data.generated_by_trait ? 'facet' : 'system',
+  );
+
   const row = db.prepare('SELECT * FROM archetype_fields WHERE id = ?').get(id) as ArchetypeFieldRow;
-  return toField(row);
+  return toField(row, getFieldSemanticAspects(db, id));
 }
 
 export function listFields(archetypeId: string): ArchetypeField[] {
@@ -238,7 +300,8 @@ export function listFields(archetypeId: string): ArchetypeField[] {
   const rows = db
     .prepare('SELECT * FROM archetype_fields WHERE archetype_id = ? ORDER BY sort_order')
     .all(archetypeId) as ArchetypeFieldRow[];
-  return rows.map(toField);
+  const aspectsByFieldId = getFieldSemanticAspectsByFieldId(db, rows.map((row) => row.id));
+  return rows.map((row) => toField(row, aspectsByFieldId.get(row.id)));
 }
 
 export function updateField(id: string, data: ArchetypeFieldUpdate): ArchetypeField | undefined {
@@ -284,8 +347,17 @@ export function updateField(id: string, data: ArchetypeFieldUpdate): ArchetypeFi
     id,
   );
 
+  if (data.semantic_aspects !== undefined || data.semantic_annotation !== undefined || data.system_slot !== undefined) {
+    replaceFieldSemanticAspects(
+      db,
+      id,
+      data.semantic_aspects ?? semanticAnnotationToSlotAspects(nextSemanticAnnotation),
+      data.semantic_aspects !== undefined ? 'manual' : 'system',
+    );
+  }
+
   const row = db.prepare('SELECT * FROM archetype_fields WHERE id = ?').get(id) as ArchetypeFieldRow;
-  return toField(row);
+  return toField(row, getFieldSemanticAspects(db, id));
 }
 
 export function deleteField(id: string): boolean {

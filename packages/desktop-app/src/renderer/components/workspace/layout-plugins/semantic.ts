@@ -1,5 +1,5 @@
 import { semanticAnnotationToSystemSlot } from '@netior/shared/constants';
-import type { SlotSemanticAnnotationKey } from '@netior/shared/types';
+import type { SlotSemanticAnnotationKey, SlotSemanticAspectKey } from '@netior/shared/types';
 import type { LayoutRenderNode } from './types';
 
 export function getSemanticSlotValue(node: LayoutRenderNode, annotation: SlotSemanticAnnotationKey): unknown {
@@ -35,6 +35,26 @@ export function getSemanticSlotFieldId(node: LayoutRenderNode, annotation: SlotS
   if (!legacySlot || typeof legacyIds !== 'object' || legacyIds == null) return undefined;
   const fieldId = (legacyIds as Record<string, unknown>)[legacySlot];
   return typeof fieldId === 'string' ? fieldId : undefined;
+}
+
+export function getSemanticAspectValues(node: LayoutRenderNode, aspect: SlotSemanticAspectKey): unknown[] {
+  const projected = node.semantic?.slotsByAspect[aspect];
+  if (projected && projected.length > 0) return projected.map((slot) => slot.value);
+  return [];
+}
+
+export function getFirstSemanticAspectValue(node: LayoutRenderNode, aspect: SlotSemanticAspectKey): unknown {
+  return getSemanticAspectValues(node, aspect)[0];
+}
+
+export function getSemanticAspectFieldIds(node: LayoutRenderNode, aspect: SlotSemanticAspectKey): string[] {
+  const projected = node.semantic?.aspectFieldIds[aspect];
+  if (projected && projected.length > 0) return projected;
+
+  const aspectIds = node.metadata.__semanticAspectFieldIds;
+  if (typeof aspectIds !== 'object' || aspectIds == null) return [];
+  const fieldIds = (aspectIds as Record<string, unknown>)[aspect];
+  return Array.isArray(fieldIds) ? fieldIds.filter((item): item is string => typeof item === 'string') : [];
 }
 
 export function getSemanticNumber(node: LayoutRenderNode, annotation: SlotSemanticAnnotationKey): number | undefined {

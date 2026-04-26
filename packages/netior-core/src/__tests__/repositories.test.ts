@@ -1323,10 +1323,28 @@ describe('Repositories', () => {
 
       expect(start.semantic_annotation).toBe('time.start');
       expect(start.system_slot).toBe('start_at');
+      expect(start.semantic_aspects).toEqual(['time.start', 'temporal.point', 'temporal.boundary.start']);
 
       const updated = updateField(start.id, { system_slot: 'end_at' });
       expect(updated?.semantic_annotation).toBe('time.end');
       expect(updated?.system_slot).toBe('end_at');
+      expect(updated?.semantic_aspects).toEqual(['time.end', 'temporal.point', 'temporal.boundary.end']);
+    });
+
+    it('should preserve multiple semantic aspects on a single slot', () => {
+      const schema = createArchetype({ project_id: projectId, name: 'Task' });
+      const due = createField({
+        archetype_id: schema.id,
+        name: 'Due',
+        field_type: 'datetime',
+        sort_order: 0,
+        semantic_annotation: 'time.due',
+        semantic_aspects: ['time.due', 'temporal.deadline', 'obligation.due', 'boundary.deadline'],
+      });
+
+      expect(due.semantic_annotation).toBe('time.due');
+      expect(due.semantic_aspects).toEqual(['time.due', 'temporal.deadline', 'obligation.due', 'boundary.deadline']);
+      expect(listFields(schema.id)[0].semantic_aspects).toEqual(due.semantic_aspects);
     });
   });
 

@@ -196,6 +196,12 @@ export type NodeSortConfig =
       emptyPlacement?: NodeSortEmptyPlacement;
     }
   | {
+      kind: 'semantic_aspect';
+      aspect: SlotSemanticAspectKey;
+      direction?: NodeSortDirection;
+      emptyPlacement?: NodeSortEmptyPlacement;
+    }
+  | {
       kind: 'property';
       fieldId: string;
       direction?: NodeSortDirection;
@@ -433,6 +439,9 @@ export type SlotSemanticAnnotationKey =
   | 'governance.approved_by'
   | 'governance.approved_at';
 
+export type SlotSemanticAspectKey = SlotSemanticAnnotationKey | `${string}.${string}`;
+export type SlotSemanticAspectSource = 'manual' | 'facet' | 'migration' | 'system';
+export type SemanticAspectKey = SlotSemanticAspectKey | RelationSemanticAnnotationKey;
 export type SemanticAnnotationKey = SlotSemanticAnnotationKey | RelationSemanticAnnotationKey;
 export type SemanticFacetKey = SemanticTraitKey;
 
@@ -649,6 +658,7 @@ export interface ArchetypeField {
   ref_archetype_id: string | null;
   system_slot: SystemSlotKey | null;
   semantic_annotation?: SlotSemanticAnnotationKey | null;
+  semantic_aspects?: SlotSemanticAspectKey[];
   slot_binding_locked: boolean;
   generated_by_trait: boolean;
   created_at: string;
@@ -665,6 +675,7 @@ export interface ArchetypeFieldCreate {
   ref_archetype_id?: string;
   system_slot?: SystemSlotKey | null;
   semantic_annotation?: SlotSemanticAnnotationKey | null;
+  semantic_aspects?: SlotSemanticAspectKey[];
   slot_binding_locked?: boolean;
   generated_by_trait?: boolean;
 }
@@ -679,6 +690,7 @@ export interface ArchetypeFieldUpdate {
   ref_archetype_id?: string | null;
   system_slot?: SystemSlotKey | null;
   semantic_annotation?: SlotSemanticAnnotationKey | null;
+  semantic_aspects?: SlotSemanticAspectKey[];
   slot_binding_locked?: boolean;
   generated_by_trait?: boolean;
 }

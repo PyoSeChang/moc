@@ -3,6 +3,7 @@ import type { RenderNode, RenderEdge } from '../types';
 import type {
   SemanticFacetKey,
   SlotSemanticAnnotationKey,
+  SlotSemanticAspectKey,
   SystemSlotKey,
 } from '@netior/shared/types';
 
@@ -30,7 +31,8 @@ export interface InteractionConstraints {
 // ── Layout Computation ──
 
 export interface LayoutSemanticSlotValue {
-  annotation: SlotSemanticAnnotationKey;
+  annotation: SlotSemanticAnnotationKey | null;
+  aspects: SlotSemanticAspectKey[];
   fieldId: string;
   fieldType: string;
   rawValue: string | null;
@@ -42,7 +44,9 @@ export interface LayoutSemanticProjection {
   schemaId?: string;
   facets: SemanticFacetKey[];
   slots: Partial<Record<SlotSemanticAnnotationKey, LayoutSemanticSlotValue>>;
+  slotsByAspect: Partial<Record<SlotSemanticAspectKey, LayoutSemanticSlotValue[]>>;
   slotFieldIds: Partial<Record<SlotSemanticAnnotationKey, string>>;
+  aspectFieldIds: Partial<Record<SlotSemanticAspectKey, string[]>>;
   legacySlotFieldIds: Partial<Record<SystemSlotKey, string>>;
   legacySlotFieldTypes: Partial<Record<SystemSlotKey, string>>;
 }

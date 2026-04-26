@@ -2,10 +2,11 @@ import { randomUUID } from 'crypto';
 import { getDatabase } from '../connection';
 import { createObject, deleteObjectByRef } from './objects';
 import {
+  semanticAnnotationToSlotAspects,
   semanticAnnotationToSystemSlot,
   systemSlotToSemanticAnnotation,
 } from '@netior/shared/constants';
-import type { Concept, ConceptCreate, ConceptUpdate, Archetype, ArchetypeField } from '@netior/shared/types';
+import type { Concept, ConceptCreate, ConceptUpdate, Archetype, ArchetypeField, SlotSemanticAspectKey } from '@netior/shared/types';
 import { renderTemplate, serializeToAgent } from '../services/concept-content-sync';
 
 type ArchetypeRow = Omit<Archetype, 'semantic_traits' | 'facets'> & {
@@ -45,7 +46,32 @@ function toArchetype(row: ArchetypeRow): Archetype {
   };
 }
 
-function toField(row: ArchetypeFieldRow): ArchetypeField {
+function normalizeSemanticAspects(aspects: readonly SlotSemanticAspectKey[] | null | undefined, annotation: ArchetypeField['semantic_annotation']): SlotSemanticAspectKey[] {
+  const raw = aspects && aspects.length > 0
+    ? aspects
+    : semanticAnnotationToSlotAspects(annotation);
+  return [...new Set(raw.filter((item): item is SlotSemanticAspectKey => typeof item === 'string' && item.trim().length > 0))];
+}
+
+function getFieldSemanticAspectsByFieldId(fieldIds: string[]): Map<string, SlotSemanticAspectKey[]> {
+  const byField = new Map<string, SlotSemanticAspectKey[]>();
+  if (fieldIds.length === 0) return byField;
+
+  const db = getDatabase();
+  const placeholders = fieldIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT field_id, aspect_key FROM slot_semantic_aspects WHERE field_id IN (${placeholders}) ORDER BY field_id, sort_order, aspect_key`,
+  ).all(...fieldIds) as { field_id: string; aspect_key: string }[];
+
+  for (const row of rows) {
+    const current = byField.get(row.field_id) ?? [];
+    current.push(row.aspect_key as SlotSemanticAspectKey);
+    byField.set(row.field_id, current);
+  }
+  return byField;
+}
+
+function toField(row: ArchetypeFieldRow, semanticAspects?: readonly SlotSemanticAspectKey[]): ArchetypeField {
   const semanticAnnotation = row.semantic_annotation ?? systemSlotToSemanticAnnotation(row.system_slot);
   const systemSlot = row.system_slot ?? semanticAnnotationToSystemSlot(row.semantic_annotation);
 
@@ -53,6 +79,7 @@ function toField(row: ArchetypeFieldRow): ArchetypeField {
     ...row,
     system_slot: systemSlot ?? null,
     semantic_annotation: semanticAnnotation ?? null,
+    semantic_aspects: normalizeSemanticAspects(semanticAspects, semanticAnnotation),
     required: !!row.required,
     slot_binding_locked: !!row.slot_binding_locked,
     generated_by_trait: !!row.generated_by_trait,
@@ -81,7 +108,8 @@ export function createConcept(data: ConceptCreate): Concept {
       // Load fields for template rendering
       const rows = db.prepare('SELECT * FROM archetype_fields WHERE archetype_id = ? ORDER BY sort_order')
         .all(archetype.id) as ArchetypeFieldRow[];
-      fields = rows.map(toField);
+      const aspectsByFieldId = getFieldSemanticAspectsByFieldId(rows.map((row) => row.id));
+      fields = rows.map((row) => toField(row, aspectsByFieldId.get(row.id)));
 
       // Render file_template as initial content
       if (archetype.file_template && !content) {

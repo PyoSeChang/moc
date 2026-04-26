@@ -22,6 +22,18 @@ const nodeSortConfigSchema = z.discriminatedUnion('kind', [
     emptyPlacement: nodeSortEmptyPlacementSchema.optional().describe('Where empty values should be placed'),
   }),
   z.object({
+    kind: z.literal('semantic_annotation'),
+    annotation: z.string().describe('Slot semantic annotation to sort by, such as time.due'),
+    direction: nodeSortDirectionSchema.optional().describe('Sort direction'),
+    emptyPlacement: nodeSortEmptyPlacementSchema.optional().describe('Where empty values should be placed'),
+  }),
+  z.object({
+    kind: z.literal('semantic_aspect'),
+    aspect: z.string().describe('Slot semantic aspect path to sort by, such as temporal.deadline'),
+    direction: nodeSortDirectionSchema.optional().describe('Sort direction'),
+    emptyPlacement: nodeSortEmptyPlacementSchema.optional().describe('Where empty values should be placed'),
+  }),
+  z.object({
     kind: z.literal('property'),
     fieldId: z.string().describe('Archetype field ID to sort by'),
     direction: nodeSortDirectionSchema.optional().describe('Sort direction'),

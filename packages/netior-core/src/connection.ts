@@ -24,6 +24,7 @@ import { migrate020 } from './migrations/020-archetype-semantics';
 import { migrate021 } from './migrations/021-concept-recurrence-materialization';
 import { migrate022 } from './migrations/022-network-universe-ontology';
 import { migrate023 } from './migrations/023-schema-semantic-annotations';
+import { migrate024 } from './migrations/024-slot-semantic-aspects';
 import {
   ensureProjectNodeInUniverseForDb,
   ensureProjectOntologyNetworkForDb,
@@ -61,6 +62,7 @@ const migrations: Migration[] = [
   { version: 21, migrate: migrate021 },
   { version: 22, migrate: migrate022 },
   { version: 23, migrate: migrate023 },
+  { version: 24, migrate: migrate024 },
 ];
 
 export function hasColumn(db: Database.Database, table: string, column: string): boolean {

@@ -51,7 +51,7 @@ export const RelationPicker: React.FC<RelationPickerProps> = ({ value, onChange,
     <>
       <div
         ref={triggerRef}
-        className={`flex items-center gap-2 px-3 py-1.5 bg-input border border-subtle rounded-lg text-sm cursor-pointer hover:border-default transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`flex items-center gap-2 px-3 py-1.5 bg-surface-input border border-subtle rounded-lg text-sm cursor-pointer hover:border-default transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={handleOpen}
       >
         <Link2 size={14} className="text-muted" />
@@ -86,7 +86,7 @@ export const RelationPicker: React.FC<RelationPickerProps> = ({ value, onChange,
         >
           <div className="p-2">
             <input
-              className="w-full px-2 py-1 text-sm bg-input border border-subtle rounded text-default outline-none focus:border-accent"
+              className="w-full px-2 py-1 text-sm bg-surface-input border border-subtle rounded text-default outline-none focus:border-accent"
               placeholder="Search concepts..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -98,7 +98,7 @@ export const RelationPicker: React.FC<RelationPickerProps> = ({ value, onChange,
               <button
                 key={c.id}
                 type="button"
-                className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-surface-hover ${
+                className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-state-hover ${
                   c.id === value ? 'text-accent bg-accent-muted' : 'text-default'
                 }`}
                 onClick={() => {

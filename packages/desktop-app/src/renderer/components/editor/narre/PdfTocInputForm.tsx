@@ -28,7 +28,7 @@ export function PdfTocInputForm({
   const isValid = value.startPage > 0 && value.endPage > 0 && value.endPage >= value.startPage;
 
   return (
-    <div className="rounded-lg border border-subtle bg-surface-base px-3 py-3">
+    <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 className="text-xs font-medium text-default">{t('pdfToc.inputTitle')}</h3>
         {isValid ? (

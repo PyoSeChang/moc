@@ -85,6 +85,47 @@ export interface ThemeSlotConfig {
   primaryMode: ThemePrimaryMode;
   primaryPresetId: PrimaryPresetId;
   primaryCustomColor: string;
+  tokenOverrides: CssVariableMap;
+}
+
+export type ThemeColorTokenId =
+  | 'surface-chrome'
+  | 'surface-rail'
+  | 'surface-canvas'
+  | 'surface-editor'
+  | 'surface-panel'
+  | 'surface-card'
+  | 'surface-floating'
+  | 'surface-input'
+  | 'surface-node'
+  | 'surface-node-selected'
+  | 'state-hover-bg'
+  | 'state-selected-bg'
+  | 'state-muted-bg'
+  | 'state-drop-bg'
+  | 'accent'
+  | 'accent-hover'
+  | 'accent-muted'
+  | 'border-default'
+  | 'border-subtle'
+  | 'border-strong'
+  | 'border-accent';
+
+interface ThemeColorTokenDefinition {
+  id: ThemeColorTokenId;
+  label: string;
+  description: string;
+  cssVar: string;
+}
+
+interface ThemeTokenPresetDefinition {
+  id: string;
+  label: string;
+  description: string;
+  source: string;
+  preview: [string, string, string];
+  tokenOverrides: CssVariableMap;
+  primaryColor: string;
 }
 
 interface SettingsSyncState {
@@ -379,18 +420,18 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
           '--palette-neutral-900': 'hsl(10, 13%, 11%)',
           '--palette-neutral-950': 'hsl(8, 14%, 8%)',
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(24, 12%, 58%, 0.10), transparent 24%), radial-gradient(circle at bottom right, hsla(16, 10%, 28%, 0.14), transparent 28%)',
-          '--theme-dark-surface-base': 'hsl(18, 14%, 8%)',
+          '--theme-dark-surface-chrome': 'hsl(18, 14%, 8%)',
           '--theme-dark-surface-panel': 'hsl(18, 12%, 10%)',
           '--theme-dark-surface-card': 'hsl(18, 11%, 13%)',
-          '--theme-dark-surface-hover': 'hsl(18, 10%, 18%)',
-          '--theme-dark-surface-modal': 'hsl(18, 13%, 9%)',
-          '--theme-dark-input-bg': 'hsl(18, 10%, 12%)',
-          '--theme-light-surface-base': 'hsl(28, 24%, 94%)',
+          '--theme-dark-state-hover-bg': 'hsl(18, 10%, 18%)',
+          '--theme-dark-surface-floating': 'hsl(18, 13%, 9%)',
+          '--theme-dark-surface-input': 'hsl(18, 10%, 12%)',
+          '--theme-light-surface-chrome': 'hsl(28, 24%, 94%)',
           '--theme-light-surface-panel': 'hsl(28, 18%, 97%)',
           '--theme-light-surface-card': 'hsl(28, 16%, 95%)',
-          '--theme-light-surface-hover': 'hsl(26, 14%, 89%)',
-          '--theme-light-surface-modal': 'hsl(28, 16%, 98%)',
-          '--theme-light-input-bg': 'hsl(30, 14%, 99%)',
+          '--theme-light-state-hover-bg': 'hsl(26, 14%, 89%)',
+          '--theme-light-surface-floating': 'hsl(28, 16%, 98%)',
+          '--theme-light-surface-input': 'hsl(30, 14%, 99%)',
         },
         recommendedPrimaryPresetIds: ['warm-gray', 'amber', 'ember'],
       },
@@ -412,18 +453,18 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
           '--palette-neutral-900': 'hsl(216, 18%, 11%)',
           '--palette-neutral-950': 'hsl(216, 20%, 8%)',
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(216, 18%, 58%, 0.09), transparent 24%), radial-gradient(circle at bottom right, hsla(216, 16%, 26%, 0.13), transparent 28%)',
-          '--theme-dark-surface-base': 'hsl(216, 20%, 8%)',
+          '--theme-dark-surface-chrome': 'hsl(216, 20%, 8%)',
           '--theme-dark-surface-panel': 'hsl(216, 17%, 10%)',
           '--theme-dark-surface-card': 'hsl(216, 15%, 13%)',
-          '--theme-dark-surface-hover': 'hsl(216, 13%, 18%)',
-          '--theme-dark-surface-modal': 'hsl(216, 18%, 9%)',
-          '--theme-dark-input-bg': 'hsl(216, 15%, 12%)',
-          '--theme-light-surface-base': 'hsl(216, 24%, 95%)',
+          '--theme-dark-state-hover-bg': 'hsl(216, 13%, 18%)',
+          '--theme-dark-surface-floating': 'hsl(216, 18%, 9%)',
+          '--theme-dark-surface-input': 'hsl(216, 15%, 12%)',
+          '--theme-light-surface-chrome': 'hsl(216, 24%, 95%)',
           '--theme-light-surface-panel': 'hsl(216, 18%, 98%)',
           '--theme-light-surface-card': 'hsl(216, 16%, 96%)',
-          '--theme-light-surface-hover': 'hsl(216, 14%, 90%)',
-          '--theme-light-surface-modal': 'hsl(216, 18%, 99%)',
-          '--theme-light-input-bg': 'hsl(216, 18%, 99%)',
+          '--theme-light-state-hover-bg': 'hsl(216, 14%, 90%)',
+          '--theme-light-surface-floating': 'hsl(216, 18%, 99%)',
+          '--theme-light-surface-input': 'hsl(216, 18%, 99%)',
         },
         recommendedPrimaryPresetIds: ['cool-gray', 'sky', 'teal'],
       },
@@ -451,16 +492,16 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
         preview: ['#ece3db', '#b1a093', '#2a241f'],
         overrides: {
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(28, 16%, 72%, 0.12), transparent 26%), radial-gradient(circle at bottom right, hsla(18, 10%, 38%, 0.12), transparent 30%)',
-          '--theme-dark-surface-base': 'hsl(22, 12%, 10%)',
+          '--theme-dark-surface-chrome': 'hsl(22, 12%, 10%)',
           '--theme-dark-surface-panel': 'hsl(22, 10%, 12%)',
           '--theme-dark-surface-card': 'hsl(22, 10%, 15%)',
-          '--theme-dark-surface-hover': 'hsl(22, 9%, 20%)',
-          '--theme-dark-surface-modal': 'hsl(22, 11%, 11%)',
-          '--theme-light-surface-base': 'hsl(30, 30%, 95%)',
+          '--theme-dark-state-hover-bg': 'hsl(22, 9%, 20%)',
+          '--theme-dark-surface-floating': 'hsl(22, 11%, 11%)',
+          '--theme-light-surface-chrome': 'hsl(30, 30%, 95%)',
           '--theme-light-surface-panel': 'hsl(30, 22%, 98%)',
           '--theme-light-surface-card': 'hsl(30, 20%, 96%)',
-          '--theme-light-surface-hover': 'hsl(28, 16%, 90%)',
-          '--theme-light-surface-modal': 'hsl(30, 18%, 99%)',
+          '--theme-light-state-hover-bg': 'hsl(28, 16%, 90%)',
+          '--theme-light-surface-floating': 'hsl(30, 18%, 99%)',
         },
         recommendedPrimaryPresetIds: ['warm-gray', 'peach', 'amber'],
       },
@@ -471,16 +512,16 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
         preview: ['#cfc5bc', '#796a60', '#12100e'],
         overrides: {
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(20, 12%, 46%, 0.08), transparent 22%), radial-gradient(circle at bottom right, hsla(12, 12%, 18%, 0.16), transparent 30%)',
-          '--theme-dark-surface-base': 'hsl(16, 12%, 7%)',
+          '--theme-dark-surface-chrome': 'hsl(16, 12%, 7%)',
           '--theme-dark-surface-panel': 'hsl(16, 10%, 9%)',
           '--theme-dark-surface-card': 'hsl(16, 9%, 12%)',
-          '--theme-dark-surface-hover': 'hsl(16, 8%, 17%)',
-          '--theme-dark-surface-modal': 'hsl(16, 11%, 8%)',
-          '--theme-light-surface-base': 'hsl(26, 20%, 94%)',
+          '--theme-dark-state-hover-bg': 'hsl(16, 8%, 17%)',
+          '--theme-dark-surface-floating': 'hsl(16, 11%, 8%)',
+          '--theme-light-surface-chrome': 'hsl(26, 20%, 94%)',
           '--theme-light-surface-panel': 'hsl(26, 14%, 97%)',
           '--theme-light-surface-card': 'hsl(26, 12%, 95%)',
-          '--theme-light-surface-hover': 'hsl(24, 11%, 89%)',
-          '--theme-light-surface-modal': 'hsl(26, 12%, 98%)',
+          '--theme-light-state-hover-bg': 'hsl(24, 11%, 89%)',
+          '--theme-light-surface-floating': 'hsl(26, 12%, 98%)',
         },
         recommendedPrimaryPresetIds: ['ember', 'warm-gray', 'gray'],
       },
@@ -519,17 +560,17 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
           '--palette-neutral-900': 'hsl(184, 21%, 12%)',
           '--palette-neutral-950': 'hsl(186, 24%, 8%)',
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(165, 58%, 74%, 0.17), transparent 28%), radial-gradient(circle at bottom right, hsla(186, 34%, 66%, 0.12), transparent 30%)',
-          '--theme-dark-surface-base': 'hsl(178, 24%, 10%)',
+          '--theme-dark-surface-chrome': 'hsl(178, 24%, 10%)',
           '--theme-dark-surface-panel': 'hsl(176, 20%, 12%)',
           '--theme-dark-surface-card': 'hsl(174, 18%, 15%)',
-          '--theme-dark-surface-hover': 'hsl(172, 16%, 20%)',
-          '--theme-dark-surface-modal': 'hsl(176, 20%, 11%)',
-          '--theme-dark-input-bg': 'hsl(174, 18%, 14%)',
-          '--theme-light-surface-base': 'hsl(165, 58%, 97%)',
+          '--theme-dark-state-hover-bg': 'hsl(172, 16%, 20%)',
+          '--theme-dark-surface-floating': 'hsl(176, 20%, 11%)',
+          '--theme-dark-surface-input': 'hsl(174, 18%, 14%)',
+          '--theme-light-surface-chrome': 'hsl(165, 58%, 97%)',
           '--theme-light-surface-panel': 'hsl(164, 28%, 99%)',
           '--theme-light-surface-card': 'hsl(166, 30%, 97%)',
-          '--theme-light-surface-hover': 'hsl(166, 24%, 91%)',
-          '--theme-light-surface-modal': 'hsl(164, 28%, 99%)',
+          '--theme-light-state-hover-bg': 'hsl(166, 24%, 91%)',
+          '--theme-light-surface-floating': 'hsl(164, 28%, 99%)',
         },
         recommendedPrimaryPresetIds: ['mint', 'teal', 'sky'],
       },
@@ -551,17 +592,17 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
           '--palette-neutral-900': 'hsl(18, 21%, 12%)',
           '--palette-neutral-950': 'hsl(18, 24%, 8%)',
           '--theme-background-image': 'radial-gradient(circle at top left, hsla(20, 70%, 78%, 0.16), transparent 28%), radial-gradient(circle at bottom right, hsla(8, 46%, 72%, 0.12), transparent 30%)',
-          '--theme-dark-surface-base': 'hsl(18, 22%, 10%)',
+          '--theme-dark-surface-chrome': 'hsl(18, 22%, 10%)',
           '--theme-dark-surface-panel': 'hsl(18, 18%, 12%)',
           '--theme-dark-surface-card': 'hsl(18, 16%, 15%)',
-          '--theme-dark-surface-hover': 'hsl(18, 14%, 20%)',
-          '--theme-dark-surface-modal': 'hsl(18, 18%, 11%)',
-          '--theme-dark-input-bg': 'hsl(18, 16%, 14%)',
-          '--theme-light-surface-base': 'hsl(18, 62%, 97%)',
+          '--theme-dark-state-hover-bg': 'hsl(18, 14%, 20%)',
+          '--theme-dark-surface-floating': 'hsl(18, 18%, 11%)',
+          '--theme-dark-surface-input': 'hsl(18, 16%, 14%)',
+          '--theme-light-surface-chrome': 'hsl(18, 62%, 97%)',
           '--theme-light-surface-panel': 'hsl(18, 30%, 99%)',
           '--theme-light-surface-card': 'hsl(18, 32%, 97%)',
-          '--theme-light-surface-hover': 'hsl(18, 24%, 91%)',
-          '--theme-light-surface-modal': 'hsl(18, 28%, 99%)',
+          '--theme-light-state-hover-bg': 'hsl(18, 24%, 91%)',
+          '--theme-light-surface-floating': 'hsl(18, 28%, 99%)',
         },
         recommendedPrimaryPresetIds: ['peach', 'ember', 'amber'],
       },
@@ -637,9 +678,160 @@ const THEME_FAMILIES: readonly ThemeFamilyDefinition[] = [
   },
 ] as const;
 
+const THEME_COLOR_TOKENS: readonly ThemeColorTokenDefinition[] = [
+  { id: 'surface-chrome', label: 'Chrome', description: '앱 배경과 탭 스트립 바탕', cssVar: '--surface-chrome' },
+  { id: 'surface-rail', label: 'Rail', description: 'Activity bar와 열린 사이드바', cssVar: '--surface-rail' },
+  { id: 'surface-canvas', label: 'Canvas', description: '네트워크 캔버스 배경', cssVar: '--surface-canvas' },
+  { id: 'surface-editor', label: 'Editor', description: '선택 탭과 에디터 pane 배경', cssVar: '--surface-editor' },
+  { id: 'surface-panel', label: 'Panel', description: '목차, 보조 패널, 설정 본문', cssVar: '--surface-panel' },
+  { id: 'surface-card', label: 'Card', description: '카드와 강조된 블록', cssVar: '--surface-card' },
+  { id: 'surface-floating', label: 'Floating', description: '모달, 팝오버, 드롭다운', cssVar: '--surface-floating' },
+  { id: 'surface-input', label: 'Input', description: '입력 필드 배경', cssVar: '--surface-input' },
+  { id: 'surface-node', label: 'Node', description: '캔버스 노드 기본 배경', cssVar: '--surface-node' },
+  { id: 'surface-node-selected', label: 'Selected Node', description: '선택된 캔버스 노드 배경', cssVar: '--surface-node-selected' },
+  { id: 'state-hover-bg', label: 'Hover', description: 'hover 상태 배경', cssVar: '--state-hover-bg' },
+  { id: 'state-selected-bg', label: 'Selected', description: '선택 상태 배경', cssVar: '--state-selected-bg' },
+  { id: 'state-muted-bg', label: 'Muted State', description: '약한 강조 상태 배경', cssVar: '--state-muted-bg' },
+  { id: 'state-drop-bg', label: 'Drop State', description: '드래그/드롭 타깃 배경', cssVar: '--state-drop-bg' },
+  { id: 'accent', label: 'Accent', description: '주요 액션과 active 표시', cssVar: '--accent' },
+  { id: 'accent-hover', label: 'Accent Hover', description: '주요 액션 hover 색상', cssVar: '--accent-hover' },
+  { id: 'accent-muted', label: 'Accent Muted', description: '약한 accent 배경', cssVar: '--accent-muted' },
+  { id: 'border-default', label: 'Border', description: 'pane, sidebar, activity bar 공통 border', cssVar: '--border-default' },
+  { id: 'border-subtle', label: 'Subtle Border', description: '내부 보조 구분선', cssVar: '--border-subtle' },
+  { id: 'border-strong', label: 'Strong Border', description: '강한 구분선과 강조 border', cssVar: '--border-strong' },
+  { id: 'border-accent', label: 'Accent Border', description: 'focus와 accent border', cssVar: '--border-accent' },
+] as const;
+
+const THEME_TOKEN_PRESETS: readonly ThemeTokenPresetDefinition[] = [
+  {
+    id: 'netior',
+    label: 'Netior',
+    description: 'Netior 기본 chrome/editor/rail 대비',
+    source: 'Netior default',
+    preview: ['#111111', '#1a1a1a', '#568b5f'],
+    primaryColor: '#568b5f',
+    tokenOverrides: {
+      '--surface-chrome': '#111111',
+      '--surface-rail': '#1a1a1a',
+      '--surface-canvas': '#1e1e1e',
+      '--surface-editor': '#1e1e1e',
+      '--surface-panel': '#202020',
+      '--surface-card': '#202020',
+      '--surface-floating': '#202020',
+      '--surface-input': '#202020',
+      '--surface-node': '#363636',
+      '--state-hover-bg': '#363636',
+      '--border-default': '#545454',
+      '--border-subtle': '#404040',
+      '--border-strong': '#707070',
+    },
+  },
+  {
+    id: 'dracula',
+    label: 'Dracula',
+    description: '공식 Dracula의 Background / Current Line / Purple 기반',
+    source: 'https://draculatheme.com/spec',
+    preview: ['#282a36', '#44475a', '#bd93f9'],
+    primaryColor: '#bd93f9',
+    tokenOverrides: {
+      '--surface-chrome': '#282a36',
+      '--surface-rail': '#282a36',
+      '--surface-canvas': '#282a36',
+      '--surface-editor': '#282a36',
+      '--surface-panel': '#303241',
+      '--surface-card': '#44475a',
+      '--surface-floating': '#343746',
+      '--surface-input': '#21222c',
+      '--border-default': '#44475a',
+      '--border-subtle': '#383a4a',
+    },
+  },
+  {
+    id: 'nord',
+    label: 'Nord',
+    description: 'Nord Polar Night와 Frost 계열의 차가운 저채도 팔레트',
+    source: 'https://www.nordtheme.com/',
+    preview: ['#2e3440', '#3b4252', '#88c0d0'],
+    primaryColor: '#88c0d0',
+    tokenOverrides: {
+      '--surface-chrome': '#2e3440',
+      '--surface-rail': '#2e3440',
+      '--surface-canvas': '#2e3440',
+      '--surface-editor': '#2e3440',
+      '--surface-panel': '#343b49',
+      '--surface-card': '#3b4252',
+      '--surface-floating': '#3b4252',
+      '--surface-input': '#2b303b',
+      '--border-default': '#4c566a',
+      '--border-subtle': '#434c5e',
+    },
+  },
+  {
+    id: 'catppuccin-mocha',
+    label: 'Catppuccin Mocha',
+    description: 'Catppuccin Mocha의 Base / Mantle / Surface 계열',
+    source: 'https://catppuccin.com/palette/',
+    preview: ['#1e1e2e', '#313244', '#89b4fa'],
+    primaryColor: '#89b4fa',
+    tokenOverrides: {
+      '--surface-chrome': '#181825',
+      '--surface-rail': '#181825',
+      '--surface-canvas': '#1e1e2e',
+      '--surface-editor': '#1e1e2e',
+      '--surface-panel': '#242438',
+      '--surface-card': '#313244',
+      '--surface-floating': '#313244',
+      '--surface-input': '#11111b',
+      '--border-default': '#45475a',
+      '--border-subtle': '#313244',
+    },
+  },
+  {
+    id: 'tokyo-night',
+    label: 'Tokyo Night',
+    description: 'Tokyo Night의 Night / Storm 배경과 Blue accent',
+    source: 'https://github.com/tokyo-night/tokyo-night-vscode-theme',
+    preview: ['#1a1b26', '#24283b', '#7aa2f7'],
+    primaryColor: '#7aa2f7',
+    tokenOverrides: {
+      '--surface-chrome': '#1a1b26',
+      '--surface-rail': '#1a1b26',
+      '--surface-canvas': '#1a1b26',
+      '--surface-editor': '#1a1b26',
+      '--surface-panel': '#202331',
+      '--surface-card': '#24283b',
+      '--surface-floating': '#24283b',
+      '--surface-input': '#16161e',
+      '--border-default': '#414868',
+      '--border-subtle': '#2f3549',
+    },
+  },
+  {
+    id: 'solarized-dark',
+    label: 'Solarized Dark',
+    description: 'Solarized Base03 / Base02와 Blue / Cyan 기반',
+    source: 'https://buckyogi.neocities.org/solarized/solarized',
+    preview: ['#002b36', '#073642', '#268bd2'],
+    primaryColor: '#268bd2',
+    tokenOverrides: {
+      '--surface-chrome': '#002b36',
+      '--surface-rail': '#002b36',
+      '--surface-canvas': '#002b36',
+      '--surface-editor': '#002b36',
+      '--surface-panel': '#06333f',
+      '--surface-card': '#073642',
+      '--surface-floating': '#073642',
+      '--surface-input': '#00212a',
+      '--border-default': '#586e75',
+      '--border-subtle': '#164450',
+    },
+  },
+] as const;
+
 const SETTINGS_STORAGE_KEY = 'netior:settings:v4';
 const PRIMARY_SCALE_KEYS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
 const PRIMARY_VAR_NAMES = PRIMARY_SCALE_KEYS.map((key) => `--palette-primary-${key}`);
+const THEME_COLOR_TOKEN_VAR_NAMES = THEME_COLOR_TOKENS.map((token) => token.cssVar);
 const VARIANT_VAR_NAMES = Array.from(
   new Set(THEME_FAMILIES.flatMap((family) => family.variants.flatMap((variant) => Object.keys(variant.overrides)))),
 );
@@ -660,11 +852,18 @@ const TYPOGRAPHY_VAR_NAMES = [
   '--font-code-line-height',
   '--font-code-letter-spacing',
 ] as const;
-const MANAGED_THEME_VARS = [...PRIMARY_VAR_NAMES, ...VARIANT_VAR_NAMES, ...TYPOGRAPHY_VAR_NAMES];
+const MANAGED_THEME_VARS = [
+  ...PRIMARY_VAR_NAMES,
+  ...VARIANT_VAR_NAMES,
+  ...THEME_COLOR_TOKEN_VAR_NAMES,
+  ...TYPOGRAPHY_VAR_NAMES,
+];
 
 export const AVAILABLE_THEME_FAMILIES = THEME_FAMILIES;
 export const AVAILABLE_PRIMARY_PRESETS = PRIMARY_PRESETS;
 export const AVAILABLE_TERMINAL_PRESETS = TERMINAL_PRESETS;
+export const AVAILABLE_THEME_COLOR_TOKENS = THEME_COLOR_TOKENS;
+export const AVAILABLE_THEME_TOKEN_PRESETS = THEME_TOKEN_PRESETS;
 
 function findFamily(familyId: ThemeFamily): ThemeFamilyDefinition {
   return THEME_FAMILIES.find((family) => family.id === familyId) ?? THEME_FAMILIES[0];
@@ -677,6 +876,10 @@ function findVariant(familyId: ThemeFamily, variantId: string): ThemeVariantDefi
 
 function findPrimaryPreset(presetId: string): PrimaryPresetDefinition {
   return PRIMARY_PRESETS.find((preset) => preset.id === presetId) ?? PRIMARY_PRESETS[0];
+}
+
+function findThemeTokenPreset(presetId: string): ThemeTokenPresetDefinition {
+  return THEME_TOKEN_PRESETS.find((preset) => preset.id === presetId) ?? THEME_TOKEN_PRESETS[0];
 }
 
 function findTerminalPreset(presetId: TerminalPresetId | undefined): TerminalPresetDefinition {
@@ -764,6 +967,14 @@ export function getPrimaryPresets(ids?: readonly string[]): readonly PrimaryPres
   return ids.map(findPrimaryPreset);
 }
 
+export function getThemeColorTokens(): readonly ThemeColorTokenDefinition[] {
+  return THEME_COLOR_TOKENS;
+}
+
+export function getThemeTokenPresets(): readonly ThemeTokenPresetDefinition[] {
+  return THEME_TOKEN_PRESETS;
+}
+
 export function getTerminalPresets(): readonly TerminalPresetDefinition[] {
   return TERMINAL_PRESETS;
 }
@@ -801,6 +1012,53 @@ function normalizeHexColor(value: string | undefined, fallback: string): string 
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
   return fallback;
+}
+
+function normalizeThemeTokenOverrides(overrides: CssVariableMap | undefined): CssVariableMap {
+  if (!overrides) return {};
+  const legacyNetiorSurfaceOverrides: CssVariableMap = {
+    '--surface-chrome': '#181818',
+    '--surface-rail': '#1a1a1a',
+    '--surface-canvas': '#1e1e1e',
+    '--surface-editor': '#1e1e1e',
+    '--surface-panel': '#202020',
+    '--surface-card': '#202020',
+  };
+  const legacyNetiorDynamicOverrides: CssVariableMap = {
+    '--surface-node-selected': '#404040',
+    '--state-selected-bg': '#568b5f',
+    '--state-muted-bg': '#568b5f',
+    '--state-drop-bg': '#7fa785',
+    '--accent': '#568b5f',
+    '--accent-hover': '#7fa785',
+    '--accent-muted': '#568b5f',
+    '--border-accent': '#8eb294',
+  };
+  const hasLegacyNetiorSurfacePreset = Object.entries(legacyNetiorSurfaceOverrides).every(
+    ([cssVar, color]) => normalizeHexColor(overrides[cssVar], '') === color,
+  );
+  const hasLegacyNetiorDynamicPreset = [
+    '--state-selected-bg',
+    '--accent',
+    '--accent-hover',
+    '--border-accent',
+  ].every((cssVar) => normalizeHexColor(overrides[cssVar], '') === legacyNetiorDynamicOverrides[cssVar]);
+  const shouldDropLegacyNetiorDynamicOverrides = hasLegacyNetiorSurfacePreset || hasLegacyNetiorDynamicPreset;
+
+  return THEME_COLOR_TOKENS.reduce<CssVariableMap>((next, token) => {
+    const value = overrides[token.cssVar];
+    if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value.trim())) {
+      let normalizedValue = normalizeHexColor(value, value);
+      if (hasLegacyNetiorSurfacePreset && token.cssVar === '--surface-chrome' && normalizedValue === '#181818') {
+        normalizedValue = '#111111';
+      }
+      if (shouldDropLegacyNetiorDynamicOverrides && legacyNetiorDynamicOverrides[token.cssVar] === normalizedValue) {
+        return next;
+      }
+      next[token.cssVar] = normalizedValue;
+    }
+    return next;
+  }, {});
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -857,6 +1115,7 @@ function getDefaultThemeSlot(mode: ResolvedThemeMode): ThemeSlotConfig {
         primaryMode: 'preset',
         primaryPresetId: 'sky',
         primaryCustomColor: '#0d99ff',
+        tokenOverrides: {},
       }
     : {
         family: 'hearth',
@@ -864,6 +1123,7 @@ function getDefaultThemeSlot(mode: ResolvedThemeMode): ThemeSlotConfig {
         primaryMode: 'preset',
         primaryPresetId: 'sky',
         primaryCustomColor: '#0d99ff',
+        tokenOverrides: {},
       };
 }
 
@@ -880,6 +1140,7 @@ function normalizeThemeSlot(config: ThemeSlotConfig): ThemeSlotConfig {
     primaryMode: config.primaryMode === 'custom' ? 'custom' : 'preset',
     primaryPresetId: preset.id || fallbackPreset.id,
     primaryCustomColor: normalizeHexColor(config.primaryCustomColor, fallbackPreset.color),
+    tokenOverrides: normalizeThemeTokenOverrides(config.tokenOverrides),
   };
 }
 
@@ -903,6 +1164,7 @@ function applyThemeToDocument(state: {
   const primaryVars = buildPrimaryPalette(primarySeed);
   const themeVars = {
     ...variant.overrides,
+    ...activeTheme.tokenOverrides,
     ...primaryVars,
     ...getTypographyVars(
       normalizeTypographyConfig(state.typography),
@@ -954,6 +1216,9 @@ export interface SettingsStore {
   setThemePrimaryMode: (mode: ResolvedThemeMode, primaryMode: ThemePrimaryMode) => void;
   setThemePrimaryPreset: (mode: ResolvedThemeMode, presetId: PrimaryPresetId) => void;
   setThemePrimaryCustomColor: (mode: ResolvedThemeMode, color: string) => void;
+  setThemeTokenOverride: (mode: ResolvedThemeMode, cssVar: string, color: string) => void;
+  applyThemeTokenPreset: (mode: ResolvedThemeMode, presetId: string) => void;
+  resetThemeTokenOverrides: (mode: ResolvedThemeMode) => void;
   setLocale: (locale: Locale) => void;
   setDetachedAgentToastMode: (mode: DetachedAgentToastMode) => void;
   setNativeAgentNotificationsEnabled: (enabled: boolean) => void;
@@ -1129,6 +1394,57 @@ export const useSettingsStore = create<SettingsStore>()(
               ...state[key],
               primaryMode: 'custom',
               primaryCustomColor: color,
+            }),
+          } as Pick<SettingsStore, typeof key>;
+        });
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
+      },
+
+      setThemeTokenOverride: (mode, cssVar, color) => {
+        set((state) => {
+          const key = mode === 'light' ? 'lightTheme' : 'darkTheme';
+          const token = THEME_COLOR_TOKENS.find((item) => item.cssVar === cssVar);
+          if (!token) return {};
+          const normalizedColor = normalizeHexColor(color, state[key].tokenOverrides[cssVar] ?? '#808080');
+          return {
+            [key]: normalizeThemeSlot({
+              ...state[key],
+              tokenOverrides: {
+                ...state[key].tokenOverrides,
+                [cssVar]: normalizedColor,
+              },
+            }),
+          } as Pick<SettingsStore, typeof key>;
+        });
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
+      },
+
+      applyThemeTokenPreset: (mode, presetId) => {
+        const preset = findThemeTokenPreset(presetId);
+        set((state) => {
+          const key = mode === 'light' ? 'lightTheme' : 'darkTheme';
+          return {
+            [key]: normalizeThemeSlot({
+              ...state[key],
+              primaryMode: 'custom',
+              primaryCustomColor: preset.primaryColor,
+              tokenOverrides: preset.tokenOverrides,
+            }),
+          } as Pick<SettingsStore, typeof key>;
+        });
+        const resolvedThemeMode = applyCurrentThemeSnapshot(get());
+        set((state) => ({ resolvedThemeMode, themeRevision: state.themeRevision + 1 }));
+      },
+
+      resetThemeTokenOverrides: (mode) => {
+        set((state) => {
+          const key = mode === 'light' ? 'lightTheme' : 'darkTheme';
+          return {
+            [key]: normalizeThemeSlot({
+              ...state[key],
+              tokenOverrides: {},
             }),
           } as Pick<SettingsStore, typeof key>;
         });

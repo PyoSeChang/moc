@@ -44,7 +44,7 @@ export const Background: React.FC<BackgroundProps> = ({
           <circle cx={scaledGrid / 2} cy={scaledGrid / 2} r={0.5} fill="var(--border-subtle)" />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill="var(--surface-base)" />
+      <rect width="100%" height="100%" fill="var(--surface-canvas)" />
       <rect width="100%" height="100%" fill="url(#grid)" />
     </svg>
   );

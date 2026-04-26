@@ -85,7 +85,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
   return (
     <>
       <div
-        className="flex items-center gap-2 px-3 py-2 text-sm bg-input border border-input rounded-lg cursor-pointer outline-none transition-all duration-fast hover:border-strong focus:border-accent"
+        className="flex items-center gap-2 px-3 py-2 text-sm bg-surface-input border border-input rounded-lg cursor-pointer outline-none transition-all duration-fast hover:border-strong focus:border-accent"
         onClick={handleOpen}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -113,7 +113,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
 
           {/* Panel */}
-          <div className="relative z-10 m-auto flex h-[70vh] w-[min(90vw,720px)] overflow-hidden rounded-xl border border-subtle bg-surface-modal shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
+          <div className="relative z-10 m-auto flex h-[70vh] w-[min(90vw,720px)] overflow-hidden rounded-xl border border-subtle bg-surface-floating shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
             {/* Left sidebar: categories */}
             <div className="flex w-44 shrink-0 flex-col border-r border-subtle bg-surface-panel">
               <div className="px-3 py-3 text-xs font-semibold text-muted uppercase tracking-wider">
@@ -124,8 +124,8 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
                 <button
                   className={`flex w-full items-center rounded-md px-3 py-1.5 text-sm transition-colors mb-0.5 ${
                     activeCategory === 'all'
-                      ? 'bg-interactive-selected text-accent'
-                      : 'text-secondary hover:bg-surface-hover hover:text-default'
+                      ? 'bg-state-selected text-accent'
+                      : 'text-secondary hover:bg-state-hover hover:text-default'
                   }`}
                   onClick={() => setActiveCategory('all')}
                 >
@@ -142,8 +142,8 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
                       key={cat}
                       className={`flex w-full items-center rounded-md px-3 py-1.5 text-sm transition-colors mb-0.5 ${
                         activeCategory === cat
-                          ? 'bg-interactive-selected text-accent'
-                          : 'text-secondary hover:bg-surface-hover hover:text-default'
+                          ? 'bg-state-selected text-accent'
+                          : 'text-secondary hover:bg-state-hover hover:text-default'
                       }`}
                       onClick={() => setActiveCategory(cat)}
                     >
@@ -159,7 +159,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
             <div className="flex flex-1 flex-col">
               {/* Header: search + close */}
               <div className="flex items-center gap-2 border-b border-subtle px-4 py-3">
-                <div className="flex flex-1 items-center gap-2 rounded-md border border-subtle bg-surface-base px-3 py-1.5">
+                <div className="flex flex-1 items-center gap-2 rounded-md border border-subtle bg-surface-editor px-3 py-1.5">
                   <Search size={14} className="shrink-0 text-muted" />
                   <input
                     ref={searchRef}
@@ -182,7 +182,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
                   )}
                 </div>
                 <button
-                  className="rounded-md p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+                  className="rounded-md p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
                   onClick={() => setOpen(false)}
                 >
                   <X size={20} />
@@ -203,7 +203,7 @@ export const IconSelector: React.FC<IconSelectorProps> = ({ value, onChange, pla
                             className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
                               name === value
                                 ? 'bg-accent text-on-accent'
-                                : 'text-default hover:bg-surface-hover'
+                                : 'text-default hover:bg-state-hover'
                             }`}
                             onClick={() => handleSelect(name)}
                           >

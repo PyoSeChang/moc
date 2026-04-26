@@ -459,7 +459,7 @@ function EmbeddedArchetypePropertiesInput({
     return (
       <div className="flex flex-col gap-0.5">
         {label}
-        <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2 text-xs text-muted">
+        <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2 text-xs text-muted">
           {missingTargetMessage}
         </div>
       </div>
@@ -478,7 +478,7 @@ function EmbeddedArchetypePropertiesInput({
           : []}
         validationMessage={getSlotValidationMessage(field, value, t)}
       />
-      <div className="rounded-xl border border-subtle bg-surface-base p-3">
+      <div className="rounded-xl border border-subtle bg-surface-editor p-3">
         {nestedFields.length === 0 ? (
           <div className="text-xs text-muted">{emptyMessage}</div>
         ) : (

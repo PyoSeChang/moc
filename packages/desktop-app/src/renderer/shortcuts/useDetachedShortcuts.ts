@@ -3,7 +3,7 @@ import { useEditorStore, MAIN_HOST_ID } from '../stores/editor-store';
 import { getSession } from '../lib/editor-session-registry';
 import { jumpToNextUnacknowledgedAgent } from '../lib/terminal-agent-notifier';
 import { openTerminalTab } from '../lib/terminal/open-terminal-tab';
-import { isEditableTarget, isPrimaryModifier, logShortcut } from './shortcut-utils';
+import { consumeShortcutEvent, isEditableTarget, isPrimaryModifier, logShortcut } from './shortcut-utils';
 
 function getHostActiveTabId(hostId: string): string | null {
   const { hosts } = useEditorStore.getState();
@@ -74,7 +74,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Save active tab
       if (key === 's') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         const tabId = getHostActiveTabId(hostId);
         if (!tabId) return;
         logShortcut('shortcut.detached.saveActiveTab');
@@ -84,7 +84,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Close active tab
       if (key === 'w') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         const tabId = getHostActiveTabId(hostId);
         if (!tabId) return;
         logShortcut('shortcut.detached.closeActiveTab');
@@ -94,7 +94,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Reattach active tab to main
       if (event.shiftKey && !event.altKey && key === 'm') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         const tabId = getHostActiveTabId(hostId);
         if (!tabId) return;
         logShortcut('shortcut.detached.reattachToMain');
@@ -104,7 +104,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Open new terminal in this host
       if (event.shiftKey && !event.altKey && key === 'n') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.detached.openTerminal');
         openTerminalTab(hostId);
         return;
@@ -112,7 +112,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Jump to last agent
       if (!event.shiftKey && !event.altKey && key === '.') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.detached.jumpToLastAgent');
         jumpToNextUnacknowledgedAgent();
         return;
@@ -122,7 +122,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Tab cycling
       if (key === 'tab') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut(event.shiftKey ? 'shortcut.detached.previousTab' : 'shortcut.detached.nextTab');
         cycleHostTab(hostId, event.shiftKey ? -1 : 1);
         return;
@@ -130,7 +130,7 @@ export function useDetachedShortcuts(hostId: string): void {
 
       // Tab by index
       if (!event.shiftKey && !event.altKey && /^[1-9]$/.test(key)) {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.detached.openTabByIndex');
         activateHostTabByNumber(hostId, key);
       }

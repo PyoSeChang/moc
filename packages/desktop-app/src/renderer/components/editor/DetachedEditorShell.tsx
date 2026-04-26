@@ -97,7 +97,7 @@ export function DetachedEditorShell({ hostId }: DetachedEditorShellProps): JSX.E
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-surface-base text-default">
+    <div className="flex h-screen w-screen flex-col bg-surface-editor text-default">
       <WindowTitleBar
         left={<div className="min-w-0 truncate text-sm font-medium text-secondary">{hostLabel}</div>}
         right={(

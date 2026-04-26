@@ -14,17 +14,17 @@ export function MinimizedEditorTabs(): JSX.Element | null {
 
   return (
     <div
-      className="flex min-w-0 max-w-[min(34vw,520px)] items-center gap-1 overflow-x-auto px-1"
+      className="mt-1 flex h-8 shrink-0 items-center gap-1 overflow-x-auto rounded-md border border-default bg-surface-chrome px-1"
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      aria-label="Minimized editor tabs"
+      aria-label="Minimized editor taskbar"
     >
       {minimizedTabs.map((tab) => (
         <Tooltip key={tab.id} content={t('common.restore', { title: tab.title })} position="bottom">
           <div
             className={`flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded border px-2 text-[11px] transition-colors ${
               tab.id === activeTabId
-                ? 'border-accent bg-interactive-selected text-accent'
-                : 'border-subtle bg-surface-card text-secondary hover:bg-surface-hover hover:text-default'
+                ? 'border-accent bg-state-selected text-accent'
+                : 'border-subtle bg-surface-card text-secondary hover:bg-state-hover hover:text-default'
             }`}
             role="button"
             tabIndex={0}

@@ -544,6 +544,7 @@
     "modeFull": "Set This Pane to Full Mode",
     "modeSide": "Set This Pane to Side Mode",
     "modeDetached": "Move Current Tab to Detached Window",
+    "windowOptions": "Window Options",
     "minimizePane": "Minimize This Pane",
     "unsavedChanges": "Unsaved Changes",
     "unsavedChangesMessage": "\"{title}\" has unsaved changes. What would you like to do?",

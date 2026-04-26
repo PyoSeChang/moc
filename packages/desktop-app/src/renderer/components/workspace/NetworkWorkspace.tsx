@@ -30,8 +30,8 @@ import type { RenderNode, RenderEdge, RenderPoint, RenderEdgeAnchor } from './ty
 import type { NodeResizeDirection } from './node-components/types';
 import { getAutoNodeWidth } from './node-components/node-visual-utils';
 import { getLayout } from './layout-plugins/registry';
-import type { LayoutRenderNode } from './layout-plugins/types';
-import { dateToEpochDays, isoToEpochDays } from './layout-plugins/horizontal-timeline/scale-utils';
+import type { LayoutControlsRendererProps, LayoutRenderNode } from './layout-plugins/types';
+import { dateToEpochDays, isoToEpochDays } from './layout-plugins/time-axis/scale-utils';
 import { formatTemporalSlotValueForWriteback, getOccurrenceKey, getSourceNodeId } from './layout-plugins/temporal-utils';
 import { applyConceptSemanticProjection } from './semantic-projection';
 import { useNetworkShortcuts } from './useNetworkShortcuts';
@@ -42,6 +42,7 @@ interface NetworkWorkspaceProps {
   projectId: string | null;
   initialNetworkId?: string | null;
   onOpenLayoutSettings?: (() => void) | null;
+  onControlsChange?: (controls: LayoutControlsRendererProps | null) => void;
 }
 
 interface ParsedNodePosition {
@@ -1269,6 +1270,7 @@ export function NetworkWorkspace({
   projectId,
   initialNetworkId = null,
   onOpenLayoutSettings = null,
+  onControlsChange,
 }: NetworkWorkspaceProps): JSX.Element {
   const isDev = import.meta.env.DEV;
   const {
@@ -1347,9 +1349,9 @@ export function NetworkWorkspace({
       if (!needsInitialOpen) return;
 
       const ontology = await networkService.getProjectOntology(projectId);
-      const initialNetworkId = ontology?.id ?? pickInitialNetworkId(projectId, store.networks);
-      if (initialNetworkId) {
-        await store.openNetwork(initialNetworkId);
+      const fallbackNetworkId = ontology?.id ?? pickInitialNetworkId(projectId, store.networks);
+      if (fallbackNetworkId) {
+        await store.openNetwork(fallbackNetworkId);
       }
     };
 
@@ -1402,7 +1404,7 @@ export function NetworkWorkspace({
   const wheelBehavior = viewportPolicy.wheelBehavior ?? layoutPlugin.wheelBehavior ?? (viewportMode === 'timeline' ? 'timeline' : 'freeform');
   const persistViewport = viewportPolicy.persistViewport ?? layoutPlugin.persistViewport ?? true;
   const interactionConstraints = viewportPolicy.interactionConstraints ?? layoutPlugin.interactionConstraints;
-  const controlsPresentation = layoutPlugin.controlsPresentation ?? 'floating-draggable';
+  const controlsPresentation = layoutPlugin.controlsPresentation ?? 'floating-fixed';
 
   // Restore viewport from layout when the layout owns persisted pan/zoom.
   useEffect(() => {
@@ -1464,7 +1466,7 @@ export function NetworkWorkspace({
           if (viewportMode === 'world') {
             setPanX((p) => p + dx / 2);
             setPanY((p) => p + dy / 2);
-          } else if (viewportMode === 'timeline') {
+          } else if (wheelBehavior === 'timeline') {
             setPanX((p) => p + dx / 2);
           }
         }
@@ -1474,7 +1476,7 @@ export function NetworkWorkspace({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [viewportMode]);
+  }, [viewportMode, wheelBehavior]);
 
   const archetypes = useArchetypeStore((s) => s.archetypes);
   const archetypeFieldsById = useArchetypeStore((s) => s.fields);
@@ -1493,7 +1495,10 @@ export function NetworkWorkspace({
   const projectNames = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const archetypeNames = useMemo(() => new Map(archetypes.map((archetype) => [archetype.id, archetype.name])), [archetypes]);
   const typeGroupNames = useMemo(() => new Map(Object.values(typeGroupsByKind).flat().map((group) => [group.id, group.name])), [typeGroupsByKind]);
-  const isTemporalLayout = layoutType === 'horizontal-timeline' || layoutType === 'calendar';
+  const isTemporalLayout =
+    layoutPlugin.key === 'timeline'
+    || layoutPlugin.key === 'gantt'
+    || layoutPlugin.key === 'calendar';
   const temporalArchetypeIds = useMemo(() => (
     archetypes
       .filter((archetype) => (archetypeFieldsById[archetype.id] ?? []).some((field) => field.system_slot === 'start_at'))
@@ -1773,6 +1778,14 @@ export function NetworkWorkspace({
   const conceptStoreProperties = useConceptStore((s) => s.properties);
   const [nodeProperties, setNodeProperties] = useState<Record<string, Array<{ field_id: string; value: string | null }>>>({});
   const [propsVersion, setPropsVersion] = useState(0);
+  const nodePropertiesRequestRef = useRef(0);
+  const conceptNodeIdsKey = useMemo(() => {
+    const conceptIds = nodes
+      .filter((node) => node.object?.object_type === 'concept')
+      .map((node) => node.object!.ref_id);
+
+    return Array.from(new Set(conceptIds)).sort().join('\u001f');
+  }, [nodes]);
 
   const persistLayoutPropertyUpdates = useCallback(async (
     propertyUpdates: Array<{ conceptId: string; fieldId: string; value: string }> | undefined,
@@ -1802,22 +1815,33 @@ export function NetworkWorkspace({
 
   useEffect(() => {
     if (!currentNetwork) return;
-    const conceptIds = nodes.filter((n) => n.object?.object_type === 'concept').map((n) => n.object!.ref_id);
+    const conceptIds = conceptNodeIdsKey ? conceptNodeIdsKey.split('\u001f') : [];
     if (conceptIds.length === 0) {
-      setNodeProperties({});
+      setNodeProperties((previous) => (Object.keys(previous).length === 0 ? previous : {}));
       return;
     }
+
+    const requestId = ++nodePropertiesRequestRef.current;
+    let cancelled = false;
 
     Promise.all(
       conceptIds.map((cid) =>
         conceptPropertyService.getByConcept(cid).then((props) => [cid, props] as const),
       ),
     ).then((results) => {
+      if (cancelled || requestId !== nodePropertiesRequestRef.current) return;
       const map: Record<string, Array<{ field_id: string; value: string | null }>> = {};
       for (const [cid, props] of results) map[cid] = props;
-      setNodeProperties(map);
+      const nextSignature = JSON.stringify(map);
+      setNodeProperties((previous) => (
+        JSON.stringify(previous) === nextSignature ? previous : map
+      ));
     });
-  }, [nodes, layoutType, currentNetwork?.id, propsVersion]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conceptNodeIdsKey, layoutType, currentNetwork?.id, propsVersion]);
 
   useEffect(() => {
     const archetypeIds = new Set(
@@ -1857,7 +1881,7 @@ export function NetworkWorkspace({
         semantic = applyConceptSemanticProjection({
           metadata,
           schemaId: archetypeId,
-          facets: archetype?.facets ?? archetype?.semantic_traits ?? [],
+          facets: archetype?.semantic_traits ?? [],
           fields: archetypeFields,
           propertyValues: propMap,
         });
@@ -3577,6 +3601,20 @@ export function NetworkWorkspace({
     onNavigateForward: () => {},
   }), [workspaceMode, zoom, panX, panY, networkHistory.length, layoutConfig, layoutPlugin.hiddenControls, controlExtraItems, setZoom, setPanX, setPanY, updatePluginConfig, toggleMode, fitToScreen, navigateBack]);
 
+  useEffect(() => {
+    if (!onControlsChange) return;
+    if (currentNetwork && !layoutPlugin.ControlsComponent) {
+      onControlsChange(controlsRendererProps);
+    } else {
+      onControlsChange(null);
+    }
+  }, [currentNetwork, layoutPlugin.ControlsComponent, onControlsChange, controlsRendererProps]);
+
+  useEffect(() => {
+    if (!onControlsChange) return undefined;
+    return () => onControlsChange(null);
+  }, [onControlsChange]);
+
   useNetworkShortcuts({
     selectedIds,
     renderNodes,
@@ -3609,7 +3647,7 @@ export function NetworkWorkspace({
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-surface-base"
+      className="relative h-full w-full overflow-hidden bg-surface-canvas"
       style={{ cursor: dragState.type === 'pan' ? 'grabbing' : dragState.type === 'node' ? 'move' : 'default' }}
       onMouseDown={(e) => {
         setNetworkContextMenu(null);
@@ -3646,12 +3684,12 @@ export function NetworkWorkspace({
     >
       {layoutPlugin.ControlsComponent ? (
         <layoutPlugin.ControlsComponent {...controlsRendererProps} />
-      ) : (
+      ) : !onControlsChange ? (
         <NetworkControls
           {...controlsRendererProps}
           presentation={controlsPresentation}
         />
-      )}
+      ) : null}
 
       <layoutPlugin.BackgroundComponent
         width={containerSize.width}
@@ -3721,7 +3759,7 @@ export function NetworkWorkspace({
       )}
 
       {(edgeLinkingState || hierarchyDropHint) && (
-        <div className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-default bg-surface-modal px-4 py-1.5 text-xs text-default shadow-lg">
+        <div className="absolute left-1/2 top-2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-default bg-surface-floating px-4 py-1.5 text-xs text-default shadow-lg">
           <span>
             {edgeLinkingState
               ? (

@@ -497,7 +497,7 @@ export function NarreMentionInput({
           contentEditable={!disabled}
           role="textbox"
           className={[
-            'min-h-[36px] max-h-[120px] overflow-y-auto rounded-lg border border-input bg-input px-3 py-2 text-sm text-default outline-none transition-all',
+            'min-h-[36px] max-h-[120px] overflow-y-auto rounded-lg border border-input bg-surface-input px-3 py-2 text-sm text-default outline-none transition-all',
             'hover:border-strong focus:border-accent',
             'placeholder:text-muted',
             disabled ? 'opacity-50 cursor-not-allowed' : '',
@@ -532,7 +532,7 @@ export function NarreMentionInput({
               </div>
               <button
                 type="button"
-                className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+                className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
                 onClick={() => onPendingSkillInvocationChange?.(null)}
               >
                 <X size={14} />

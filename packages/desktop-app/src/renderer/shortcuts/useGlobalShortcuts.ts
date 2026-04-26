@@ -5,7 +5,7 @@ import { useProjectStore } from '../stores/project-store';
 import { useUIStore } from '../stores/ui-store';
 import { jumpToNextUnacknowledgedAgent } from '../lib/terminal-agent-notifier';
 import { openTerminalTab as openTerminalTabInHost } from '../lib/terminal/open-terminal-tab';
-import { isEditableTarget, isPrimaryModifier, logShortcut } from './shortcut-utils';
+import { consumeShortcutEvent, isEditableTarget, isPrimaryModifier, logShortcut } from './shortcut-utils';
 
 export function cycleTab(direction: 1 | -1): void {
   const result = getActiveLeaf();
@@ -139,7 +139,7 @@ export function useGlobalShortcuts(): void {
       const isSlashKey = key === '/' || key === '?' || event.code === 'Slash';
 
       if (key === 's') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         const tabId = useEditorStore.getState().activeTabId;
         if (!tabId) return;
         logShortcut('shortcut.global.saveActiveTab');
@@ -148,7 +148,7 @@ export function useGlobalShortcuts(): void {
       }
 
       if (key === 'w') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         const tabId = useEditorStore.getState().activeTabId;
         if (!tabId) return;
         logShortcut('shortcut.global.closeActiveTab');
@@ -157,56 +157,56 @@ export function useGlobalShortcuts(): void {
       }
 
       if (key === ',') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.openSettings');
         useUIStore.getState().setShowSettings(true);
         return;
       }
 
       if (isSlashKey) {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.openShortcutOverlay');
         useUIStore.getState().setShowShortcutOverlay(true);
         return;
       }
 
       if (key === 'b') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.toggleSidebar');
         useUIStore.getState().toggleSidebar();
         return;
       }
 
       if (event.shiftKey && !event.altKey && key === 'n') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.openTerminal');
         openTerminalTab();
         return;
       }
 
       if (!event.shiftKey && !event.altKey && key === '.') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.jumpToLastAgent');
         jumpToNextUnacknowledgedAgent();
         return;
       }
 
       if (event.altKey && !event.shiftKey && key === 'n') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.openNarre');
         openNarreTab();
         return;
       }
 
       if (event.shiftKey && !event.altKey && key === 'o') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.toggleToc');
         toggleToc();
         return;
       }
 
       if (!event.shiftKey && !event.altKey && key === '\\') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.toggleEditorMode');
         toggleEditorMode();
         return;
@@ -215,28 +215,28 @@ export function useGlobalShortcuts(): void {
       if (editable) return;
 
       if (event.altKey && !event.shiftKey && key === 'arrowright') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.nextPane');
         cyclePane(1);
         return;
       }
 
       if (event.altKey && !event.shiftKey && key === 'arrowleft') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.previousPane');
         cyclePane(-1);
         return;
       }
 
       if (key === 'tab') {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut(event.shiftKey ? 'shortcut.global.previousTab' : 'shortcut.global.nextTab');
         cycleTab(event.shiftKey ? -1 : 1);
         return;
       }
 
       if (!event.shiftKey && !event.altKey && /^[1-9]$/.test(key)) {
-        event.preventDefault();
+        consumeShortcutEvent(event);
         logShortcut('shortcut.global.openTabByIndex');
         activateTabByNumber(key);
       }

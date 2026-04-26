@@ -61,7 +61,7 @@ export function ContextList(): JSX.Element {
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-secondary">{t('context.title')}</span>
         <button
-          className="rounded p-0.5 text-muted hover:bg-surface-hover hover:text-default"
+          className="rounded p-0.5 text-muted hover:bg-state-hover hover:text-default"
           onClick={handleCreate}
           title={t('common.create')}
           type="button"
@@ -84,7 +84,7 @@ export function ContextList(): JSX.Element {
         sortedContexts.map((context) => (
           <div
             key={context.id}
-            className="group flex items-center gap-2 rounded px-2 py-1 text-xs text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+            className="group flex items-center gap-2 rounded px-2 py-1 text-xs text-secondary transition-colors hover:bg-state-hover hover:text-default"
           >
             <button
               className="flex min-w-0 flex-1 items-center gap-2 text-left"

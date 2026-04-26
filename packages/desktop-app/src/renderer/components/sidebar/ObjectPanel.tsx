@@ -277,7 +277,7 @@ function ObjectTypeFilterSelect({
     <div className="shrink-0" ref={rootRef}>
       <button
         type="button"
-        className="flex h-7 w-16 items-center justify-between rounded border border-input bg-input px-2 text-xs text-default transition-colors hover:border-strong"
+        className="flex h-7 w-16 items-center justify-between rounded border border-input bg-surface-input px-2 text-xs text-default transition-colors hover:border-strong"
         onClick={() => setOpen((current) => !current)}
       >
         <span className="truncate">{summary}</span>
@@ -286,7 +286,7 @@ function ObjectTypeFilterSelect({
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed rounded-md border border-default bg-surface-modal p-1 shadow-lg"
+          className="fixed rounded-md border border-default bg-surface-floating p-1 shadow-lg"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
@@ -306,7 +306,7 @@ function ObjectTypeFilterSelect({
                 role="menuitemcheckbox"
                 aria-checked={selected}
                 tabIndex={0}
-                className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-default transition-colors hover:bg-surface-hover"
+                className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-default transition-colors hover:bg-state-hover"
                 onClick={() => toggleType(filter.key)}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1225,7 +1225,7 @@ export function ObjectPanel(): JSX.Element {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder={t('sidebar.search')}
-        className="w-full rounded border border-input bg-input px-2.5 py-1.5 text-xs text-default outline-none focus:border-accent"
+        className="w-full rounded border border-input bg-surface-input px-2.5 py-1.5 text-xs text-default outline-none focus:border-accent"
       />
 
       {selectedTypes.length === 1 && selectedTypes[0] === 'context' && currentNetwork && (
@@ -1254,7 +1254,7 @@ export function ObjectPanel(): JSX.Element {
               <div className="flex items-center gap-1 px-2 py-1">
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] font-medium uppercase tracking-wide text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+                  className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] font-medium uppercase tracking-wide text-secondary transition-colors hover:bg-state-hover hover:text-default"
                   onClick={() => toggleSection(section.objectType)}
                   aria-expanded={!isSectionCollapsed}
                 >
@@ -1265,7 +1265,7 @@ export function ObjectPanel(): JSX.Element {
                   {canCreateObjectType(section.objectType) && (
                     <button
                       type="button"
-                      className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+                      className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
                       onClick={() => { void handleCreateObject(section.objectType); }}
                       title={t('common.create')}
                     >
@@ -1275,7 +1275,7 @@ export function ObjectPanel(): JSX.Element {
                   {sectionCanCreateGroup && (
                     <button
                       type="button"
-                      className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+                      className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
                       onClick={() => handleCreateGroup(section.objectType === 'archetype' ? 'archetype' : 'relation_type')}
                       title={tk('typeGroup.create')}
                     >
@@ -1311,10 +1311,10 @@ export function ObjectPanel(): JSX.Element {
                             }}
                             className={`group flex items-center gap-2 rounded px-2 py-1.5 transition-colors ${
                               isSelected
-                                ? 'bg-interactive-selected text-accent'
+                                ? 'bg-state-selected text-accent'
                                 : rowIsActive
                                   ? 'bg-accent-muted/60 text-accent'
-                                  : 'hover:bg-surface-hover'
+                                  : 'hover:bg-state-hover'
                             } ${isFocused && !isSelected ? 'ring-1 ring-border-default' : ''} ${
                               isDropTarget ? 'bg-accent-muted/70 ring-1 ring-accent' : ''
                             } ${isGroupableType(row.item.objectType) ? 'cursor-grab active:cursor-grabbing' : ''}`}

@@ -100,24 +100,24 @@ export function DropZoneOverlay({ onDrop, onFileDrop, centerOnly, active }: Drop
     >
       {centerOnly ? (
         <div className={`absolute inset-0 pointer-events-auto transition-colors ${
-          activeZone === 'center' ? 'bg-interactive-selected border-2 border-accent' : ''
+          activeZone === 'center' ? 'bg-state-selected border-2 border-accent' : ''
         }`} />
       ) : (
         <>
           <div className={`absolute inset-x-0 top-0 h-1/4 pointer-events-auto transition-colors ${
-            activeZone === 'top' ? 'bg-interactive-selected border-b-2 border-accent' : ''
+            activeZone === 'top' ? 'bg-state-selected border-b-2 border-accent' : ''
           }`} />
           <div className={`absolute inset-x-0 bottom-0 h-1/4 pointer-events-auto transition-colors ${
-            activeZone === 'bottom' ? 'bg-interactive-selected border-t-2 border-accent' : ''
+            activeZone === 'bottom' ? 'bg-state-selected border-t-2 border-accent' : ''
           }`} />
           <div className={`absolute inset-y-0 left-0 w-1/4 pointer-events-auto transition-colors ${
-            activeZone === 'left' ? 'bg-interactive-selected border-r-2 border-accent' : ''
+            activeZone === 'left' ? 'bg-state-selected border-r-2 border-accent' : ''
           }`} />
           <div className={`absolute inset-y-0 right-0 w-1/4 pointer-events-auto transition-colors ${
-            activeZone === 'right' ? 'bg-interactive-selected border-l-2 border-accent' : ''
+            activeZone === 'right' ? 'bg-state-selected border-l-2 border-accent' : ''
           }`} />
           <div className={`absolute left-1/4 right-1/4 top-1/4 bottom-1/4 pointer-events-auto transition-colors ${
-            activeZone === 'center' ? 'bg-interactive-muted border-2 border-dashed border-accent' : ''
+            activeZone === 'center' ? 'bg-state-muted border-2 border-dashed border-accent' : ''
           }`} />
         </>
       )}

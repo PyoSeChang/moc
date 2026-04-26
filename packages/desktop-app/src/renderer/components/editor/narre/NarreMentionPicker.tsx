@@ -44,7 +44,7 @@ function PreviewPanel({ item, t }: { item: MentionResult; t: (key: TranslationKe
       </div>
 
       {/* Type badge */}
-      <span className="inline-flex self-start rounded px-1.5 py-0.5 text-[10px] font-medium bg-interactive-selected text-accent">
+      <span className="inline-flex self-start rounded px-1.5 py-0.5 text-[10px] font-medium bg-state-selected text-accent">
         {catLabel ? t(catLabel as TranslationKey) : item.type}
       </span>
 
@@ -225,14 +225,14 @@ export function NarreMentionPicker({
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Left: categories */}
-      <div className="w-[90px] shrink-0 border-r border-subtle bg-surface-base flex flex-col py-1">
+      <div className="w-[90px] shrink-0 border-r border-subtle bg-surface-editor flex flex-col py-1">
         {visibleCategories.map((cat) => (
           <button
             key={cat.key}
             className={`px-2.5 py-1.5 text-xs text-left transition-colors ${
               activeCategory === cat.key
-                ? 'bg-interactive-selected text-accent'
-                : 'text-secondary hover:bg-surface-hover hover:text-default'
+                ? 'bg-state-selected text-accent'
+                : 'text-secondary hover:bg-state-hover hover:text-default'
             }`}
             onClick={() => { setActiveCategory(cat.key); setSelectedIndex(0); }}
           >
@@ -273,7 +273,7 @@ export function NarreMentionPicker({
                 key={`${item.type}-${item.id}`}
                 className={[
                   'flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors',
-                  isSelected ? 'bg-surface-hover text-default' : 'text-secondary hover:bg-surface-hover',
+                  isSelected ? 'bg-state-hover text-default' : 'text-secondary hover:bg-state-hover',
                 ].join(' ')}
                 onClick={() => onSelect(item)}
                 onMouseEnter={() => setSelectedIndex(idx)}

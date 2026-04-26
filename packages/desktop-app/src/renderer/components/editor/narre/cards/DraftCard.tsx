@@ -121,11 +121,11 @@ export function DraftCard({
 
       {isSubmitted ? (
         <div className="space-y-2">
-          <div className="whitespace-pre-wrap rounded-lg border border-subtle bg-surface-base px-3 py-2 text-sm text-default">
+          <div className="whitespace-pre-wrap rounded-lg border border-subtle bg-surface-editor px-3 py-2 text-sm text-default">
             {content.trim().length > 0 ? content : card.content}
           </div>
           {feedback.trim().length > 0 && (
-            <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2">
+            <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2">
               <div className="mb-1 text-[11px] text-muted">{card.feedbackLabel ?? t('narre.card.draftFeedback')}</div>
               <div className="whitespace-pre-wrap text-sm text-secondary">{feedback}</div>
             </div>
@@ -138,7 +138,7 @@ export function DraftCard({
               ref={editorRef}
               contentEditable
               role="textbox"
-              className="min-h-[140px] whitespace-pre-wrap rounded-lg border border-input bg-input px-3 py-2 text-sm text-default outline-none transition-all hover:border-strong focus:border-accent"
+              className="min-h-[140px] whitespace-pre-wrap rounded-lg border border-input bg-surface-input px-3 py-2 text-sm text-default outline-none transition-all hover:border-strong focus:border-accent"
               onInput={handleEditorInput}
               suppressContentEditableWarning
             />

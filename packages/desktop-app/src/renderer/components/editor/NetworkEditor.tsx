@@ -7,7 +7,10 @@ import { useRelationTypeStore } from '../../stores/relation-type-store';
 import { useConceptStore } from '../../stores/concept-store';
 import { useProjectStore } from '../../stores/project-store';
 import { useEditorStore } from '../../stores/editor-store';
-import { useNetworkObjectSelectionStore } from '../../stores/network-object-selection-store';
+import {
+  useNetworkObjectSelectionStore,
+  type NetworkObjectSelectionType,
+} from '../../stores/network-object-selection-store';
 import { useTypeGroupStore } from '../../stores/type-group-store';
 import { useEditorSession } from '../../hooks/useEditorSession';
 import { layoutService } from '../../services';
@@ -36,6 +39,21 @@ interface NetworkState {
   name: string;
   layout_type: string;
   layout_config: Record<string, unknown>;
+}
+
+const SELECTABLE_OBJECT_TYPES: ReadonlySet<NetworkObjectSelectionType> = new Set([
+  'network',
+  'project',
+  'concept',
+  'archetype',
+  'relation_type',
+  'context',
+]);
+
+function isNetworkObjectSelectionType(
+  objectType: NetworkBrowserItem['objectType'],
+): objectType is NetworkObjectSelectionType {
+  return SELECTABLE_OBJECT_TYPES.has(objectType as NetworkObjectSelectionType);
 }
 
 export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
@@ -117,9 +135,10 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
       const layout = useNetworkStore.getState().currentLayout;
       const configJson = layout?.layout_config_json;
       if (!c) return { name: '', layout_type: 'freeform', layout_config: {} };
+      const normalizedLayoutType = layout ? getLayout(layout.layout_type).key : 'freeform';
       return {
         name: c.name,
-        layout_type: layout?.layout_type ?? 'freeform',
+        layout_type: normalizedLayoutType,
         layout_config: configJson ? JSON.parse(configJson) : {},
       };
     },
@@ -769,7 +788,7 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
             </div>
 
             {activePlugin.key !== 'freeform' && (
-              <div className="flex flex-col gap-3 rounded-lg border border-subtle bg-surface-base p-3">
+              <div className="flex flex-col gap-3 rounded-lg border border-subtle bg-surface-editor p-3">
                 <div className="text-xs font-medium text-muted">{t('network.layoutSettings') ?? 'Layout Settings'}</div>
 
                 {activePlugin.configSchema.map((field) => (
@@ -990,14 +1009,20 @@ export function NetworkEditor({ tab }: NetworkEditorProps): JSX.Element {
           searchPlaceholder={t('sidebar.search')}
           sections={browserSections}
           selectedKey={selectedItem ? `${selectedItem.objectType}:${selectedItem.id}` : null}
-          onSelect={(item) => setSelection({ objectType: item.objectType, id: item.id, title: item.title })}
+          onSelect={(item) => {
+            if (isNetworkObjectSelectionType(item.objectType)) {
+              setSelection({ objectType: item.objectType, id: item.id, title: item.title });
+            }
+          }}
           onOpen={(item) => {
-            setSelection({ objectType: item.objectType, id: item.id, title: item.title });
+            if (isNetworkObjectSelectionType(item.objectType)) {
+              setSelection({ objectType: item.objectType, id: item.id, title: item.title });
+            }
             void openInspectorItem(item);
           }}
         />
       </div>
-      <div className="editor-scrollbar h-full min-h-0 w-[400px] shrink-0 border-l border-subtle bg-surface-base overflow-y-scroll overflow-x-hidden">
+      <div className="editor-scrollbar h-full min-h-0 w-[400px] shrink-0 bg-surface-editor overflow-y-scroll overflow-x-hidden">
         <div className="min-h-full">
           {renderInspectorSummary()}
         </div>

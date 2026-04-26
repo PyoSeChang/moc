@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import type { SplitLeaf, EditorTab } from '@netior/shared/types';
-import { useEditorStore, collectLeaves, containsTab } from '../../../stores/editor-store';
-import { EditorViewModeSwitch } from '../EditorViewModeSwitch';
+import { useEditorStore, containsTab } from '../../../stores/editor-store';
+import { EditorViewModeMenu } from '../EditorViewModeSwitch';
 import { EditorContent } from '../EditorContent';
 import { EditorTabStrip } from '../EditorTabStrip';
-import { SplitPaneRenderer } from '../SplitPaneRenderer';
+import { SplitPaneRenderer, type PaneAdjacency } from '../SplitPaneRenderer';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { isTabDrag } from '../../../hooks/useTabDrag';
 import { isFileOpenDrag } from '../../../hooks/useFileOpenDrag';
@@ -52,17 +52,16 @@ export function FullModeEditor(): JSX.Element | null {
   }, []);
 
   const renderFullLeaf = useCallback(
-    (leaf: SplitLeaf) => {
+    (leaf: SplitLeaf, adjacency?: PaneAdjacency) => {
       const leafTabs = leaf.tabIds
         .map((id) => tabs.find((t) => t.id === id))
         .filter((t): t is EditorTab => t != null);
       const activeTab = leafTabs.find((t) => t.id === leaf.activeTabId) ?? leafTabs[0];
       const isActivePane = layoutActiveTabId ? leaf.tabIds.includes(layoutActiveTabId) : false;
-      const isMultiPane = fullLayout ? collectLeaves(fullLayout).length > 1 : false;
 
       return (
         <div
-          className={`flex h-full min-h-0 flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
+          className="flex h-full min-h-0 flex-col overflow-visible"
           onMouseDown={() => {
             if (!leaf.tabIds.includes(activeTabId!)) {
               setActiveTab(leaf.activeTabId);
@@ -78,8 +77,8 @@ export function FullModeEditor(): JSX.Element | null {
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'full')}
             onTabReorder={moveTabWithinStrip}
             onFileDrop={(filePaths) => { void openDroppedFilesInFullLeaf(filePaths, leaf); }}
-            rightSlot={
-              <EditorViewModeSwitch
+            leftSlot={
+              <EditorViewModeMenu
                 currentMode="full"
                 availableModes={getAllowedViewModes(activeTab)}
                 onModeChange={(mode) => setViewMode(leaf.activeTabId, mode)}
@@ -87,7 +86,9 @@ export function FullModeEditor(): JSX.Element | null {
               />
             }
           />
-          <div className="relative flex-1 min-h-0 overflow-hidden bg-surface-panel">
+          <div className={`pane-surface pane-surface--editor relative flex-1 min-h-0 overflow-hidden ${
+            adjacency?.bottom ? 'pane-surface--adjacent-bottom' : ''
+          }`}>
             {activeTab && <EditorContent tab={activeTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
@@ -118,7 +119,7 @@ export function FullModeEditor(): JSX.Element | null {
 
   return (
     <div
-      className="flex h-full min-h-0 w-full min-w-0 bg-surface-panel"
+      className="flex h-full min-h-0 w-full min-w-0 bg-surface-chrome"
         onDragEnter={(e) => { if (isTabDrag(e) || isFileOpenDrag(e)) setIsDragging(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
       onDrop={() => setIsDragging(false)}

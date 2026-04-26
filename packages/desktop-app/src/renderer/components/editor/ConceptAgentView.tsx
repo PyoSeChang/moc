@@ -53,7 +53,7 @@ export function ConceptAgentView({ conceptId, agentContent }: ConceptAgentViewPr
 
   return (
     <textarea
-      className="h-full w-full resize-none bg-surface-base p-4 font-mono text-sm text-default outline-none placeholder:text-muted"
+      className="h-full w-full resize-none bg-surface-editor p-4 font-mono text-sm text-default outline-none placeholder:text-muted"
       value={localValue}
       onChange={handleChange}
       onFocus={() => { isFocusedRef.current = true; }}

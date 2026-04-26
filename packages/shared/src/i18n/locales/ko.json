@@ -544,6 +544,7 @@
     "modeFull": "이 편집영역 전체 모드",
     "modeSide": "이 편집영역 사이드 모드",
     "modeDetached": "현재 탭 분리 창으로",
+    "windowOptions": "창 옵션",
     "minimizePane": "이 편집영역 최소화",
     "unsavedChanges": "저장하지 않은 변경사항",
     "unsavedChangesMessage": "\"{title}\"에 저장하지 않은 변경사항이 있습니다. 어떻게 하시겠습니까?",

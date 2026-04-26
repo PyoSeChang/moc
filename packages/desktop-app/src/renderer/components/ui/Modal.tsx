@@ -32,7 +32,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children, fo
   return createPortal(
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200" style={{ zIndex: 10000 }} onClick={onClose}>
       <div
-        className="bg-surface-modal border border-subtle rounded-xl shadow-2xl max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200 ring-1 ring-black/10"
+        className="bg-surface-floating border border-subtle rounded-xl shadow-2xl max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200 ring-1 ring-black/10"
         style={width ? { width } : { width: 'min(90vw, 520px)' }}
         onClick={(e) => e.stopPropagation()}
       >

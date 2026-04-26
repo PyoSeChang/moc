@@ -101,7 +101,7 @@ export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProp
     <div ref={dropdownRef} className="relative flex items-center gap-0.5 px-2 py-1.5">
       {/* Module selector */}
       <button
-        className="flex flex-1 items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-default transition-colors hover:bg-surface-hover"
+        className="flex flex-1 items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-default transition-colors hover:bg-state-hover"
         onClick={() => setOpen((v) => !v)}
       >
         <Package size={12} className="shrink-0 text-secondary" />
@@ -130,8 +130,8 @@ export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProp
                 key={m.id}
                 className={`group cursor-pointer px-2 py-1 text-xs transition-colors ${
                   m.id === activeModuleId
-                    ? 'bg-interactive-selected text-accent'
-                    : 'text-secondary hover:bg-surface-hover hover:text-default'
+                    ? 'bg-state-selected text-accent'
+                    : 'text-secondary hover:bg-state-hover hover:text-default'
                 }`}
                 onClick={() => handleSelect(m.id)}
                 onDoubleClick={(e) => handleDoubleClick(e, m.id, m.name)}
@@ -139,7 +139,7 @@ export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProp
                 {renamingId === m.id ? (
                   <input
                     ref={renameInputRef}
-                    className="w-full rounded border border-subtle bg-input px-1 py-0.5 text-xs text-default outline-none focus:border-accent"
+                    className="w-full rounded border border-subtle bg-surface-input px-1 py-0.5 text-xs text-default outline-none focus:border-accent"
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => {
@@ -200,7 +200,7 @@ export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProp
           {creating ? (
             <div className="border-t border-subtle px-2 py-1.5">
               <input
-                className="w-full rounded border border-subtle bg-input px-2 py-1 text-xs text-default outline-none focus:border-accent"
+                className="w-full rounded border border-subtle bg-surface-input px-2 py-1 text-xs text-default outline-none focus:border-accent"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => {
@@ -216,7 +216,7 @@ export function ModuleSelector({ projectId, projectRootDir }: ModuleSelectorProp
             </div>
           ) : (
             <button
-              className="flex w-full items-center gap-1.5 border-t border-subtle px-2 py-1.5 text-xs text-muted transition-colors hover:bg-surface-hover hover:text-default"
+              className="flex w-full items-center gap-1.5 border-t border-subtle px-2 py-1.5 text-xs text-muted transition-colors hover:bg-state-hover hover:text-default"
               onClick={() => setCreating(true)}
             >
               <Plus size={12} />

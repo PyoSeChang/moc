@@ -165,7 +165,7 @@ function TodoTree({ item, allItems, sessionId, depth, dragItemRef, dragOverId, d
   return (
     <>
       <div
-        className={`flex items-center gap-1 pr-2 py-0.5 transition-colors hover:bg-surface-hover ${
+        className={`flex items-center gap-1 pr-2 py-0.5 transition-colors hover:bg-state-hover ${
           isDragTarget && dragPosition === 'before' ? 'border-t-2 border-accent' : ''
         } ${isDragTarget && dragPosition === 'after' ? 'border-b-2 border-accent' : ''}`}
         style={{ paddingLeft: depth * 14 + 8 }}

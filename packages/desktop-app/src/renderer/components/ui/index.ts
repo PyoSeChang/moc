@@ -1,5 +1,6 @@
 export { Button } from './Button';
 export { IconButton } from './IconButton';
+export { PillButton } from './PillButton';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { NumberInput } from './NumberInput';

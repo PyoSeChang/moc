@@ -1,10 +1,12 @@
 import React from 'react';
-import { Maximize2, Maximize, PanelRight, ExternalLink, Minus } from 'lucide-react';
+import { Check, ExternalLink, Maximize2, Maximize, Minus, MoreVertical, PanelRight } from 'lucide-react';
 import type { EditorViewMode } from '@netior/shared/types';
 import type { TranslationKey } from '@netior/shared/i18n';
 import { useI18n } from '../../hooks/useI18n';
 import { Tooltip } from '../ui/Tooltip';
 import { useEditorStore, MAIN_HOST_ID } from '../../stores/editor-store';
+import { ContextMenu } from '../ui/ContextMenu';
+import type { ContextMenuEntry } from '../ui/ContextMenu';
 
 interface EditorViewModeSwitchProps {
   currentMode: EditorViewMode;
@@ -19,6 +21,13 @@ interface ModeButtonConfig {
   titleKey: TranslationKey;
   isActive: boolean;
 }
+
+const MODE_MENU_CONFIG: Record<EditorViewMode, Omit<ModeButtonConfig, 'isActive'>> = {
+  side: { mode: 'side', icon: PanelRight, titleKey: 'editor.modeSide' },
+  full: { mode: 'full', icon: Maximize, titleKey: 'editor.modeFull' },
+  float: { mode: 'float', icon: Maximize2, titleKey: 'editor.modeFloat' },
+  detached: { mode: 'detached', icon: ExternalLink, titleKey: 'editor.modeDetached' },
+};
 
 export function EditorViewModeSwitch({
   currentMode,
@@ -68,7 +77,7 @@ export function EditorViewModeSwitch({
         className={`rounded p-1 transition-colors ${
           isActive
             ? 'bg-accent text-on-accent'
-            : 'text-muted hover:bg-surface-hover hover:text-default'
+            : 'text-muted hover:bg-state-hover hover:text-default'
         }`}
         onClick={() => onModeChange(mode)}
       >
@@ -83,7 +92,7 @@ export function EditorViewModeSwitch({
       {onMinimize && (
         <Tooltip content={t('common.minimizeTab')} position="bottom">
           <button
-            className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
             onClick={onMinimize}
           >
             <Minus size={14} />
@@ -92,5 +101,76 @@ export function EditorViewModeSwitch({
       )}
       {layoutButton && renderButton(layoutButton, `layout:${layoutButton.mode}`)}
     </div>
+  );
+}
+
+export function EditorViewModeMenu({
+  currentMode,
+  onModeChange,
+  onMinimize,
+  availableModes = ['side', 'full', 'float', 'detached'],
+}: EditorViewModeSwitchProps): JSX.Element {
+  const { t, locale } = useI18n();
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = React.useState<{ x: number; y: number } | null>(null);
+  const menuLabelKey = 'editor.windowOptions' as TranslationKey;
+  const translatedMenuLabel = t(menuLabelKey);
+  const menuLabel = translatedMenuLabel === menuLabelKey
+    ? (locale === 'ko' ? '창 옵션' : 'Window Options')
+    : translatedMenuLabel;
+
+  const menuItems: ContextMenuEntry[] = availableModes.map((mode) => {
+    const config = MODE_MENU_CONFIG[mode];
+    const Icon = currentMode === mode ? Check : config.icon;
+    return {
+      label: t(config.titleKey),
+      icon: <Icon size={14} />,
+      onClick: () => onModeChange(mode),
+    };
+  });
+
+  if (onMinimize) {
+    menuItems.push(
+      { type: 'divider' },
+      {
+        label: t('common.minimizeTab'),
+        icon: <Minus size={14} />,
+        onClick: onMinimize,
+      },
+    );
+  }
+
+  const openMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuPosition({ x: rect.left, y: rect.bottom + 4 });
+  };
+
+  return (
+    <>
+      <Tooltip content={menuLabel} position="bottom">
+        <button
+          ref={buttonRef}
+          aria-label={menuLabel}
+          className={`flex h-6 w-6 items-center justify-center rounded text-muted transition-colors ${
+            menuPosition ? 'bg-state-hover text-default' : 'hover:bg-state-hover hover:text-default'
+          }`}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={openMenu}
+        >
+          <MoreVertical size={15} />
+        </button>
+      </Tooltip>
+      {menuPosition && (
+        <ContextMenu
+          x={menuPosition.x}
+          y={menuPosition.y}
+          items={menuItems}
+          onClose={() => setMenuPosition(null)}
+        />
+      )}
+    </>
   );
 }

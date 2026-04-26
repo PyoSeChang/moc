@@ -70,7 +70,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
     >
       <button
         type="button"
-        className="inline-flex h-8 items-center gap-2 rounded-md border border-default bg-surface-base px-3 text-[11px] font-semibold text-default transition-colors hover:bg-surface-hover"
+        className="inline-flex h-8 items-center gap-2 rounded-md border border-default bg-surface-editor px-3 text-[11px] font-semibold text-default transition-colors hover:bg-state-hover"
         onClick={() => setOpen((value) => !value)}
       >
         <CalendarDays size={13} />
@@ -82,7 +82,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-default"
               onClick={() => setPickerMonthFocus((value) => shiftFocusEpochDay('month', value, -1))}
             >
               <ChevronLeft size={14} />
@@ -92,7 +92,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
             </div>
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-state-hover hover:text-default"
               onClick={() => setPickerMonthFocus((value) => shiftFocusEpochDay('month', value, 1))}
             >
               <ChevronRight size={14} />
@@ -124,8 +124,8 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                       : cell.isToday
                         ? 'bg-accent-muted text-default'
                         : cell.inCurrentMonth
-                          ? 'text-default hover:bg-surface-hover'
-                          : 'text-muted hover:bg-surface-hover',
+                          ? 'text-default hover:bg-state-hover'
+                          : 'text-muted hover:bg-state-hover',
                   ].join(' ')}
                   onClick={() => {
                     onSelect(cell.epochDay);

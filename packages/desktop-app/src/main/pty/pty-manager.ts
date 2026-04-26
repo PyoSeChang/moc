@@ -1,8 +1,8 @@
-import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
 import { BrowserWindow, app, type WebContents } from 'electron';
 import { basename } from 'path';
 import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import { IPC_CHANNELS } from '@netior/shared/constants';
 import type {
   TerminalLaunchConfig,
@@ -12,6 +12,25 @@ import type {
 import { agentRuntimeManager } from '../agent-runtime/agent-runtime-manager';
 import { getRuntimeInstanceId, getRuntimeScope } from '../runtime/runtime-paths';
 
+const require = createRequire(import.meta.url);
+
+type NodePtyModule = typeof import('node-pty');
+
+let nodePty: NodePtyModule | null = null;
+
+function loadNodePty(): NodePtyModule {
+  if (nodePty) {
+    return nodePty;
+  }
+
+  try {
+    nodePty = require('node-pty') as NodePtyModule;
+    return nodePty;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Terminal backend is unavailable because node-pty could not be loaded: ${message}`);
+  }
+}
 
 function resolveShell(config?: TerminalLaunchConfig): { command: string; args: string[]; title: string } {
   if (config?.shell) {
@@ -93,7 +112,7 @@ class TerminalBackendService {
     }
 
     record.info.exitCode = null;
-    const ptyProcess = pty.spawn(record.info.shellPath, record.info.shellArgs, {
+    const ptyProcess = loadNodePty().spawn(record.info.shellPath, record.info.shellArgs, {
       name: 'xterm-256color',
       cols: record.info.cols,
       rows: record.info.rows,

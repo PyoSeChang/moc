@@ -795,7 +795,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
             {!isDraft && (
               <NetworkObjectEditorSection title={t('concept.networkPlacement' as never)}>
                 {nodeOccurrences.length === 0 ? (
-                  <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2 text-xs text-muted">
+                  <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2 text-xs text-muted">
                     {t('concept.noNetworkPlacement' as never)}
                   </div>
                 ) : (
@@ -821,7 +821,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
                           >
                             {t('network.switchNetwork')}
                           </Button>
-                          <div className="min-w-0 rounded-lg border border-subtle bg-surface-base px-3 py-1.5 text-xs text-muted">
+                          <div className="min-w-0 rounded-lg border border-subtle bg-surface-editor px-3 py-1.5 text-xs text-muted">
                             <div className="truncate">{selectedNodeOccurrence.nodeId}</div>
                           </div>
                         </div>
@@ -841,7 +841,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
                         </div>
 
                         {isGroupNodeOccurrence && (
-                          <div className="flex flex-col gap-2 rounded-lg border border-subtle bg-surface-base px-3 py-3">
+                          <div className="flex flex-col gap-2 rounded-lg border border-subtle bg-surface-editor px-3 py-3">
                             <div className="flex flex-col gap-1">
                               <label className="text-xs font-medium text-secondary">{t('concept.nodeLayoutKind' as never)}</label>
                               <Select
@@ -1151,7 +1151,7 @@ export function ConceptEditor({ tab }: ConceptEditorProps): JSX.Element {
 
             {!isDraft && (
               <NetworkObjectEditorSection title="Agent" defaultOpen={false}>
-                <div className="h-[min(60vh,560px)] min-h-[320px] overflow-hidden rounded-lg border border-subtle bg-surface-base">
+                <div className="h-[min(60vh,560px)] min-h-[320px] overflow-hidden rounded-lg border border-subtle bg-surface-editor">
                   <ConceptAgentView conceptId={tab.targetId} agentContent={concept?.agent_content ?? null} />
                 </div>
               </NetworkObjectEditorSection>

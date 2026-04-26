@@ -160,7 +160,7 @@ export function NarreToolLog({
 
   return (
     <div className={[
-      bordered ? 'mt-1.5 rounded-md border border-subtle bg-surface-base' : '',
+      bordered ? 'mt-1.5 rounded-md border border-subtle bg-surface-editor' : '',
       'text-xs',
     ].join(' ')}>
       <button

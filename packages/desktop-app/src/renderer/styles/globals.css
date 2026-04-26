@@ -49,7 +49,7 @@ body,
 
 .editor-scrollbar {
   scrollbar-width: auto;
-  scrollbar-color: var(--text-muted) color-mix(in srgb, var(--surface-hover) 72%, transparent);
+  scrollbar-color: var(--text-muted) color-mix(in srgb, var(--state-hover-bg) 72%, transparent);
   scrollbar-gutter: stable;
 }
 
@@ -59,53 +59,274 @@ body,
 }
 
 .editor-scrollbar::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--surface-hover) 72%, transparent);
+  background: transparent;
+  margin-block: calc(var(--workspace-pane-radius, 12px) + 2px);
 }
 
 .editor-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 9999px;
   background: color-mix(in srgb, var(--text-muted) 82%, transparent);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 .editor-scrollbar::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--text-default) 88%, transparent);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
+}
+
+.netior-scrollbar,
+.sidebar-surface {
+  scrollbar-width: auto;
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 82%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
+.netior-scrollbar::-webkit-scrollbar,
+.sidebar-surface ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.netior-scrollbar::-webkit-scrollbar-track,
+.sidebar-surface ::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: calc(var(--workspace-pane-radius, 12px) + 2px);
+}
+
+.netior-scrollbar::-webkit-scrollbar-thumb,
+.sidebar-surface ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-muted) 72%, transparent);
+  background-clip: padding-box;
+}
+
+.netior-scrollbar::-webkit-scrollbar-thumb:hover,
+.sidebar-surface ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-default) 82%, transparent);
+  background-clip: padding-box;
+}
+
+.netior-scrollbar::-webkit-scrollbar-corner,
+.sidebar-surface ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.workspace-frame {
+  background: var(--surface-chrome);
+  --workspace-chrome-bg: var(--surface-chrome);
+  --workspace-pane-border: var(--border-default);
+  --workspace-pane-radius: 14px;
+}
+
+.rail-surface {
+  background: var(--surface-rail);
+  background-clip: padding-box;
+  border-color: var(--workspace-pane-border, var(--border-default));
+}
+
+.rail-surface--closed {
+  overflow: hidden;
+  border-width: 1px 0 1px 1px;
+  border-radius: var(--workspace-pane-radius, 14px) 0 0 var(--workspace-pane-radius, 14px);
+}
+
+.rail-surface--open {
+  border-width: 1px 0 1px 1px;
+}
+
+.sidebar-surface {
+  overflow: hidden;
+  background: var(--surface-rail);
+  background-clip: padding-box;
+  border-color: var(--workspace-pane-border, var(--border-default));
+  border-width: 1px 0 1px 1px;
+  border-radius: var(--workspace-pane-radius, 14px) 0 0 var(--workspace-pane-radius, 14px);
+}
+
+.pane-shell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.pane-shell--editor {
+  overflow: visible;
+  background: transparent;
+}
+
+.pane-surface {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--workspace-pane-radius);
+  background: var(--surface-editor);
+  background-clip: padding-box;
+  scrollbar-gutter: stable;
+  box-shadow: var(--shadow-pane, none);
+}
+
+.pane-surface ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pane-surface ::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: calc(var(--workspace-pane-radius) + 2px);
+  margin-inline: calc(var(--workspace-pane-radius) + 2px);
+}
+
+.pane-surface ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-muted) 72%, transparent);
+  background-clip: padding-box;
+}
+
+.pane-surface ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-default) 82%, transparent);
+  background-clip: padding-box;
+}
+
+.pane-surface ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.netior-monaco-editor,
+.netior-monaco-editor .monaco-editor,
+.netior-monaco-editor .monaco-editor-background,
+.netior-monaco-editor .monaco-editor .margin,
+.netior-monaco-editor .monaco-editor .inputarea.ime-input {
+  background: var(--surface-editor) !important;
+}
+
+.pane-surface--editor .netior-monaco-editor {
+  border-radius: var(--workspace-pane-radius);
+}
+
+.netior-monaco-editor .monaco-editor,
+.netior-monaco-editor .overflow-guard {
+  border-radius: inherit;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .shadow,
+.netior-monaco-editor .monaco-editor .scroll-decoration {
+  display: none !important;
+  box-shadow: none !important;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar {
+  background: transparent !important;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar.vertical {
+  right: 3px !important;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
+  bottom: 3px !important;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+  box-sizing: border-box !important;
+  border: 2px solid transparent !important;
+  border-radius: 9999px !important;
+  background: color-mix(in srgb, var(--text-muted) 72%, transparent) !important;
+  background-clip: padding-box !important;
+}
+
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover,
+.netior-monaco-editor .monaco-scrollable-element > .scrollbar > .slider.active {
+  background: color-mix(in srgb, var(--text-default) 82%, transparent) !important;
+  background-clip: padding-box !important;
+}
+
+.netior-monaco-editor .decorationsOverviewRuler,
+.netior-monaco-editor .scrollbar .decorationsOverviewRuler {
+  display: none !important;
+}
+
+.pane-surface--editor {
+  background: var(--surface-editor);
+}
+
+.pane-surface--adjacent-bottom {
+  box-shadow: none;
+}
+
+:root[data-mode='light'] .pane-surface {
+  border: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
+}
+
+:root[data-mode='light'] .pane-surface--adjacent-bottom {
+  border-bottom-color: transparent;
+}
+
+:root[data-mode='light'] .workspace-frame {
+  --workspace-pane-border: color-mix(in srgb, var(--text-default) 10%, transparent);
+}
+
+.pane-surface--network {
+  background: var(--surface-canvas);
+}
+
+.pane-split-resize-zone {
+  position: relative;
+  z-index: 10;
+  width: 8px;
+  flex: 0 0 8px;
+  cursor: col-resize;
+}
+
+.pane-split-resize-zone::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 16px;
+}
+
+.pane-split-resize-zone::after {
+  content: none;
 }
 
 /* Chrome-like tab strip */
 .tab-strip {
   position: relative;
-  --tab-active-bg: var(--surface-editor);
-  --tab-curve-size: 8px;
-  --tab-radius: 8px;
-  --tab-active-border: var(--border-default);
+  z-index: 2;
+  overflow: visible;
+  background: var(--workspace-chrome-bg, var(--surface-chrome));
+  --tab-curve-size: 12px;
+  --tab-radius: 12px;
+}
+
+.workspace-title-strip .window-control-button {
+  height: 35px;
 }
 
 .tab-strip::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--border-default);
-  z-index: 0;
+  content: none;
 }
 
 .tab-active {
   position: relative;
   isolation: isolate;
-  z-index: 2;
+  z-index: 4;
   overflow: visible;
-  border: 1px solid var(--tab-active-border);
-  border-bottom-color: var(--tab-active-bg);
   border-radius: var(--tab-radius) var(--tab-radius) 0 0;
-  background: var(--tab-active-bg);
+  background: var(--surface-editor);
   margin-bottom: -1px;
-  box-shadow: 0 -1px 0 color-mix(in srgb, var(--text-default) 4%, transparent);
+  box-shadow: none;
 }
 
 .tab-active::before,
@@ -116,23 +337,19 @@ body,
   width: var(--tab-curve-size);
   height: var(--tab-curve-size);
   pointer-events: none;
-  z-index: -1;
+  z-index: 5;
 }
 
 .tab-active::before {
   left: calc(var(--tab-curve-size) * -1);
-  border-right: 1px solid var(--tab-active-border);
-  border-bottom: 1px solid var(--tab-active-border);
   border-bottom-right-radius: var(--tab-curve-size);
-  box-shadow: 4px 4px 0 4px var(--tab-active-bg);
+  box-shadow: 4px 4px 0 4px var(--surface-editor);
 }
 
 .tab-active::after {
   right: calc(var(--tab-curve-size) * -1);
-  border-bottom: 1px solid var(--tab-active-border);
-  border-left: 1px solid var(--tab-active-border);
   border-bottom-left-radius: var(--tab-curve-size);
-  box-shadow: -4px 4px 0 4px var(--tab-active-bg);
+  box-shadow: -4px 4px 0 4px var(--surface-editor);
 }
 
 .tab-active-indicator {
@@ -149,11 +366,7 @@ body,
 }
 
 .tab-active-focused {
-  border-color: var(--tab-active-border);
-  border-bottom-color: var(--tab-active-bg);
-  box-shadow:
-    0 -1px 0 color-mix(in srgb, var(--accent) 18%, transparent),
-    0 2px 8px color-mix(in srgb, var(--accent) 6%, transparent);
+  box-shadow: none;
 }
 
 .tab-active-focused .tab-active-indicator {
@@ -163,8 +376,22 @@ body,
 }
 
 .tab-active-unfocused {
-  border-color: var(--tab-active-border);
-  border-bottom-color: var(--tab-active-bg);
+  box-shadow: none;
+}
+
+:root[data-mode='light'] .tab-active {
+  border: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
+  border-bottom: 0;
+}
+
+:root[data-mode='light'] .tab-active::before {
+  border-right: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
+  border-bottom: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
+}
+
+:root[data-mode='light'] .tab-active::after {
+  border-bottom: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
+  border-left: 1px solid var(--workspace-pane-border, color-mix(in srgb, var(--text-default) 10%, transparent));
 }
 
 /* Thin separator between inactive tabs */
@@ -180,8 +407,17 @@ body,
 
 /* Tab scroll — no scrollbar, wheel scrolls horizontally */
 .tab-scroll {
+  box-sizing: border-box;
+  height: calc(30px + var(--tab-curve-size));
+  margin-bottom: calc(var(--tab-curve-size) * -1);
+  padding-bottom: var(--tab-curve-size);
   overflow-x: scroll;
   overflow-y: hidden;
+  pointer-events: none;
+}
+
+.tab-scroll > * {
+  pointer-events: auto;
 }
 
 .tab-scroll::-webkit-scrollbar {
@@ -215,7 +451,7 @@ body,
 }
 
 .window-control-button:hover {
-  background: var(--surface-hover);
+  background: var(--state-hover-bg);
   color: var(--text-default);
 }
 

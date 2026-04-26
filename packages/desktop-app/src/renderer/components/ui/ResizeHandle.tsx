@@ -10,7 +10,7 @@ export function ResizeHandle({ direction = 'horizontal', onMouseDown }: ResizeHa
 
   return (
     <div
-      className={`relative z-10 shrink-0 ${isHorizontal ? 'cursor-col-resize' : 'cursor-row-resize'}`}
+      className={`group relative z-10 shrink-0 ${isHorizontal ? 'cursor-col-resize' : 'cursor-row-resize'}`}
       style={
         isHorizontal
           ? { width: 1, marginLeft: -2, marginRight: -2, paddingLeft: 2, paddingRight: 2 }
@@ -19,10 +19,10 @@ export function ResizeHandle({ direction = 'horizontal', onMouseDown }: ResizeHa
       onMouseDown={onMouseDown}
     >
       <div
-        className={`pointer-events-none hover:bg-accent transition-colors ${
+        className={`pointer-events-none bg-[var(--border-default)] opacity-0 transition-opacity group-hover:opacity-70 ${
           isHorizontal
-            ? 'h-full w-px border-l border-subtle'
-            : 'w-full h-px border-t border-subtle'
+            ? 'h-full w-px'
+            : 'w-full h-px'
         }`}
       />
     </div>

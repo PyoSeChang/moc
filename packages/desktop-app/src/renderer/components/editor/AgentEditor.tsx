@@ -323,7 +323,7 @@ export function AgentEditor({ tab }: AgentEditorProps): JSX.Element {
   const canCreateProjectAgent = Boolean(projectId);
 
   return (
-    <div className="flex h-full min-h-0 bg-surface-base text-default">
+    <div className="flex h-full min-h-0 bg-surface-editor text-default">
       <aside className="flex w-[280px] shrink-0 flex-col border-r border-subtle bg-surface-panel">
         <div className="flex items-center justify-between gap-2 border-b border-subtle px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -371,7 +371,7 @@ export function AgentEditor({ tab }: AgentEditorProps): JSX.Element {
                     type="button"
                     className={[
                       'flex w-full flex-col gap-1 rounded px-2 py-2 text-left transition-colors',
-                      selected ? 'bg-interactive-selected text-accent' : 'text-default hover:bg-surface-hover',
+                      selected ? 'bg-state-selected text-accent' : 'text-default hover:bg-state-hover',
                     ].join(' ')}
                     onClick={() => selectAgent(agent)}
                   >
@@ -517,7 +517,7 @@ export function AgentEditor({ tab }: AgentEditorProps): JSX.Element {
                       type="button"
                       className={[
                         'flex w-full items-start gap-2 rounded px-2 py-2 text-left transition-colors',
-                        skill.id === selectedSkillId ? 'bg-interactive-selected text-accent' : 'text-default hover:bg-surface-hover',
+                        skill.id === selectedSkillId ? 'bg-state-selected text-accent' : 'text-default hover:bg-state-hover',
                       ].join(' ')}
                       onClick={() => selectSkill(skill)}
                     >

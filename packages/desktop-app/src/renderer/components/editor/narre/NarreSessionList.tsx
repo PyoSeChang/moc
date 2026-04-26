@@ -76,7 +76,7 @@ export function NarreSessionList({
       {/* Session list or empty state */}
       {sessions.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-state-hover">
             <Sparkles size={24} className="text-muted" />
           </div>
           <p className="text-sm text-secondary">
@@ -96,7 +96,7 @@ export function NarreSessionList({
             {sessions.map((session) => (
               <button
                 key={session.id}
-                className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors bg-surface-card hover:bg-surface-hover"
+                className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors bg-surface-card hover:bg-state-hover"
                 onClick={() => onSelectSession(session.id)}
               >
                 <div className="mt-0.5 shrink-0">

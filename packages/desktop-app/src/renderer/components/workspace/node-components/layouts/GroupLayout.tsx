@@ -26,7 +26,7 @@ export const GroupLayout: React.FC<ShapeLayoutProps> = ({
           <button
             type="button"
             aria-label={collapsed ? 'Expand container' : 'Collapse container'}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-default bg-surface-base text-[10px] text-secondary hover:border-strong hover:text-default"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-default bg-surface-editor text-[10px] text-secondary hover:border-strong hover:text-default"
             onMouseDown={(e) => {
               e.stopPropagation();
               e.preventDefault();

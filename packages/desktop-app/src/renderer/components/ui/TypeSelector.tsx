@@ -191,7 +191,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
     <>
       <div
         ref={triggerRef}
-        className={`flex min-w-[140px] items-start gap-2 rounded-lg border border-input bg-input px-2.5 py-1.5 text-sm outline-none transition-all duration-fast hover:border-strong focus:border-accent ${open ? 'border-accent' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+        className={`flex min-w-[140px] items-start gap-2 rounded-lg border border-input bg-surface-input px-2.5 py-1.5 text-sm outline-none transition-all duration-fast hover:border-strong focus:border-accent ${open ? 'border-accent' : ''} ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
         onClick={handleOpen}
         onKeyDown={handleKeyDown}
         tabIndex={disabled ? -1 : 0}
@@ -232,12 +232,12 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="flex w-[100px] shrink-0 flex-col border-r border-subtle bg-surface-base">
+          <div className="flex w-[100px] shrink-0 flex-col border-r border-subtle bg-surface-editor">
             <button
               className={`px-2.5 py-1.5 text-left text-xs transition-colors ${
                 activeCategory === 'all'
-                  ? 'bg-interactive-selected text-accent'
-                  : 'text-secondary hover:bg-surface-hover hover:text-default'
+                  ? 'bg-state-selected text-accent'
+                  : 'text-secondary hover:bg-state-hover hover:text-default'
               }`}
               onClick={() => setActiveCategory('all')}
             >
@@ -251,8 +251,8 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
                   key={category.key}
                   className={`px-2.5 py-1.5 text-left text-xs transition-colors ${
                     activeCategory === category.key
-                      ? 'bg-interactive-selected text-accent'
-                      : 'text-secondary hover:bg-surface-hover hover:text-default'
+                      ? 'bg-state-selected text-accent'
+                      : 'text-secondary hover:bg-state-hover hover:text-default'
                   }`}
                   onClick={() => setActiveCategory(category.key)}
                 >
@@ -279,7 +279,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
             </div>
 
             {(constraintLabel || constraintDescription || (allowedTypeLabels?.length ?? 0) > 0) && (
-              <div className="border-b border-subtle bg-surface-base px-3 py-2">
+              <div className="border-b border-subtle bg-surface-editor px-3 py-2">
                 {constraintLabel && (
                   <div className="text-xs font-medium text-default">
                     {constraintLabel}
@@ -295,7 +295,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
                     {allowedTypeLabels?.map((label) => (
                       <span
                         key={label}
-                        className="rounded bg-surface-hover px-2 py-0.5 text-[11px] text-secondary"
+                        className="rounded bg-state-hover px-2 py-0.5 text-[11px] text-secondary"
                       >
                         {label}
                       </span>
@@ -311,7 +311,7 @@ export const TypeSelector: React.FC<TypeSelectorProps> = ({
                   <button
                     key={typeOption.value}
                     type="button"
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-surface-hover ${
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-state-hover ${
                       typeOption.value === value ? 'bg-accent-muted text-accent' : 'text-default'
                     }`}
                     onClick={() => {

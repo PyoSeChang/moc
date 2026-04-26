@@ -1,9 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Boxes, ChevronDown, ChevronRight, CircleDot, FolderOpen, Layers3, Shapes, Share2, Waypoints } from 'lucide-react';
+import {
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  CircleDot,
+  FileText,
+  FolderOpen,
+  FolderTree,
+  Layers3,
+  Shapes,
+  Share2,
+  Waypoints,
+} from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 
-export type NetworkBrowserObjectType = 'network' | 'project' | 'concept' | 'archetype' | 'relation_type' | 'context';
+export type NetworkBrowserObjectType =
+  | 'network'
+  | 'project'
+  | 'concept'
+  | 'archetype'
+  | 'relation_type'
+  | 'context'
+  | 'file'
+  | 'module'
+  | 'folder';
 
 export interface NetworkBrowserItem {
   id: string;
@@ -36,6 +57,9 @@ const ICONS: Record<NetworkBrowserObjectType, React.ElementType> = {
   archetype: Shapes,
   relation_type: Share2,
   context: Layers3,
+  file: FileText,
+  module: FolderTree,
+  folder: FolderOpen,
 };
 
 export function NetworkObjectBrowser({
@@ -222,15 +246,15 @@ export function NetworkObjectBrowser({
                           type="button"
                           className={`grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-3 border-t border-subtle px-4 py-3 text-left transition-colors first:border-t-0 ${
                             selected
-                              ? 'bg-interactive-selected text-accent'
+                              ? 'bg-state-selected text-accent'
                               : item.isActive
                                 ? 'bg-accent-muted/40 text-accent'
-                                : 'text-default hover:bg-surface-hover'
+                                : 'text-default hover:bg-state-hover'
                           }`}
                           onClick={() => onSelect(item)}
                           onDoubleClick={() => onOpen(item)}
                         >
-                          <div className={`rounded-lg p-2 ${selected ? 'bg-accent-muted text-accent' : 'bg-surface-base text-secondary'}`}>
+                          <div className={`rounded-lg p-2 ${selected ? 'bg-accent-muted text-accent' : 'bg-surface-editor text-secondary'}`}>
                             <Icon size={16} className="shrink-0" />
                           </div>
                           <div className="min-w-0 flex-1">

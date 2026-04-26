@@ -46,7 +46,7 @@ export function NodeNetworkOverlay({ conceptId, x, y, onClose }: NodeNetworkOver
         <button
           key={c.id}
           type="button"
-          className="w-full text-left px-3 py-1 text-xs text-default hover:bg-surface-hover transition-colors"
+          className="w-full text-left px-3 py-1 text-xs text-default hover:bg-state-hover transition-colors"
           onClick={() => handleClick(c.id)}
         >
           {c.name}

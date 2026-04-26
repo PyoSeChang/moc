@@ -7,11 +7,21 @@ module.exports = {
     extend: {
       colors: {
         surface: {
-          base: 'var(--surface-base)',
+          chrome: 'var(--surface-chrome)',
+          rail: 'var(--surface-rail)',
+          canvas: 'var(--surface-canvas)',
+          editor: 'var(--surface-editor)',
           panel: 'var(--surface-panel)',
           card: 'var(--surface-card)',
-          hover: 'var(--surface-hover)',
-          modal: 'var(--surface-modal)',
+          floating: 'var(--surface-floating)',
+          input: 'var(--surface-input)',
+          overlay: 'var(--surface-overlay)',
+        },
+        state: {
+          hover: 'var(--state-hover-bg)',
+          selected: 'var(--state-selected-bg)',
+          muted: 'var(--state-muted-bg)',
+          drop: 'var(--state-drop-bg)',
         },
         accent: {
           DEFAULT: 'var(--accent)',
@@ -45,11 +55,7 @@ module.exports = {
         },
       },
       backgroundColor: {
-        overlay: 'var(--surface-overlay)',
-        input: 'var(--input-bg)',
         'on-accent': 'var(--text-on-accent)',
-        'interactive-selected': 'var(--bg-interactive-selected)',
-        'interactive-muted': 'var(--bg-interactive-muted)',
       },
       boxShadow: {
         'primary-sm': 'var(--shadow-primary-sm)',

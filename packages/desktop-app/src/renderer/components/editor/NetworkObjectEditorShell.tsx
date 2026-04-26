@@ -36,7 +36,7 @@ export function NetworkObjectEditorShell({
   children,
 }: NetworkObjectEditorShellProps): JSX.Element {
   return (
-    <div className="min-h-full bg-[var(--surface-editor)]">
+    <div className="min-h-full bg-surface-editor">
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-5">
         {showHeader && (
           <section className="rounded-xl border border-default bg-surface-panel p-5 shadow-sm">
@@ -100,7 +100,7 @@ export function NetworkObjectMetadataList({ items }: NetworkObjectMetadataListPr
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((item) => (
-        <div key={item.label} className="rounded-lg border border-subtle bg-surface-base px-3 py-2">
+        <div key={item.label} className="rounded-lg border border-subtle bg-surface-editor px-3 py-2">
           <div className="text-[11px] font-medium uppercase tracking-wide text-muted">{item.label}</div>
           <div className="mt-1 break-all text-sm text-default">{item.value}</div>
         </div>

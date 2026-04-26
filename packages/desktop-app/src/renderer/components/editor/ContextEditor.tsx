@@ -164,7 +164,7 @@ export function ContextEditor({ tab }: ContextEditorProps): JSX.Element {
             </Button>
           )}
         >
-          <div className="rounded-lg border border-subtle bg-surface-base">
+          <div className="rounded-lg border border-subtle bg-surface-editor">
             {memberSummaries.length > 0 ? (
               <div className="flex flex-col divide-y divide-subtle">
                 {memberSummaries.map((member) => (

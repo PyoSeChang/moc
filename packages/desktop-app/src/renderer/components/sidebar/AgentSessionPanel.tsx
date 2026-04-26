@@ -150,7 +150,7 @@ export function AgentSessionPanel({ projectId }: AgentSessionPanelProps): JSX.El
             <button
               key={session.id}
               type="button"
-              className="rounded border border-subtle bg-surface-card px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+              className="rounded border border-subtle bg-surface-card px-3 py-2 text-left transition-colors hover:bg-state-hover"
               onClick={() => {
                 void handleSessionOpen(session);
               }}
@@ -205,7 +205,7 @@ export function AgentSessionPanel({ projectId }: AgentSessionPanelProps): JSX.El
               <button
                 key={`${event.seq}:${event.sessionId}`}
                 type="button"
-                className="rounded border border-subtle bg-surface-card px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                className="rounded border border-subtle bg-surface-card px-3 py-2 text-left transition-colors hover:bg-state-hover"
                 onClick={() => {
                   void handleSessionOpen(event.snapshot);
                 }}

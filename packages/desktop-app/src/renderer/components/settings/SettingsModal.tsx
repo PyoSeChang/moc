@@ -1,12 +1,14 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Palette, Globe, Bell, Boxes, Sparkles } from 'lucide-react';
+import { X, Search, Palette, Globe, Bell, Boxes, Sparkles, Pin } from 'lucide-react';
 import type { NarreBehaviorSettings, NarreCodexSettings } from '@netior/shared/types';
 import {
   buildRoleFontFamily,
   getPrimaryFontFamily,
   useSettingsStore,
   getPrimaryPresets,
+  getThemeColorTokens,
+  getThemeTokenPresets,
   getTerminalPresets,
   type AppFontRole,
   type FontRoleConfig,
@@ -25,6 +27,7 @@ import { Select, type SelectOption } from '../ui/Select';
 import { Spinner } from '../ui/Spinner';
 import { TextArea } from '../ui/TextArea';
 import { Toggle } from '../ui/Toggle';
+import { SidebarSettingsPanel } from './SidebarSettingsPanel';
 
 interface SettingsModalProps {
   open: boolean;
@@ -36,6 +39,100 @@ interface CategoryItem {
   icon: React.ElementType;
   label: string;
   anchors: string[];
+}
+
+function normalizeHexDraft(value: string, fallback: string): string {
+  const normalized = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(normalized)) {
+    const [, r, g, b] = normalized;
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
+}
+
+function rgbCssToHex(value: string): string | null {
+  const rgbMatch = value.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+  const srgbMatch = value.match(/color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
+  const parts = rgbMatch
+    ? [rgbMatch[1], rgbMatch[2], rgbMatch[3]]
+    : srgbMatch
+      ? srgbMatch.slice(1, 4).map((part) => String(Math.round(Number(part) * 255)))
+      : null;
+  if (!parts) return null;
+  return `#${parts
+    .map((part) => Math.max(0, Math.min(255, Math.round(Number(part)))).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+function resolveCssVarHex(cssVar: string): string {
+  if (typeof document === 'undefined' || !document.body) return '#000000';
+  const probe = document.createElement('span');
+  probe.style.color = `var(${cssVar})`;
+  probe.style.position = 'fixed';
+  probe.style.pointerEvents = 'none';
+  probe.style.opacity = '0';
+  document.body.appendChild(probe);
+  const resolved = rgbCssToHex(getComputedStyle(probe).color);
+  probe.remove();
+  return resolved ?? '#000000';
+}
+
+function ThemeTokenInput({
+  label,
+  description,
+  value,
+  onCommit,
+}: {
+  label: string;
+  description: string;
+  value: string;
+  onCommit: (value: string) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const commit = useCallback((rawValue: string) => {
+    const normalized = normalizeHexDraft(rawValue, value);
+    setDraft(normalized);
+    onCommit(normalized);
+  }, [onCommit, value]);
+
+  return (
+    <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-3">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-default">{label}</div>
+          <div className="mt-1 text-xs leading-4 text-muted">{description}</div>
+        </div>
+        <div className="h-6 w-6 shrink-0 rounded border border-default" style={{ background: value }} />
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => commit(e.target.value)}
+          className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-input bg-surface-input p-1"
+          aria-label={`${label} color`}
+        />
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              commit((e.currentTarget as HTMLInputElement).value);
+              e.currentTarget.blur();
+            }
+          }}
+          placeholder="#242424"
+        />
+      </div>
+    </div>
+  );
 }
 
 interface PrimaryColorPanelProps {
@@ -114,8 +211,8 @@ function PrimaryColorPanel({
             type="button"
             className={`rounded-xl border p-3 text-left transition-all ${
               darkTheme.primaryMode === 'preset' && darkTheme.primaryPresetId === preset.id
-                ? 'border-accent bg-interactive-selected text-accent shadow-sm'
-                : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                ? 'border-accent bg-state-selected text-accent shadow-sm'
+                : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-state-hover/60 hover:text-default'
             }`}
             onClick={() => setPreset(preset.id)}
           >
@@ -141,7 +238,7 @@ function PrimaryColorPanel({
             type="color"
             value={activeColor}
             onChange={(e) => setCustomColor(e.target.value)}
-            className="h-10 w-16 shrink-0 cursor-pointer rounded-lg border border-input bg-input p-1"
+            className="h-10 w-16 shrink-0 cursor-pointer rounded-lg border border-input bg-surface-input p-1"
             aria-label={t('settings.openColorPicker')}
           />
           <Input
@@ -158,6 +255,205 @@ function PrimaryColorPanel({
           />
         </div>
       </div>
+    </section>
+  );
+}
+
+function ThemeTokenPreview(): JSX.Element {
+  return (
+    <div className="mt-5 overflow-hidden rounded-xl border border-subtle bg-surface-chrome p-3">
+      <div className="mb-3 flex items-center justify-between gap-3 text-xs text-muted">
+        <span className="font-semibold text-default">토큰 미리보기</span>
+        <span>chrome / rail / pane / state / accent</span>
+      </div>
+
+      <div className="grid min-h-[260px] gap-3 lg:grid-cols-[1fr_1.2fr]">
+        <div className="relative overflow-hidden rounded-lg bg-surface-canvas p-4">
+          <div
+            className="absolute inset-0 opacity-45"
+            style={{
+              backgroundImage: 'radial-gradient(circle, var(--border-subtle) 1px, transparent 1px)',
+              backgroundSize: '14px 14px',
+            }}
+          />
+          <div className="relative flex h-full flex-col justify-between">
+            <div className="flex items-center justify-between rounded-lg bg-surface-rail px-3 py-2 text-xs text-secondary">
+              <span>Canvas toolbar</span>
+              <span className="rounded bg-state-muted px-2 py-0.5 text-accent">81%</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className="rounded-lg px-3 py-2 text-xs text-default"
+                style={{
+                  background: 'var(--surface-node)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
+                <div className="font-semibold">Node</div>
+                <div className="text-muted">surface-node</div>
+              </div>
+              <div
+                className="rounded-lg px-3 py-2 text-xs text-default"
+                style={{
+                  background: 'var(--surface-node-selected)',
+                  border: '1px solid var(--border-accent)',
+                }}
+              >
+                <div className="font-semibold text-accent">Selected Node</div>
+                <div className="text-muted">accent border</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 gap-3">
+          <div className="flex w-12 shrink-0 flex-col items-center gap-3 rounded-lg bg-surface-rail py-3">
+            <span className="h-5 w-5 rounded bg-state-hover" />
+            <span className="h-5 w-5 rounded bg-state-selected" />
+            <span className="h-5 w-5 rounded bg-state-muted" />
+            <span className="mt-auto h-5 w-5 rounded bg-accent" />
+          </div>
+
+          <div className="min-w-0 flex-1 overflow-hidden rounded-lg bg-surface-editor">
+            <div className="flex h-9 items-end bg-surface-chrome px-3">
+              <div
+                className="flex h-7 items-center gap-2 rounded-t-lg px-3 text-xs font-semibold text-default"
+                style={{
+                  background: 'var(--surface-editor)',
+                  border: '1px solid var(--border-default)',
+                  borderBottom: 0,
+                }}
+              >
+                <span className="h-1.5 w-5 rounded-full bg-accent" />
+                Preview.md
+              </div>
+            </div>
+
+            <div className="grid gap-3 p-4 md:grid-cols-[1fr_160px]">
+              <div className="space-y-3">
+                <div className="rounded-lg bg-state-hover px-3 py-2 text-xs text-default">
+                  Hover row
+                </div>
+                <div className="rounded-lg bg-state-selected px-3 py-2 text-xs text-accent">
+                  Selected row
+                </div>
+                <div className="rounded-lg bg-state-drop px-3 py-2 text-xs text-default">
+                  Drop target
+                </div>
+                <div className="rounded-lg border border-input bg-surface-input px-3 py-2 text-xs text-secondary">
+                  Input surface
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded bg-accent px-2 py-1 text-xs text-on-accent">Accent</span>
+                  <span className="rounded px-2 py-1 text-xs text-on-accent" style={{ background: 'var(--accent-hover)' }}>
+                    Accent hover
+                  </span>
+                  <span className="rounded bg-accent-muted px-2 py-1 text-xs text-accent">Muted</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="rounded-lg border border-subtle bg-surface-panel p-3 text-xs text-default">
+                  Panel
+                </div>
+                <div className="rounded-lg border border-default bg-surface-card p-3 text-xs text-default">
+                  Card
+                </div>
+                <div
+                  className="rounded-lg bg-surface-floating p-3 text-xs text-default"
+                  style={{ border: '1px solid var(--border-strong)' }}
+                >
+                  Floating
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ThemeTokenPanelProps {
+  mode: ResolvedThemeMode;
+  theme: ThemeSlotConfig;
+  themeRevision: number;
+  onSetTokenOverride: (mode: ResolvedThemeMode, cssVar: string, color: string) => void;
+  onApplyPreset: (mode: ResolvedThemeMode, presetId: string) => void;
+  onReset: (mode: ResolvedThemeMode) => void;
+}
+
+function ThemeTokenPanel({
+  mode,
+  theme,
+  themeRevision,
+  onSetTokenOverride,
+  onApplyPreset,
+  onReset,
+}: ThemeTokenPanelProps): JSX.Element {
+  const tokens = getThemeColorTokens();
+  const presets = getThemeTokenPresets();
+  const [resolvedColors, setResolvedColors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setResolvedColors(Object.fromEntries(tokens.map((token) => [token.cssVar, resolveCssVarHex(token.cssVar)])));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [mode, themeRevision, tokens]);
+
+  return (
+    <section data-section="theme-token-colors" className="mb-10">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-default">토큰 색상</h3>
+          <p className="mt-1 text-sm text-secondary">
+            현재 {mode === 'dark' ? 'dark' : 'light'} 모드의 주요 surface/border 토큰을 HEX로 직접 조정합니다.
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => onReset(mode)}>
+          초기화
+        </Button>
+      </div>
+
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {presets.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            className="rounded-xl border border-subtle bg-surface-card p-3 text-left text-secondary transition-all hover:border-default hover:bg-state-hover/60 hover:text-default"
+            onClick={() => onApplyPreset(mode, preset.id)}
+            title={preset.source}
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-default">{preset.label}</div>
+              <div className="flex shrink-0 overflow-hidden rounded border border-default">
+                {preset.preview.map((color) => (
+                  <span key={color} className="h-4 w-5" style={{ background: color }} />
+                ))}
+              </div>
+            </div>
+            <div className="text-xs leading-5 text-muted">{preset.description}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {tokens.map((token) => {
+          const value = theme.tokenOverrides[token.cssVar] ?? resolvedColors[token.cssVar] ?? '#000000';
+          return (
+            <ThemeTokenInput
+              key={token.cssVar}
+              label={token.label}
+              description={token.description}
+              value={value}
+              onCommit={(color) => onSetTokenOverride(mode, token.cssVar, color)}
+            />
+          );
+        })}
+      </div>
+
+      <ThemeTokenPreview />
     </section>
   );
 }
@@ -187,8 +483,8 @@ function TerminalPresetPanel({
             type="button"
             className={`rounded-xl border p-4 text-left transition-all ${
               terminalPresetId === preset.id
-                ? 'border-accent bg-interactive-selected text-accent shadow-sm'
-                : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                ? 'border-accent bg-state-selected text-accent shadow-sm'
+                : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-state-hover/60 hover:text-default'
             }`}
             onClick={() => onSelect(preset.id)}
           >
@@ -316,7 +612,7 @@ function FontRoleCard({
       </div>
 
       <div
-        className="mb-4 rounded-lg border border-subtle bg-surface-base px-3 py-3 text-default"
+        className="mb-4 rounded-lg border border-subtle bg-surface-editor px-3 py-3 text-default"
         style={{
           fontFamily: config.fontFamily,
           fontSize: `${config.fontSize}px`,
@@ -466,7 +762,7 @@ function TerminalAppearancePanel({
             <FontSourceHint fontError={fontError} t={t} />
           </div>
           <div
-            className="rounded-lg border border-subtle bg-[var(--surface-editor)] px-3 py-3 text-default"
+            className="rounded-lg border border-subtle bg-surface-editor px-3 py-3 text-default"
             style={{
               fontFamily: terminalAppearance.fontFamily,
               fontSize: `${terminalAppearance.fontSize}px`,
@@ -1066,6 +1362,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
   const {
     appearanceMode,
     resolvedThemeMode,
+    themeRevision,
     lightTheme,
     darkTheme,
     locale,
@@ -1081,6 +1378,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     setThemePrimaryMode,
     setThemePrimaryPreset,
     setThemePrimaryCustomColor,
+    setThemeTokenOverride,
+    applyThemeTokenPreset,
+    resetThemeTokenOverrides,
     setLocale,
     setDetachedAgentToastMode,
     setNativeAgentNotificationsEnabled,
@@ -1110,6 +1410,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
         t('settings.appearanceMode'),
         t('settings.networkViewerPlacement' as never),
         t('settings.primaryPalette'),
+        '토큰 색상',
         t('settings.typography'),
         t('settings.terminalPreset'),
         t('settings.terminalAppearance'),
@@ -1136,6 +1437,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
       icon: Boxes,
       label: t('settings.categoryModeling' as never),
       anchors: [t('settings.fieldComplexity' as never)],
+    },
+    {
+      key: 'sidebar',
+      icon: Pin,
+      label: t('settings.categorySidebar' as never),
+      anchors: [
+        t('settings.sidebarTopItems' as never),
+        t('settings.sidebarBookmarkedNetworks' as never),
+        t('settings.sidebarBottomItems' as never),
+      ],
     },
     {
       key: 'narre',
@@ -1261,6 +1572,27 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     t('settings.fieldComplexityStandard' as never),
     t('settings.fieldComplexityAdvanced' as never),
   ].some(matchesSearch);
+  const showSidebar = [
+    t('settings.categorySidebar' as never),
+    t('settings.sidebarTopItems' as never),
+    t('settings.sidebarTopItemsDesc' as never),
+    t('settings.sidebarBookmarkedNetworks' as never),
+    t('settings.sidebarBookmarkedNetworksDesc' as never),
+    t('settings.sidebarAvailableNetworks' as never),
+    t('settings.sidebarAvailableNetworksDesc' as never),
+    t('settings.sidebarBottomItems' as never),
+    t('settings.sidebarBottomItemsDesc' as never),
+    t('settings.sidebarNoProject' as never),
+    t('settings.sidebarNoBookmarks' as never),
+    t('settings.sidebarNoAvailableNetworks' as never),
+    t('sidebar.networks'),
+    t('sidebar.objects'),
+    t('sidebar.files'),
+    t('sidebar.sessions' as never),
+    t('sidebar.terminal' as never),
+    t('sidebar.agents' as never),
+    t('sidebar.settings' as never),
+  ].some(matchesSearch);
   const showNarre = [
     t('settings.categoryNarre'),
     t('settings.narreProvider'),
@@ -1278,10 +1610,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
     <div className="fixed inset-0 flex animate-in fade-in duration-200" style={{ zIndex: 10000 }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 m-auto flex h-[90vh] w-[min(94vw,1120px)] overflow-hidden rounded-xl border border-subtle bg-surface-modal shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
-        <div className="flex w-60 shrink-0 flex-col border-r border-subtle bg-[var(--surface-sidebar-panel)]">
+      <div className="relative z-10 m-auto flex h-[90vh] w-[min(94vw,1120px)] overflow-hidden rounded-xl border border-subtle bg-surface-floating shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
+        <div className="flex w-60 shrink-0 flex-col border-r border-subtle bg-surface-panel">
           <div className="p-3">
-            <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-base px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-editor px-3 py-1.5">
               <Search size={14} className="shrink-0 text-muted" />
               <input
                 ref={searchRef}
@@ -1300,8 +1632,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                 <button
                   className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
                     activeCategory === key
-                      ? 'bg-interactive-selected text-accent'
-                      : 'text-secondary hover:bg-surface-hover hover:text-default'
+                      ? 'bg-state-selected text-accent'
+                      : 'text-secondary hover:bg-state-hover hover:text-default'
                   }`}
                   onClick={() => handleCategoryClick(key)}
                 >
@@ -1332,7 +1664,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
               {categories.find((c) => c.key === activeCategory)?.label ?? t('settings.title')}
             </h2>
             <button
-              className="rounded-md p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+              className="rounded-md p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
               onClick={onClose}
             >
               <X size={20} />
@@ -1381,8 +1713,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                         key={key}
                         className={`rounded-xl border p-4 text-left transition-all ${
                           networkViewerPlacement === key
-                            ? 'border-accent bg-interactive-selected text-accent shadow-sm'
-                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                            ? 'border-accent bg-state-selected text-accent shadow-sm'
+                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-state-hover/60 hover:text-default'
                         }`}
                         onClick={() => setNetworkViewerPlacement(key)}
                       >
@@ -1399,6 +1731,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                   onSetPrimaryMode={setThemePrimaryMode}
                   onSetPrimaryPreset={setThemePrimaryPreset}
                   onSetPrimaryCustomColor={setThemePrimaryCustomColor}
+                />
+
+                <ThemeTokenPanel
+                  mode={resolvedThemeMode}
+                  theme={resolvedThemeMode === 'dark' ? darkTheme : lightTheme}
+                  themeRevision={themeRevision}
+                  onSetTokenOverride={setThemeTokenOverride}
+                  onApplyPreset={applyThemeTokenPreset}
+                  onReset={resetThemeTokenOverrides}
                 />
 
                 <TypographyPanel
@@ -1556,8 +1897,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
                         key={key}
                         className={`rounded-xl border p-4 text-left transition-all ${
                           fieldComplexityLevel === key
-                            ? 'border-accent bg-interactive-selected text-accent shadow-sm'
-                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-surface-hover/60 hover:text-default'
+                            ? 'border-accent bg-state-selected text-accent shadow-sm'
+                            : 'border-subtle bg-surface-card text-secondary hover:border-default hover:bg-state-hover/60 hover:text-default'
                         }`}
                         onClick={() => setFieldComplexityLevel(key)}
                       >
@@ -1570,11 +1911,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Elemen
               </div>
             )}
 
+            {(activeCategory === 'sidebar' || searchQuery) && showSidebar && (
+              <SidebarSettingsPanel />
+            )}
+
             {(activeCategory === 'narre' || searchQuery) && showNarre && (
               <NarreSettingsPanel open={open} t={t} />
             )}
 
-            {searchQuery && !showAppearance && !showLanguage && !showDetachedAgentToasts && !showModeling && !showNarre && (
+            {searchQuery && !showAppearance && !showLanguage && !showDetachedAgentToasts && !showModeling && !showSidebar && !showNarre && (
               <div className="flex flex-col items-center justify-center py-16 text-muted">
                 <Search size={32} className="mb-3 opacity-40" />
                 <p className="text-sm">{t('common.noResults')}</p>

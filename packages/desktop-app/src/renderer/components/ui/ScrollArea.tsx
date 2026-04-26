@@ -7,7 +7,7 @@ export interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const ScrollArea: React.FC<ScrollAreaProps> = ({ children, className = '', style, ...props }) => {
   return (
-    <div className={`overflow-y-auto overflow-x-hidden ${className}`} style={style} {...props}>
+    <div className={`netior-scrollbar overflow-y-auto overflow-x-hidden ${className}`} style={style} {...props}>
       {children}
     </div>
   );

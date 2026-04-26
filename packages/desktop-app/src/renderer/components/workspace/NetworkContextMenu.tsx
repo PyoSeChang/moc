@@ -48,13 +48,13 @@ export function NetworkContextMenu({
 
   return (
     <div
-      className="fixed z-50 rounded-md border border-default bg-surface-modal py-1 shadow-lg min-w-[180px]"
+      className="fixed z-50 rounded-md border border-default bg-surface-floating py-1 shadow-lg min-w-[180px]"
       style={{ left: x, top: y }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       {onCreateConcept && (
         <button
-          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-state-hover cursor-pointer"
           onClick={() => {
             onCreateConcept();
             onClose();
@@ -67,7 +67,7 @@ export function NetworkContextMenu({
 
       {onAddObject && (
         <button
-          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-state-hover cursor-pointer"
           onClick={() => {
             onAddObject();
             onClose();
@@ -80,7 +80,7 @@ export function NetworkContextMenu({
 
       {onAddFileNode && (
         <button
-          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+          className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-state-hover cursor-pointer"
           onClick={() => {
             onAddFileNode();
             onClose();
@@ -101,7 +101,7 @@ export function NetworkContextMenu({
           {siblingNetworks.map((c) => (
             <button
               key={c.id}
-              className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-surface-hover cursor-pointer"
+              className="flex w-full items-center gap-2 px-3 py-1 text-xs text-default hover:bg-state-hover cursor-pointer"
               onClick={() => handleSwitch(c.id)}
             >
               {c.name}

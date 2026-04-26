@@ -150,7 +150,7 @@ export function FileMetadataEditor({ tab }: FileMetadataEditorProps): JSX.Elemen
               {session.state.fileMeta.pdf_toc != null && (
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-secondary">PDF TOC</label>
-                  <pre className="text-xs text-muted bg-surface-base rounded p-2 overflow-auto max-h-[200px]">
+                  <pre className="text-xs text-muted bg-surface-editor rounded p-2 overflow-auto max-h-[200px]">
                     {String(JSON.stringify(session.state.fileMeta.pdf_toc, null, 2))}
                   </pre>
                 </div>

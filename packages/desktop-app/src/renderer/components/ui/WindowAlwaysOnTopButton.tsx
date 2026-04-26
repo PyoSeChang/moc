@@ -35,7 +35,7 @@ export function WindowAlwaysOnTopButton({
         pinLabel="Always On Top"
         unpinLabel="Disable Always On Top"
         tooltipPosition="bottom"
-        className="rounded-md border border-subtle bg-surface-base p-1.5"
+        className="rounded-md border border-subtle bg-surface-editor p-1.5"
       />
     </div>
   );

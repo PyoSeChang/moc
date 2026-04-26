@@ -12,9 +12,9 @@ export function NetworkBreadcrumb(): JSX.Element | null {
   if (breadcrumbs.length <= 1) return null;
 
   return (
-    <div className="flex items-center gap-1 bg-surface-panel border-b border-subtle px-2 py-1">
+    <div className="flex min-w-0 items-center gap-1 bg-transparent px-1 py-1">
       <button
-        className="flex items-center justify-center rounded p-0.5 text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed"
+        className="flex items-center justify-center rounded p-0.5 text-secondary hover:bg-state-hover disabled:opacity-30 disabled:cursor-not-allowed"
         disabled={networkHistory.length === 0}
         onClick={() => navigateBack()}
         aria-label={t('network.navigateBack')}
@@ -29,15 +29,15 @@ export function NetworkBreadcrumb(): JSX.Element | null {
         return (
           <React.Fragment key={crumb.networkId}>
             {idx > 0 && (
-              <ChevronRight size={12} className="text-text-muted shrink-0" />
+              <ChevronRight size={12} className="shrink-0 text-muted" />
             )}
             {isLast ? (
-              <span className="text-xs text-accent font-medium truncate">
+              <span className="max-w-[180px] truncate text-xs font-medium text-accent">
                 {label}
               </span>
             ) : (
               <button
-                className="text-xs text-text-secondary hover:text-text-default hover:underline truncate"
+                className="max-w-[160px] truncate text-xs text-secondary hover:text-default hover:underline"
                 onClick={() => navigateToBreadcrumb(crumb.networkId)}
               >
                 {label}

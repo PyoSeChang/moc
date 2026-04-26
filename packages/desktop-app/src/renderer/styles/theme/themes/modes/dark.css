@@ -1,29 +1,24 @@
 :root[data-mode="dark"] {
     --theme-background-image: none;
 
-    /* Core roles */
-    --bg-app: #242424;
-    --bg-sidebar: #262626;
-    --bg-workspace: #242424;
-    --bg-canvas: #242424;
-    --bg-panel: #2c2c2c;
-    --bg-elevated: #363636;
-    --bg-float: #303030;
-    --bg-titlebar: #2c2c2c;
-    --bg-tabstrip: var(--bg-titlebar);
-    --bg-sidebar-panel: #2c2c2c;
-    --bg-tool-panel: #303030;
-    --bg-editor: #242424;
-    --bg-document: hsl(220, 18%, 97%);
-    --bg-document-shadow: rgba(0, 0, 0, 0.32);
-    --bg-input: #242424;
-    --bg-overlay: rgba(0, 0, 0, 0.66);
-    --bg-node: #363636;
-    --bg-node-selected: #404040;
-    --bg-interactive-hover: #454545;
-    --bg-interactive-selected: color-mix(in srgb, var(--palette-primary-500) 18%, transparent);
-    --bg-interactive-muted: color-mix(in srgb, var(--palette-primary-500) 10%, transparent);
-    --bg-selection-soft: color-mix(in srgb, var(--palette-primary-400) 20%, transparent);
+    /* Surface roles */
+    --surface-chrome: var(--theme-dark-surface-chrome, #242424);
+    --surface-rail: var(--theme-dark-surface-rail, #262626);
+    --surface-canvas: var(--theme-dark-surface-canvas, #242424);
+    --surface-editor: var(--theme-dark-surface-editor, #242424);
+    --surface-panel: var(--theme-dark-surface-panel, #2c2c2c);
+    --surface-card: var(--theme-dark-surface-card, #363636);
+    --surface-floating: var(--theme-dark-surface-floating, #303030);
+    --surface-input: var(--theme-dark-surface-input, #242424);
+    --surface-overlay: rgba(0, 0, 0, 0.66);
+    --surface-document: hsl(220, 18%, 97%);
+    --surface-document-shadow: rgba(0, 0, 0, 0.32);
+    --surface-node: #363636;
+    --surface-node-selected: #404040;
+    --state-hover-bg: var(--theme-dark-state-hover-bg, #454545);
+    --state-selected-bg: color-mix(in srgb, var(--palette-primary-500) 18%, transparent);
+    --state-muted-bg: color-mix(in srgb, var(--palette-primary-500) 10%, transparent);
+    --state-drop-bg: color-mix(in srgb, var(--palette-primary-400) 20%, transparent);
 
     --text-strong: #ffffff;
     --text-default: #f0f0f0;
@@ -47,7 +42,6 @@
     --status-error: #f85149;
     --status-info: #58a6ff;
 
-    --input-bg: var(--bg-input);
     --input-border: var(--border-default);
     --input-placeholder: var(--text-dim);
 
@@ -58,21 +52,10 @@
     --shadow-panel: 0 12px 32px -18px rgba(0, 0, 0, 0.7);
     --shadow-float: 0 26px 60px -24px rgba(0, 0, 0, 0.78);
     --shadow-node: 0 18px 32px -24px rgba(0, 0, 0, 0.8);
-    --shadow-document: 0 18px 48px -28px var(--bg-document-shadow);
+    --shadow-document: 0 18px 48px -28px var(--surface-document-shadow);
     --shadow-focus: 0 0 0 1px color-mix(in srgb, var(--border-accent) 72%, transparent),
         0 0 0 4px color-mix(in srgb, var(--accent) 24%, transparent);
 
-    /* Legacy aliases */
-    --surface-base: var(--bg-app);
-    --surface-panel: var(--bg-panel);
-    --surface-card: var(--bg-elevated);
-    --surface-sidebar: var(--bg-sidebar);
-    --surface-sidebar-panel: var(--bg-sidebar-panel);
-    --surface-tool-panel: var(--bg-tool-panel);
-    --surface-editor: var(--bg-editor);
-    --surface-hover: var(--bg-interactive-hover);
-    --surface-modal: var(--bg-float);
-    --surface-overlay: var(--bg-overlay);
     --text-secondary: var(--text-subtle);
     --text-muted: var(--text-dim);
     --border-subtle: var(--border-faint);

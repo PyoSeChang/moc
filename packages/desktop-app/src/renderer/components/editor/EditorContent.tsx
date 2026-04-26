@@ -91,5 +91,5 @@ export function EditorContent({ tab }: EditorContentProps): JSX.Element {
       );
   }
 
-  return <div ref={containerRef} className="h-full min-h-0 w-full min-w-0 bg-[var(--surface-editor)]">{content}</div>;
+  return <div ref={containerRef} className="h-full min-h-0 w-full min-w-0 bg-surface-editor">{content}</div>;
 }

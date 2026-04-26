@@ -27,7 +27,7 @@ export function PinToggleButton({
     <Tooltip content={label} position={tooltipPosition}>
       <button
         type="button"
-        className={`rounded p-0.5 hover:bg-surface-hover ${pinned ? 'text-accent' : 'text-muted hover:text-default'} ${className}`}
+        className={`rounded p-0.5 hover:bg-state-hover ${pinned ? 'text-accent' : 'text-muted hover:text-default'} ${className}`}
         aria-label={label}
         aria-pressed={pinned}
         onClick={() => onPinChange(!pinned)}

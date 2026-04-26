@@ -253,7 +253,7 @@ function InlineRenameInput({
   return (
     <input
       ref={inputRef}
-      className="min-w-0 flex-1 rounded border border-accent bg-surface-base px-1 text-xs text-default outline-none"
+      className="min-w-0 flex-1 rounded border border-accent bg-surface-editor px-1 text-xs text-default outline-none"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={(e) => {
@@ -309,7 +309,7 @@ function InlineNewInput({
       />
       <input
         ref={inputRef}
-        className="min-w-0 flex-1 rounded border border-accent bg-surface-base px-1 text-xs text-default outline-none"
+        className="min-w-0 flex-1 rounded border border-accent bg-surface-editor px-1 text-xs text-default outline-none"
         value={value}
         placeholder={placeholder ?? (type === 'file' ? 'filename' : 'folder name')}
         onChange={(e) => setValue(e.target.value)}
@@ -403,12 +403,12 @@ function FileTreeItem({
 
   const rowClassName = `flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs outline-none transition-opacity ${
     isSelected
-      ? 'bg-interactive-selected text-accent'
+      ? 'bg-state-selected text-accent'
       : node.type === 'directory'
-        ? 'text-default hover:bg-surface-hover'
-        : 'text-secondary hover:bg-surface-hover hover:text-default'
+        ? 'text-default hover:bg-state-hover'
+        : 'text-secondary hover:bg-state-hover hover:text-default'
   } ${isFocused && !isSelected ? 'ring-1 ring-border-default' : ''} ${isCut ? 'opacity-45' : ''} ${
-    isDropTarget ? 'bg-interactive-selected' : ''
+    isDropTarget ? 'bg-state-selected' : ''
   }`;
 
   if (node.type === 'directory') {

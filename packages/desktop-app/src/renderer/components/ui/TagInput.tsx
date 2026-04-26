@@ -34,7 +34,7 @@ export const TagInput: React.FC<TagInputProps> = ({ value = [], onChange, placeh
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-input border border-input rounded-lg min-h-[34px] focus-within:border-accent transition-all">
+    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-input border border-input rounded-lg min-h-[34px] focus-within:border-accent transition-all">
       {value.map((tag) => (
         <span
           key={tag}

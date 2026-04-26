@@ -1,3 +1,47 @@
+!macro _netiorDeleteInstallKeys ROOT_KEY
+  DeleteRegKey ${ROOT_KEY} "${UNINSTALL_REGISTRY_KEY}"
+  !ifdef UNINSTALL_REGISTRY_KEY_2
+    DeleteRegKey ${ROOT_KEY} "${UNINSTALL_REGISTRY_KEY_2}"
+  !endif
+  DeleteRegKey ${ROOT_KEY} "${INSTALL_REGISTRY_KEY}"
+!macroend
+
+!macro _netiorClearStaleTempInstall ROOT_KEY
+  ReadRegStr $R0 ${ROOT_KEY} "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ReadRegStr $R1 ${ROOT_KEY} "${UNINSTALL_REGISTRY_KEY}" UninstallString
+  ${StrContains} $R2 "NetiorInstallTest_" "$R0"
+  ${StrContains} $R3 "NetiorInstallTest_" "$R1"
+  ${If} $R2 != ""
+  ${OrIf} $R3 != ""
+    DetailPrint "Clearing stale temporary ${PRODUCT_NAME} install registration from ${ROOT_KEY}"
+    !insertmacro _netiorDeleteInstallKeys ${ROOT_KEY}
+  ${EndIf}
+!macroend
+
+!macro _netiorUseDefaultInstallDir
+  ${If} $installMode == "all"
+    StrCpy $INSTDIR "$PROGRAMFILES\${APP_FILENAME}"
+  ${Else}
+    StrCpy $INSTDIR "$LocalAppData\Programs\${APP_FILENAME}"
+  ${EndIf}
+!macroend
+
+!macro customInit
+  !insertmacro _netiorClearStaleTempInstall HKCU
+  ${If} $installMode == "all"
+    !insertmacro _netiorClearStaleTempInstall HKLM
+  ${EndIf}
+
+  ${StrContains} $R0 "NetiorInstallTest_" "$INSTDIR"
+  ${StrContains} $R1 "$TEMP" "$INSTDIR"
+  ${If} $R0 != ""
+  ${OrIf} $R1 != ""
+    DetailPrint "Ignoring unsafe temporary ${PRODUCT_NAME} install directory: $INSTDIR"
+    !insertmacro _netiorUseDefaultInstallDir
+    DetailPrint "Using ${PRODUCT_NAME} install directory: $INSTDIR"
+  ${EndIf}
+!macroend
+
 !macro customCheckAppRunning
   ReadRegStr $R0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
   !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R1

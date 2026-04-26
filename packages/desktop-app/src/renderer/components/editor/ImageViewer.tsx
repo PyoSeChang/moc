@@ -61,7 +61,7 @@ export function ImageViewer({ absolutePath }: ImageViewerProps): JSX.Element {
       {/* Image canvas */}
       <div
         ref={containerRef}
-        className={`flex-1 overflow-hidden bg-surface-base ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`flex-1 overflow-hidden bg-surface-editor ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
       >
@@ -92,20 +92,20 @@ export function ImageViewer({ absolutePath }: ImageViewerProps): JSX.Element {
             <span className="text-xs text-muted mr-2">{dimensions.w} × {dimensions.h}</span>
           )}
           <button
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted hover:bg-state-hover hover:text-default"
             onClick={() => setScale((s) => Math.max(0.1, s - 0.25))}
           >
             <ZoomOut size={12} />
           </button>
           <span className="text-xs text-secondary w-10 text-center">{Math.round(scale * 100)}%</span>
           <button
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted hover:bg-state-hover hover:text-default"
             onClick={() => setScale((s) => Math.min(10, s + 0.25))}
           >
             <ZoomIn size={12} />
           </button>
           <button
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted hover:bg-state-hover hover:text-default"
             onClick={resetView}
           >
             <Maximize size={12} />

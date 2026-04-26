@@ -6,16 +6,20 @@ import { Sidebar } from '../sidebar/Sidebar';
 import { NetworkWorkspace } from './NetworkWorkspace';
 import { FloatWindowLayer } from '../editor/modes/FloatWindowLayer';
 import { FullModeEditor } from '../editor/modes/FullModeEditor';
-import { EditorViewModeSwitch } from '../editor/EditorViewModeSwitch';
+import { EditorViewModeMenu } from '../editor/EditorViewModeSwitch';
 import { EditorContent } from '../editor/EditorContent';
 import { EditorTabStrip } from '../editor/EditorTabStrip';
-import { SplitPaneRenderer } from '../editor/SplitPaneRenderer';
+import { MinimizedEditorTabs } from '../editor/MinimizedEditorTabs';
+import { SplitPaneRenderer, type PaneAdjacency } from '../editor/SplitPaneRenderer';
 import { DropZoneOverlay } from '../editor/DropZoneOverlay';
 import { CloseConfirmDialog } from '../editor/CloseConfirmDialog';
 import { ResizeHandle } from '../ui/ResizeHandle';
+import { AppChromeMark } from '../ui/NetiorTitleMark';
+import { NetworkBreadcrumb } from './NetworkBreadcrumb';
+import { NetworkControls } from './NetworkControls';
+import type { LayoutControlsRendererProps } from './layout-plugins/types';
 import {
   useEditorStore,
-  collectLeaves,
   containsTab,
   getRememberedActiveTabFromLayout,
   MAIN_HOST_ID,
@@ -31,6 +35,78 @@ import { useFileTabStaleWatcher } from '../../hooks/useFileTabStaleWatcher';
 
 interface WorkspaceShellProps {
   project: Project | null;
+  rightChrome?: React.ReactNode;
+}
+
+function NetworkTabStrip({ controls }: { controls: LayoutControlsRendererProps | null }): JSX.Element {
+  return (
+    <div
+      className="tab-strip network-tab-strip workspace-title-strip grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-2"
+      style={{ height: 35, WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
+      <div
+        className="flex min-w-0 items-center justify-start"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <AppChromeMark />
+      </div>
+      <div
+        className="min-w-0 max-w-[520px] overflow-hidden px-3"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <NetworkBreadcrumb />
+      </div>
+      <div
+        className="relative z-10 flex min-w-0 items-center justify-end"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        {controls && (
+          <NetworkControls {...controls} presentation="header-fixed" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaneSplitHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }): JSX.Element {
+  return (
+    <div
+      className="pane-split-resize-zone"
+      onMouseDown={onMouseDown}
+      role="separator"
+      aria-orientation="vertical"
+    />
+  );
+}
+
+function areNetworkControlsEqual(
+  a: LayoutControlsRendererProps | null,
+  b: LayoutControlsRendererProps | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+
+  return (
+    a.mode === b.mode
+    && a.zoom === b.zoom
+    && a.panX === b.panX
+    && a.panY === b.panY
+    && a.canGoBack === b.canGoBack
+    && a.canGoForward === b.canGoForward
+    && a.config === b.config
+    && a.hiddenControls === b.hiddenControls
+    && a.extraItems === b.extraItems
+    && a.setZoom === b.setZoom
+    && a.setPanX === b.setPanX
+    && a.setPanY === b.setPanY
+    && a.updateConfig === b.updateConfig
+    && a.onToggleMode === b.onToggleMode
+    && a.onZoomIn === b.onZoomIn
+    && a.onZoomOut === b.onZoomOut
+    && a.onFitToScreen === b.onFitToScreen
+    && a.onNavigateBack === b.onNavigateBack
+    && a.onNavigateForward === b.onNavigateForward
+  );
 }
 
 async function openDroppedFilesInSideLeaf(
@@ -53,7 +129,7 @@ async function openDroppedFilesInSideLeaf(
   }
 }
 
-export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
+export function WorkspaceShell({ project, rightChrome = null }: WorkspaceShellProps): JSX.Element {
   useFileTabStaleWatcher();
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -63,7 +139,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
     setActiveTab, closeTab, requestCloseTab, setViewMode, toggleMinimize,
     updateSideSplitRatio, updateSplitRatio, splitTab, moveTabToPane, moveTabWithinStrip, moveTabToHost, updateFloatRect,
   } = useEditorStore();
-  const { sidebarOpen, setSidebarWidth } = useUIStore();
+  const { sidebarOpen, sidebarWidth, setSidebarWidth } = useUIStore();
   const networkViewerPlacement = useSettingsStore((s) => s.networkViewerPlacement);
   const isNetworkPaneLeft = networkViewerPlacement === 'network-left';
 
@@ -130,6 +206,14 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const [showSideDropHint, setShowSideDropHint] = useState(false);
   const [showFloatDropHint, setShowFloatDropHint] = useState(false);
   const [isTabDragging, setIsTabDragging] = useState(false);
+  const [networkControls, setNetworkControls] = useState<LayoutControlsRendererProps | null>(null);
+  const networkControlsRef = useRef<LayoutControlsRendererProps | null>(null);
+
+  const handleNetworkControlsChange = useCallback((controls: LayoutControlsRendererProps | null) => {
+    if (areNetworkControlsEqual(networkControlsRef.current, controls)) return;
+    networkControlsRef.current = controls;
+    setNetworkControls(controls);
+  }, []);
 
   useEffect(() => {
     const resetDragState = () => {
@@ -209,7 +293,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
 
       const handleMove = (ev: MouseEvent) => {
         if (!sidebarDraggingRef.current) return;
-        setSidebarWidth(ev.clientX - activityBarWidth);
+        setSidebarWidth(window.innerWidth - ev.clientX - activityBarWidth);
       };
 
       const handleUp = () => {
@@ -225,21 +309,26 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   );
 
   const splitRatio = sideActiveTab?.sideSplitRatio ?? 0.5;
+  const rightRailWidth = sidebarOpen ? sidebarWidth + activityBarWidth : activityBarWidth;
+  const rightChromeWidth = Math.max(rightRailWidth, 180);
+  const workspacePaneWidth = hasSideEditor
+    ? `${splitRatio * 100}%`
+    : '100%';
+  const editorPaneWidth = `${(1 - splitRatio) * 100}%`;
 
   // Render a leaf in the side split layout (each leaf gets its own tab strip + drop zone)
   const renderSideLeaf = useCallback(
-    (leaf: SplitLeaf) => {
+    (leaf: SplitLeaf, adjacency?: PaneAdjacency) => {
       const leafTabs = leaf.tabIds
         .map((id) => tabs.find((t) => t.id === id))
         .filter((t): t is EditorTab => t != null);
       const activeLeafTab = leafTabs.find((t) => t.id === leaf.activeTabId) ?? leafTabs[0];
 
       const isActivePane = sideFocusedTabId ? leaf.tabIds.includes(sideFocusedTabId) : false;
-      const isMultiPane = sideLayout ? collectLeaves(sideLayout).length > 1 : false;
 
       return (
         <div
-          className={`flex h-full min-h-0 flex-col overflow-hidden ${isMultiPane && isActivePane ? 'ring-1 ring-accent' : ''}`}
+          className="flex h-full min-h-0 flex-col overflow-visible"
           onMouseDown={() => {
             if (!leaf.tabIds.includes(activeTabId!)) {
               setActiveTab(leaf.activeTabId);
@@ -255,8 +344,8 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
             onTabDrop={(droppedId) => moveTabToPane(droppedId, leaf.activeTabId, 'side')}
             onTabReorder={moveTabWithinStrip}
             onFileDrop={(filePaths) => { void openDroppedFilesInSideLeaf(filePaths, leaf); }}
-            rightSlot={
-              <EditorViewModeSwitch
+            leftSlot={
+              <EditorViewModeMenu
                 currentMode="side"
                 availableModes={getAllowedViewModes(activeLeafTab)}
                 onModeChange={(mode) => setViewMode(leaf.activeTabId, mode)}
@@ -264,7 +353,12 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               />
             }
           />
-          <div className="relative flex-1 min-h-0 overflow-hidden bg-surface-panel">
+          <div
+            className={[
+              'pane-surface pane-surface--editor relative flex-1 min-h-0 overflow-hidden',
+              adjacency?.bottom ? 'pane-surface--adjacent-bottom' : '',
+            ].filter(Boolean).join(' ')}
+          >
             {activeLeafTab && <EditorContent tab={activeLeafTab} />}
             <DropZoneOverlay
               onDrop={(result) => {
@@ -363,20 +457,26 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   const workspacePane = (
     <div
       data-pane="workspace"
-      className="relative flex min-h-0 min-w-0 flex-col overflow-hidden"
-      style={{ width: hasSideEditor ? `${splitRatio * 100}%` : '100%' }}
+      className="pane-shell pane-shell--network"
+      style={{ width: workspacePaneWidth }}
       onDragOver={handleWorkspaceDragOver}
       onDrop={handleWorkspaceDrop}
     >
-      <NetworkWorkspace projectId={project?.id ?? null} />
+      <NetworkTabStrip controls={networkControls} />
+      <div className="pane-surface pane-surface--network relative min-h-0 flex-1 overflow-hidden">
+        <NetworkWorkspace
+          projectId={project?.id ?? null}
+          onControlsChange={handleNetworkControlsChange}
+        />
+      </div>
     </div>
   );
 
   const editorPane = hasSideEditor && sideLayout ? (
     <div
       data-pane="editor"
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-panel"
-      style={{ width: `${(1 - splitRatio) * 100}%` }}
+      className="pane-shell pane-shell--editor"
+      style={{ width: editorPaneWidth }}
     >
       <SplitPaneRenderer
         node={sideLayout}
@@ -388,20 +488,11 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
   ) : null;
 
   return (
-    <div className="relative flex h-full">
-      <ActivityBar />
-
-      {sidebarOpen && (
-        <>
-          <Sidebar project={project} />
-          <ResizeHandle onMouseDown={handleSidebarResizeStart} />
-        </>
-      )}
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="relative flex h-full bg-surface-chrome">
+      <div className="flex min-w-0 flex-1 flex-col px-2 pb-2">
         <div
           ref={editorContainerRef}
-          className="relative flex min-h-0 flex-1 overflow-hidden"
+          className="workspace-frame relative flex min-h-0 min-w-0 flex-1 overflow-visible"
           onDragEnter={handleShellDragEnter}
           onDragOver={handleShellDragOver}
           onDragLeave={handleShellDragLeave}
@@ -415,13 +506,13 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
                 isNetworkPaneLeft ? (
                   <>
                     {workspacePane}
-                    <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
+                    <PaneSplitHandle onMouseDown={handleEditorSplitDragStart} />
                     {editorPane}
                   </>
                 ) : (
                   <>
                     {editorPane}
-                    <ResizeHandle onMouseDown={handleEditorSplitDragStart} />
+                    <PaneSplitHandle onMouseDown={handleEditorSplitDragStart} />
                     {workspacePane}
                   </>
                 )
@@ -433,7 +524,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               {showFloatDropHint && (
                 <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
                   <div
-                    className="pointer-events-auto rounded-lg border-2 border-dashed border-accent bg-interactive-muted px-6 py-3 text-sm font-medium text-accent"
+                    className="pointer-events-auto rounded-lg border-2 border-dashed border-accent bg-state-muted px-6 py-3 text-sm font-medium text-accent"
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
                     onDrop={handleWorkspaceDrop}
                   >
@@ -443,7 +534,7 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               )}
               {showSideDropHint && (
                 <div
-                  className={`absolute top-0 bottom-0 z-20 flex w-20 items-center justify-center bg-interactive-selected border-accent ${
+                  className={`absolute top-0 bottom-0 z-20 flex w-20 items-center justify-center bg-state-selected border-accent ${
                     isNetworkPaneLeft ? 'right-0 border-l-2' : 'left-0 border-r-2'
                   }`}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; }}
@@ -454,6 +545,27 @@ export function WorkspaceShell({ project }: WorkspaceShellProps): JSX.Element {
               )}
             </>
           )}
+        </div>
+        <MinimizedEditorTabs />
+      </div>
+
+      <div
+        className="relative flex h-full min-w-0 shrink-0 flex-col bg-surface-chrome"
+        style={{ width: rightRailWidth, flexBasis: rightRailWidth }}
+      >
+        {rightChrome && (
+          <div
+            className="absolute right-0 top-0 z-[1000]"
+            style={{ width: rightChromeWidth }}
+          >
+            {rightChrome}
+          </div>
+        )}
+        {rightChrome && <div className="h-[35px] shrink-0" aria-hidden="true" />}
+        <div className="flex min-h-0 flex-1 justify-end pb-2">
+          {sidebarOpen && <ResizeHandle onMouseDown={handleSidebarResizeStart} />}
+          {sidebarOpen && <Sidebar project={project} />}
+          <ActivityBar />
         </div>
       </div>
 

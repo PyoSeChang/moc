@@ -159,7 +159,7 @@ export function ArchetypeList(): JSX.Element {
       <button
         key={id}
         type="button"
-        className="flex items-center gap-2 py-1.5 pr-3 text-sm text-default hover:bg-surface-hover transition-colors text-left"
+        className="flex items-center gap-2 py-1.5 pr-3 text-sm text-default hover:bg-state-hover transition-colors text-left"
         style={{ paddingLeft: 16 + (depth * 16) }}
         onClick={() => handleOpenArchetype(id, name)}
         onContextMenu={(event) => handleContextMenu(event, {
@@ -185,7 +185,7 @@ export function ArchetypeList(): JSX.Element {
       <div key={group.id} className="flex flex-col">
         <button
           type="button"
-          className="flex items-center gap-2 py-1.5 pr-3 text-xs font-medium uppercase tracking-wide text-secondary hover:bg-surface-hover transition-colors text-left"
+          className="flex items-center gap-2 py-1.5 pr-3 text-xs font-medium uppercase tracking-wide text-secondary hover:bg-state-hover transition-colors text-left"
           style={{ paddingLeft: 12 + (depth * 16) }}
           onContextMenu={(event) => handleContextMenu(event, {
             x: event.clientX,
@@ -222,7 +222,7 @@ export function ArchetypeList(): JSX.Element {
           <button
             type="button"
             onClick={() => setGroupDialog({ mode: 'create', parentGroupId: null })}
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default transition-colors"
+            className="rounded p-1 text-muted hover:bg-state-hover hover:text-default transition-colors"
             title={tk('typeGroup.create')}
           >
             <FolderPlus size={14} />
@@ -230,7 +230,7 @@ export function ArchetypeList(): JSX.Element {
           <button
             type="button"
             onClick={() => void handleCreateArchetype()}
-            className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default transition-colors"
+            className="rounded p-1 text-muted hover:bg-state-hover hover:text-default transition-colors"
             title={t('archetype.create')}
           >
             <Plus size={14} />

@@ -114,7 +114,7 @@ export function ArchetypeRefPicker({
     <>
       <div
         ref={triggerRef}
-        className={`flex items-center gap-2 px-3 py-1.5 bg-input border border-input rounded-lg text-sm transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-strong'} ${open ? 'border-accent' : ''}`}
+        className={`flex items-center gap-2 px-3 py-1.5 bg-surface-input border border-input rounded-lg text-sm transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-strong'} ${open ? 'border-accent' : ''}`}
         onClick={handleOpen}
       >
         <Icon size={14} className="shrink-0 text-muted" />
@@ -155,7 +155,7 @@ export function ArchetypeRefPicker({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('common.search')}
-              className="w-full px-2 py-1 text-sm bg-input border border-input rounded text-default outline-none focus:border-accent"
+              className="w-full px-2 py-1 text-sm bg-surface-input border border-input rounded text-default outline-none focus:border-accent"
               autoFocus
             />
           </div>
@@ -164,13 +164,13 @@ export function ArchetypeRefPicker({
               <button
                 key={item.id}
                 type="button"
-                className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-hover ${item.id === value ? 'bg-accent-muted text-accent' : 'text-default'}`}
+                className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-state-hover ${item.id === value ? 'bg-accent-muted text-accent' : 'text-default'}`}
                 onClick={() => {
                   onChange?.(item.id);
                   setOpen(false);
                 }}
               >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-subtle bg-surface-base">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-subtle bg-surface-editor">
                   {item.color ? (
                     <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                   ) : (

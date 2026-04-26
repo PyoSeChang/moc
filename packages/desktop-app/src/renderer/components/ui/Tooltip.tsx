@@ -68,6 +68,8 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, position = 'top', cla
       className={`relative inline-flex ${className}`}
       onMouseEnter={show}
       onMouseLeave={hide}
+      onMouseDownCapture={hide}
+      onClickCapture={hide}
       onMouseDown={hide}
     >
       {children}

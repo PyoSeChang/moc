@@ -294,10 +294,10 @@ function NarreCardBlock({
   }, [onCardRespond]);
 
   return (
-    <div className="mt-2 overflow-hidden rounded-lg border border-subtle bg-surface-base">
+    <div className="mt-2 overflow-hidden rounded-lg border border-subtle bg-surface-editor">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-secondary transition-colors hover:bg-surface-hover"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-secondary transition-colors hover:bg-state-hover"
         onClick={() => setExpanded((prev) => !prev)}
       >
         {expanded ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}

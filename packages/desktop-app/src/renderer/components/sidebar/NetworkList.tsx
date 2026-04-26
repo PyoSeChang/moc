@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Boxes, Plus, Trash2, Waypoints, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react';
+import { Boxes, Plus, Trash2, Waypoints, ChevronRight, ChevronDown, ExternalLink, Pin, PinOff } from 'lucide-react';
 import type { NetworkTreeNode } from '@netior/shared/types';
 import { useNetworkStore } from '../../stores/network-store';
 import { useEditorStore } from '../../stores/editor-store';
+import { useActivityBarStore } from '../../stores/activity-bar-store';
 import { useI18n } from '../../hooks/useI18n';
+import { getProjectNetworkBookmarkIds } from '../../lib/activity-bar-layout';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 
@@ -48,8 +50,8 @@ function TreeNode({
       <div
         className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors ${
           isActive
-            ? 'bg-interactive-selected text-accent'
-            : 'text-secondary hover:bg-surface-hover hover:text-default'
+            ? 'bg-state-selected text-accent'
+            : 'text-secondary hover:bg-state-hover hover:text-default'
         }`}
         style={{ paddingLeft: depth * 14 + 4 }}
         onClick={() => onOpen(treeNode.network.id)}
@@ -93,6 +95,10 @@ function TreeNode({
 export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   const { t } = useI18n();
   const { currentNetwork, createNetwork, openNetwork, loadNetworkTree, networkTree } = useNetworkStore();
+  const ensureActivityBarLoaded = useActivityBarStore((state) => state.ensureLoaded);
+  const addBookmark = useActivityBarStore((state) => state.addBookmark);
+  const removeBookmark = useActivityBarStore((state) => state.removeBookmark);
+  const bookmarkedNetworkIds = useActivityBarStore((state) => getProjectNetworkBookmarkIds(state.config, projectId));
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [contextMenu, setContextMenu] = useState<NetworkContextMenuState | null>(null);
@@ -100,6 +106,10 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   useEffect(() => {
     loadNetworkTree(projectId);
   }, [projectId, loadNetworkTree]);
+
+  useEffect(() => {
+    void ensureActivityBarLoaded();
+  }, [ensureActivityBarLoaded]);
 
   useEffect(() => {
     if (!creating) return undefined;
@@ -141,6 +151,7 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
   }, []);
 
   const contextMenuIsSystem = contextMenu?.networkKind === 'universe' || contextMenu?.networkKind === 'ontology';
+  const contextMenuIsBookmarked = contextMenu ? bookmarkedNetworkIds.includes(contextMenu.networkId) : false;
   const contextMenuItems: ContextMenuEntry[] = contextMenu ? [
     {
       label: t('network.openViewer' as never),
@@ -162,6 +173,17 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
           targetId: contextMenu.networkId,
           title: contextMenu.networkName,
         });
+      },
+    },
+    {
+      label: contextMenuIsBookmarked ? t('sidebar.removeBookmark' as never) : t('sidebar.addBookmark' as never),
+      icon: contextMenuIsBookmarked ? <PinOff size={14} /> : <Pin size={14} />,
+      onClick: async () => {
+        if (contextMenuIsBookmarked) {
+          await removeBookmark(projectId, contextMenu.networkId);
+          return;
+        }
+        await addBookmark(projectId, contextMenu.networkId);
       },
     },
     ...(!contextMenuIsSystem ? [
@@ -202,7 +224,7 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-secondary">{t('sidebar.networks')}</span>
         <button
-          className="rounded p-0.5 text-muted hover:bg-surface-hover hover:text-default"
+          className="rounded p-0.5 text-muted hover:bg-state-hover hover:text-default"
           onClick={() => setCreating(true)}
         >
           <Plus size={14} />
@@ -212,7 +234,7 @@ export function NetworkList({ projectId }: NetworkListProps): JSX.Element {
       {creating && (
         <div className="flex flex-col gap-1 px-2">
           <input
-            className="rounded border border-subtle bg-input px-2 py-1 text-xs text-default outline-none focus:border-accent"
+            className="rounded border border-subtle bg-surface-input px-2 py-1 text-xs text-default outline-none focus:border-accent"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onBlur={handleCancel}

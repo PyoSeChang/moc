@@ -201,8 +201,8 @@ function TocNode({ node, activeKey, isExpanded, onToggle, onNavigate, depth }: T
   return (
     <>
       <div
-        className={`flex w-full items-center gap-0.5 pr-2 transition-colors cursor-pointer hover:bg-surface-hover ${
-          isActive ? 'bg-interactive-muted' : ''
+        className={`flex w-full items-center gap-0.5 pr-2 transition-colors cursor-pointer hover:bg-state-hover ${
+          isActive ? 'bg-state-muted' : ''
         }`}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
       >

@@ -17,6 +17,12 @@ export function isPrimaryModifier(event: KeyboardEvent): boolean {
   return event.ctrlKey || event.metaKey;
 }
 
+export function consumeShortcutEvent(event: KeyboardEvent & { catched?: boolean }): void {
+  event.preventDefault();
+  event.stopPropagation();
+  event.catched = true;
+}
+
 export function logShortcut(id: string): void {
   if (import.meta.env.DEV) {
     console.debug('[shortcut]', id);

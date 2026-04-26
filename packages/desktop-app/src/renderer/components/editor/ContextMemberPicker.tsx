@@ -70,14 +70,14 @@ export function ContextMemberPicker({
   return (
     <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/55 backdrop-blur-sm" onMouseDown={onClose}>
       <div
-        className="flex w-full max-w-[520px] flex-col rounded-xl border border-subtle bg-surface-modal shadow-2xl"
+        className="flex w-full max-w-[520px] flex-col rounded-xl border border-subtle bg-surface-floating shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
           <div className="text-sm font-medium text-default">Add Member</div>
           <button
             type="button"
-            className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
             onClick={onClose}
           >
             <X size={14} />
@@ -104,7 +104,7 @@ export function ContextMemberPicker({
                     <button
                       key={node.id}
                       type="button"
-                      className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                      className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-state-hover"
                       onClick={() => {
                         if (node.object) onSelect('object', node.object.id);
                       }}
@@ -129,7 +129,7 @@ export function ContextMemberPicker({
                     <button
                       key={edge.id}
                       type="button"
-                      className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                      className="flex items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-state-hover"
                       onClick={() => onSelect('edge', edge.id)}
                     >
                       <Badge>edge</Badge>

@@ -578,7 +578,7 @@ export const livePreviewTheme = EditorView.theme({
   '.md-strikethrough': { textDecoration: 'line-through', opacity: '0.5' },
   '.md-inline-code': {
     fontFamily: 'var(--font-code)',
-    fontSize: '0.9em', backgroundColor: 'var(--surface-base)', borderRadius: '3px', padding: '1px 4px',
+    fontSize: '0.9em', backgroundColor: 'var(--surface-card)', borderRadius: '3px', padding: '1px 4px',
   },
 
   '.md-link': { color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' },
@@ -587,7 +587,7 @@ export const livePreviewTheme = EditorView.theme({
   '.md-blockquote-line': { borderLeft: '3px solid var(--border-default)', paddingLeft: '12px', opacity: '0.85' },
 
   '.md-code-line': {
-    backgroundColor: 'var(--surface-base)',
+    backgroundColor: 'var(--surface-card)',
     fontFamily: 'var(--font-code)',
     fontSize: '0.9em',
   },
@@ -649,5 +649,5 @@ export const livePreviewTheme = EditorView.theme({
   '.md-table-wrapper': { overflow: 'auto', margin: '4px 0' },
   '.md-table': { width: '100%', borderCollapse: 'collapse', fontSize: '0.9em' },
   '.md-table th, .md-table td': { border: '1px solid var(--border-subtle)', padding: '6px 12px', textAlign: 'left' },
-  '.md-table th': { fontWeight: '600', backgroundColor: 'var(--surface-base)' },
+  '.md-table th': { fontWeight: '600', backgroundColor: 'var(--surface-card)' },
 });

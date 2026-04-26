@@ -375,7 +375,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                       className={`rounded-full border px-3 py-1.5 text-left transition-colors ${
                         isActive
                           ? 'border-accent bg-accent-muted text-default'
-                          : 'border-subtle bg-surface-base text-secondary hover:border-default hover:text-default'
+                          : 'border-subtle bg-surface-editor text-secondary hover:border-default hover:text-default'
                       }`}
                       onClick={() => setActiveSemanticCategory(categoryKey)}
                     >
@@ -453,7 +453,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                                     className={`rounded px-2 py-0.5 text-[11px] ${
                                       isBound
                                         ? 'bg-accent-muted text-accent'
-                                        : 'bg-surface-base text-secondary'
+                                        : 'bg-surface-editor text-secondary'
                                     }`}
                                   >
                                     {t(getSystemSlotLabelKey(slot) as never)}
@@ -477,7 +477,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                                       className={`rounded px-2 py-0.5 text-[11px] ${
                                         isBound
                                           ? 'bg-accent-muted text-accent'
-                                          : 'bg-surface-base text-secondary'
+                                          : 'bg-surface-editor text-secondary'
                                       }`}
                                     >
                                       {t(getSystemSlotLabelKey(slot) as never)}
@@ -512,7 +512,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
           )}
         >
           <div className="flex flex-col gap-5">
-            <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2">
+            <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2">
               <div className="text-xs font-medium text-default">
                 {t('semantic.ui.propertiesFlowTitle' as never)}
               </div>
@@ -521,7 +521,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
               </div>
             </div>
 
-            <div className="rounded-lg border border-subtle bg-surface-base px-3 py-3">
+            <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-3">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                   <div className="text-xs font-medium text-default">
@@ -617,7 +617,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                                     className={`rounded px-2 py-0.5 text-[11px] ${
                                       isBound
                                         ? 'bg-accent-muted text-accent'
-                                        : 'bg-surface-base text-secondary'
+                                        : 'bg-surface-editor text-secondary'
                                     }`}
                                   >
                                     {`${t('semantic.ui.coreSlots' as never)}: ${t(getSystemSlotLabelKey(slot) as never)}`}
@@ -632,7 +632,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                                     className={`rounded px-2 py-0.5 text-[11px] ${
                                       isBound
                                         ? 'bg-accent-muted text-accent'
-                                        : 'bg-surface-base text-secondary'
+                                        : 'bg-surface-editor text-secondary'
                                     }`}
                                   >
                                     {`${t('semantic.ui.optionalSlots' as never)}: ${t(getSystemSlotLabelKey(slot) as never)}`}
@@ -640,7 +640,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
                                 );
                               })}
                               {traitDefinition.optionalSlots.length === 0 && (
-                                <span className="rounded bg-surface-base px-2 py-0.5 text-[11px] text-muted">
+                                <span className="rounded bg-surface-editor px-2 py-0.5 text-[11px] text-muted">
                                   {t('semantic.ui.noOptionalSlots' as never)}
                                 </span>
                               )}
@@ -654,7 +654,7 @@ export function ArchetypeEditor({ tab }: ArchetypeEditorProps): JSX.Element {
               </div>
             </div>
 
-            <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2">
+            <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2">
               <div className="text-xs font-medium text-default">
                 {t('settings.fieldComplexity' as never)}
                 {': '}

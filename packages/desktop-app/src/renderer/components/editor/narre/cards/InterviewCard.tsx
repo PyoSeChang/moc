@@ -83,7 +83,7 @@ export function InterviewCard({
                 'flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
                 isSelected
                   ? 'border-accent bg-accent-muted/40'
-                  : 'border-subtle bg-surface-base hover:bg-surface-hover',
+                  : 'border-subtle bg-surface-editor hover:bg-state-hover',
                 isLocked ? 'opacity-80' : '',
               ].join(' ')}
               disabled={isLocked}
@@ -95,7 +95,7 @@ export function InterviewCard({
                   'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
                   isSelected
                     ? 'border-accent bg-accent text-on-accent'
-                    : 'border-subtle bg-surface-base text-muted',
+                    : 'border-subtle bg-surface-editor text-muted',
                 ].join(' ')}
               >
                 {isSelected && <Check size={11} strokeWidth={3} />}
@@ -129,7 +129,7 @@ export function InterviewCard({
       )}
 
       {isSubmitted && text.trim().length > 0 && (
-        <div className="rounded-lg border border-subtle bg-surface-base px-3 py-2">
+        <div className="rounded-lg border border-subtle bg-surface-editor px-3 py-2">
           <div className="whitespace-pre-wrap text-sm text-secondary">{text}</div>
         </div>
       )}

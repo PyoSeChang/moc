@@ -18,7 +18,7 @@ export function ConceptSearch(): JSX.Element {
       <div className="relative">
         <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
         <input
-          className="w-full rounded border border-subtle bg-input py-1 pl-7 pr-2 text-xs text-default outline-none focus:border-accent"
+          className="w-full rounded border border-subtle bg-surface-input py-1 pl-7 pr-2 text-xs text-default outline-none focus:border-accent"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('concept.searchPlaceholder')}
@@ -31,7 +31,7 @@ export function ConceptSearch(): JSX.Element {
           filtered.map((concept) => (
             <div
               key={concept.id}
-              className="flex items-center gap-2 rounded px-2 py-1 text-xs text-secondary hover:bg-surface-hover hover:text-default"
+              className="flex items-center gap-2 rounded px-2 py-1 text-xs text-secondary hover:bg-state-hover hover:text-default"
             >
               <NodeVisual icon={concept.icon ?? 'box'} size={14} imageSize={18} className="shrink-0" />
               <span className="truncate">{concept.title}</span>

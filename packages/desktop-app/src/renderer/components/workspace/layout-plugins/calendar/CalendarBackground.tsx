@@ -76,7 +76,7 @@ export const CalendarBackground: React.FC<LayoutLayerProps> = ({
           </clipPath>
         </defs>
 
-        <rect width="100%" height="100%" fill="var(--surface-base)" />
+        <rect width="100%" height="100%" fill="var(--surface-canvas)" />
 
         <rect
           x={0}
@@ -309,7 +309,7 @@ export const CalendarBackground: React.FC<LayoutLayerProps> = ({
         pointerEvents: 'none',
       }}
     >
-      <rect width="100%" height="100%" fill="var(--surface-base)" />
+      <rect width="100%" height="100%" fill="var(--surface-canvas)" />
 
       <rect
         x={0}

@@ -6,27 +6,48 @@ interface SplitPaneRendererProps {
   node: SplitNode;
   mode: 'side' | 'full';
   path?: number[];
-  renderLeaf: (leaf: SplitLeaf) => React.ReactNode;
+  adjacency?: PaneAdjacency;
+  renderLeaf: (leaf: SplitLeaf, adjacency?: PaneAdjacency) => React.ReactNode;
   onRatioChange: (mode: 'side' | 'full', path: number[], ratio: number) => void;
+}
+
+export interface PaneAdjacency {
+  left?: boolean;
+  right?: boolean;
+  top?: boolean;
+  bottom?: boolean;
 }
 
 export function SplitPaneRenderer({
   node,
   mode,
   path = [],
+  adjacency,
   renderLeaf,
   onRatioChange,
 }: SplitPaneRendererProps): JSX.Element {
   if (node.type === 'leaf') {
-    return <div className="h-full w-full overflow-hidden">{renderLeaf(node)}</div>;
+    return (
+      <div className="pane-leaf-host h-full w-full overflow-visible">
+        {renderLeaf(node, adjacency)}
+      </div>
+    );
   }
 
   const isHorizontal = node.direction === 'horizontal';
+  const firstChildAdjacency = {
+    ...adjacency,
+    ...(isHorizontal ? { right: true } : { bottom: true }),
+  };
+  const secondChildAdjacency = {
+    ...adjacency,
+    ...(isHorizontal ? { left: true } : { top: true }),
+  };
 
   return (
     <div className={`flex h-full w-full ${isHorizontal ? 'flex-row' : 'flex-col'}`}>
       <div
-        className="min-h-0 min-w-0 overflow-hidden"
+        className="min-h-0 min-w-0 overflow-visible"
         style={{
           flexBasis: 0,
           flexGrow: node.ratio,
@@ -37,6 +58,7 @@ export function SplitPaneRenderer({
           node={node.children[0]}
           mode={mode}
           path={[...path, 0]}
+          adjacency={firstChildAdjacency}
           renderLeaf={renderLeaf}
           onRatioChange={onRatioChange}
         />
@@ -50,7 +72,7 @@ export function SplitPaneRenderer({
       />
 
       <div
-        className="min-h-0 min-w-0 overflow-hidden"
+        className="min-h-0 min-w-0 overflow-visible"
         style={{
           flexBasis: 0,
           flexGrow: 1 - node.ratio,
@@ -61,6 +83,7 @@ export function SplitPaneRenderer({
           node={node.children[1]}
           mode={mode}
           path={[...path, 1]}
+          adjacency={secondChildAdjacency}
           renderLeaf={renderLeaf}
           onRatioChange={onRatioChange}
         />

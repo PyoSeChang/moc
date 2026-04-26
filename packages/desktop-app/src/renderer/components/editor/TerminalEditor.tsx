@@ -1009,8 +1009,8 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
   const actionOverlayReady = actionOverlayPosition?.ready ?? false;
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col bg-[var(--surface-editor)] p-2">
-      <div ref={containerRef} className="terminal-editor flex-1 min-h-0 overflow-hidden bg-[var(--surface-editor)]" />
+    <div className="relative flex h-full min-h-0 w-full flex-col bg-surface-editor p-2">
+      <div ref={containerRef} className="terminal-editor flex-1 min-h-0 overflow-hidden bg-surface-editor" />
       {attachError && (
         <div className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-md border border-default bg-surface-panel/95 px-4 text-sm text-status-error">
           {attachError}
@@ -1034,7 +1034,7 @@ export function TerminalEditor({ tab }: TerminalEditorProps): JSX.Element {
       {actionOverlay && (
         <div
           ref={actionOverlayRefEl}
-          className="fixed z-[10050] w-[min(560px,calc(100vw-24px))] overflow-y-auto rounded-md border border-default bg-surface-modal py-1 text-xs text-default shadow-lg"
+          className="fixed z-[10050] w-[min(560px,calc(100vw-24px))] overflow-y-auto rounded-md border border-default bg-surface-floating py-1 text-xs text-default shadow-lg"
           style={{
             left: actionOverlayPosition?.left ?? actionOverlay.x + 10,
             top: actionOverlayPosition?.top ?? actionOverlay.y + 10,
@@ -1131,7 +1131,7 @@ function TerminalOverlayItem({
 }): JSX.Element {
   return (
     <button
-      className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-surface-hover ${
+      className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-state-hover ${
         muted ? 'text-muted' : 'text-default'
       }`}
       onClick={onClick}

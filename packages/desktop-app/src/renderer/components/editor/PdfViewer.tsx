@@ -257,33 +257,33 @@ export function PdfViewer({ tabId, absolutePath, fileId }: PdfViewerProps): JSX.
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between bg-surface-panel px-2 py-1">
         <div className="flex items-center gap-1">
-          <button className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default disabled:opacity-30" onClick={goToPrev} disabled={pageNumber <= 1}>
+          <button className="rounded p-1 text-muted hover:bg-state-hover hover:text-default disabled:opacity-30" onClick={goToPrev} disabled={pageNumber <= 1}>
             <ChevronLeft size={14} />
           </button>
           <span className="text-xs text-secondary">
             <input
               type="number" min={1} max={numPages} value={pageNumber}
               onChange={(e) => { const v = parseInt(e.target.value, 10); if (v >= 1 && v <= numPages) setPage(v); }}
-              className="w-12 rounded border border-subtle bg-surface-base px-1 text-center text-xs text-default"
+              className="w-12 rounded border border-subtle bg-surface-editor px-1 text-center text-xs text-default"
             />
             {' / '}{numPages}
           </span>
-          <button className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default disabled:opacity-30" onClick={goToNext} disabled={pageNumber >= numPages}>
+          <button className="rounded p-1 text-muted hover:bg-state-hover hover:text-default disabled:opacity-30" onClick={goToNext} disabled={pageNumber >= numPages}>
             <ChevronRight size={14} />
           </button>
         </div>
 
         <div className="flex items-center gap-1">
           <Tooltip content={viewMode === 'single' ? t('pdfViewer.dualView') : t('pdfViewer.singleView')}>
-            <button className={`rounded p-1 hover:bg-surface-hover ${viewMode === 'dual' ? 'text-accent' : 'text-muted hover:text-default'}`} onClick={toggleViewMode}>
+            <button className={`rounded p-1 hover:bg-state-hover ${viewMode === 'dual' ? 'text-accent' : 'text-muted hover:text-default'}`} onClick={toggleViewMode}>
               {viewMode === 'single' ? <BookOpen size={14} /> : <File size={14} />}
             </button>
           </Tooltip>
-          <button className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default" onClick={zoomOut}><ZoomOut size={14} /></button>
+          <button className="rounded p-1 text-muted hover:bg-state-hover hover:text-default" onClick={zoomOut}><ZoomOut size={14} /></button>
           <span className="text-xs text-secondary w-12 text-center">{Math.round(scale * 100)}%</span>
-          <button className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default" onClick={zoomIn}><ZoomIn size={14} /></button>
+          <button className="rounded p-1 text-muted hover:bg-state-hover hover:text-default" onClick={zoomIn}><ZoomIn size={14} /></button>
           <Tooltip content={t('pdfViewer.fitWidth')}>
-            <button className={`rounded p-1 hover:bg-surface-hover ${isFitWidth ? 'text-accent' : 'text-muted hover:text-default'}`} onClick={resetToFitWidth}>
+            <button className={`rounded p-1 hover:bg-state-hover ${isFitWidth ? 'text-accent' : 'text-muted hover:text-default'}`} onClick={resetToFitWidth}>
               <Maximize size={14} />
             </button>
           </Tooltip>

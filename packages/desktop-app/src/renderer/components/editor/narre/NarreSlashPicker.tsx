@@ -100,7 +100,7 @@ export function NarreSlashPicker({
             key={`${skill.source}:${skill.trigger?.type === 'slash' ? skill.trigger.name : skill.id}`}
             className={[
               'flex flex-col px-3 py-1.5 cursor-pointer',
-              idx === selectedIndex ? 'bg-surface-hover' : '',
+              idx === selectedIndex ? 'bg-state-hover' : '',
             ].join(' ')}
             onMouseEnter={() => setSelectedIndex(idx)}
             onClick={() => onSelect(skill)}

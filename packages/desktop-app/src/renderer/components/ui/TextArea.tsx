@@ -6,7 +6,7 @@ export interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 
 export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
   ({ error, className = '', style, ...props }, ref) => {
-    const baseStyle = 'block w-full min-h-[80px] px-3 py-2.5 text-default bg-input border border-input rounded-lg outline-none resize-y transition-all duration-fast placeholder:text-muted hover:border-strong focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyle = 'block w-full min-h-[80px] px-3 py-2.5 text-default bg-surface-input border border-input rounded-lg outline-none resize-y transition-all duration-fast placeholder:text-muted hover:border-strong focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed';
     const errorStyle = 'border-status-error';
 
     const cls = [baseStyle, error ? errorStyle : '', className].filter(Boolean).join(' ');

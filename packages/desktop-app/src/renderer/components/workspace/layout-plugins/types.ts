@@ -133,7 +133,7 @@ export interface LayoutViewportPolicy {
   viewportReset?: { zoom: number; panX: number; panY: number };
 }
 
-export type LayoutControlsPresentation = 'floating-draggable' | 'header-fixed';
+export type LayoutControlsPresentation = 'floating-draggable' | 'floating-fixed' | 'header-fixed';
 
 export interface LayoutViewportPolicyContext {
   viewport: { width: number; height: number };

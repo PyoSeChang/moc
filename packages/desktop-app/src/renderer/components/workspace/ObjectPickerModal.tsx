@@ -112,8 +112,8 @@ export function ObjectPickerModal({
               type="button"
               className={`rounded px-2 py-1 text-xs transition-colors ${
                 activeTab === tab
-                  ? 'bg-interactive-selected text-accent'
-                  : 'text-secondary hover:bg-surface-hover hover:text-default'
+                  ? 'bg-state-selected text-accent'
+                  : 'text-secondary hover:bg-state-hover hover:text-default'
               }`}
               onClick={() => setActiveTab(tab)}
             >
@@ -137,7 +137,7 @@ export function ObjectPickerModal({
                 <button
                   key={item.id}
                   type="button"
-                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-state-hover"
                   onClick={() => handleSelect(item.id)}
                 >
                   <span className="text-sm text-default">{item.title}</span>

@@ -21,13 +21,22 @@ import { Tooltip } from '../ui/Tooltip';
 
 export function ActivityBar(): JSX.Element {
   const { t } = useI18n();
-  const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
+  const {
+    sidebarView,
+    setSidebarView,
+    sidebarOpen,
+    toggleSidebar,
+    bookmarkedSidebarNetworkId,
+    setBookmarkedSidebarNetworkId,
+    openBookmarkedSidebar,
+  } = useUIStore();
   const currentProject = useProjectStore((state) => state.currentProject);
-  const currentNetwork = useNetworkStore((state) => state.currentNetwork);
   const networks = useNetworkStore((state) => state.networks);
-  const openNetwork = useNetworkStore((state) => state.openNetwork);
   const config = useActivityBarStore((state) => state.config);
   const ensureLoaded = useActivityBarStore((state) => state.ensureLoaded);
+  const shellClassName = sidebarOpen
+    ? 'rail-surface--open'
+    : 'rail-surface--closed';
 
   useEffect(() => {
     void ensureLoaded();
@@ -46,8 +55,8 @@ export function ActivityBar(): JSX.Element {
 
   const topItemKeys = useMemo(() => {
     const available = currentProject
-      ? (['networks', 'objects', 'files', 'sessions'] as const satisfies readonly ActivityBarTopItemKey[])
-      : (['networks'] as const satisfies readonly ActivityBarTopItemKey[]);
+      ? (['projects', 'networks', 'objects', 'files', 'sessions'] as const satisfies readonly ActivityBarTopItemKey[])
+      : (['projects', 'networks'] as const satisfies readonly ActivityBarTopItemKey[]);
     return getVisibleOrderedItems(config.topItemOrder, available);
   }, [config.topItemOrder, currentProject]);
 
@@ -68,6 +77,39 @@ export function ActivityBar(): JSX.Element {
       .map((bookmarkId) => networks.find((network) => network.id === bookmarkId))
       .filter((network): network is NonNullable<typeof network> => Boolean(network));
   }, [config, currentProject, networks]);
+
+  useEffect(() => {
+    if (sidebarView !== 'bookmarkedNetwork') {
+      return;
+    }
+    if (bookmarkedSidebarNetworkId && bookmarkNetworks.some((network) => network.id === bookmarkedSidebarNetworkId)) {
+      return;
+    }
+    setBookmarkedSidebarNetworkId(null);
+    setSidebarView('networks');
+  }, [
+    bookmarkNetworks,
+    bookmarkedSidebarNetworkId,
+    setBookmarkedSidebarNetworkId,
+    setSidebarView,
+    sidebarView,
+  ]);
+
+  const handleBookmarkedNetworkClick = (networkId: string) => {
+    if (
+      sidebarOpen
+      && sidebarView === 'bookmarkedNetwork'
+      && bookmarkedSidebarNetworkId === networkId
+    ) {
+      toggleSidebar();
+      return;
+    }
+
+    openBookmarkedSidebar(networkId);
+    if (!sidebarOpen) {
+      toggleSidebar();
+    }
+  };
 
   const handleBottomAction = (key: ActivityBarBottomItemKey) => {
     switch (key) {
@@ -98,19 +140,19 @@ export function ActivityBar(): JSX.Element {
   };
 
   return (
-    <nav className="flex h-full w-10 shrink-0 flex-col items-center border-r border-subtle bg-[var(--surface-sidebar)] py-2">
+    <nav className={`rail-surface flex h-full w-10 shrink-0 flex-col items-center py-2 ${shellClassName}`}>
       <div className="flex flex-col items-center gap-1">
         {topItemKeys.map((key) => {
           const { icon: Icon, labelKey } = ACTIVITY_BAR_TOP_ITEM_DEFINITIONS[key];
           const isActive = sidebarOpen && sidebarView === key;
 
           return (
-            <Tooltip key={key} content={t(labelKey)} position="right">
+            <Tooltip key={key} content={t(labelKey)} position="left">
               <button
                 className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
                   isActive
-                    ? 'bg-interactive-selected text-accent'
-                    : 'text-secondary hover:bg-surface-hover hover:text-default'
+                    ? 'bg-state-selected text-accent'
+                    : 'text-secondary hover:bg-state-hover hover:text-default'
                 }`}
                 onClick={() => handleSidebarViewClick(key)}
               >
@@ -123,24 +165,25 @@ export function ActivityBar(): JSX.Element {
 
       {bookmarkNetworks.length > 0 && (
         <>
-          <div className="my-2 h-px w-5 bg-border-subtle" />
+          <div className="my-2 h-px w-5 bg-border-subtle opacity-50" />
           <div className="flex flex-col items-center gap-1">
             {bookmarkNetworks.map((network) => {
               const Icon = network.kind === 'ontology' ? Boxes : Waypoints;
-              const isActive = currentNetwork?.id === network.id;
+              const isActive = (
+                sidebarOpen
+                && sidebarView === 'bookmarkedNetwork'
+                && bookmarkedSidebarNetworkId === network.id
+              );
 
               return (
-                <Tooltip key={network.id} content={network.name} position="right">
+                <Tooltip key={network.id} content={network.name} position="left">
                   <button
                     className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
                       isActive
-                        ? 'bg-interactive-selected text-accent'
-                        : 'text-secondary hover:bg-surface-hover hover:text-default'
+                        ? 'bg-state-selected text-accent'
+                        : 'text-secondary hover:bg-state-hover hover:text-default'
                     }`}
-                    onClick={() => {
-                      setSidebarView('networks');
-                      void openNetwork(network.id);
-                    }}
+                    onClick={() => handleBookmarkedNetworkClick(network.id)}
                   >
                     <Icon size={18} />
                   </button>
@@ -158,9 +201,9 @@ export function ActivityBar(): JSX.Element {
           const { icon: Icon, labelKey } = ACTIVITY_BAR_BOTTOM_ITEM_DEFINITIONS[key];
 
           return (
-            <Tooltip key={key} content={t(labelKey)} position="right">
+            <Tooltip key={key} content={t(labelKey)} position="left">
               <button
-                className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+                className="flex h-8 w-8 items-center justify-center rounded text-secondary transition-colors hover:bg-state-hover hover:text-default"
                 onClick={() => handleBottomAction(key)}
               >
                 <Icon size={18} />

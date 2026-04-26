@@ -36,6 +36,7 @@ interface EditorTabStripProps {
   onTabDrop?: (tabId: string) => void;
   onTabReorder?: (tabId: string, targetTabId: string, position: TabDropPosition) => void;
   onFileDrop?: (filePaths: string[]) => void;
+  leftSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
 }
 
@@ -198,10 +199,10 @@ function TabItem({
       onDragEnd={() => clearTabDragData()}
       className={`group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors ${
         isActive
-          ? `tab-active bg-[var(--surface-editor)] text-default ${
+          ? `tab-active bg-surface-editor text-default ${
               isFocusedPane ? 'tab-active-focused' : 'tab-active-unfocused'
             }`
-          : 'text-secondary hover:text-default hover:bg-surface-hover/40 tab-inactive'
+          : 'text-secondary hover:text-default hover:bg-state-hover/40 tab-inactive'
       }`}
       style={{ height: 30, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onClick={() => !isRenaming && onActivate(tab.id)}
@@ -280,7 +281,7 @@ function InlineRenameInput({ value, onSubmit, onCancel }: { value: string; onSub
   return (
     <input
       ref={inputRef}
-      className="max-w-[120px] rounded border border-accent bg-surface-base px-1 text-xs text-default outline-none"
+      className="max-w-[120px] rounded border border-accent bg-surface-editor px-1 text-xs text-default outline-none"
       defaultValue={value}
       onKeyDown={handleKeyDown}
       onBlur={() => {
@@ -302,6 +303,7 @@ export function EditorTabStrip({
   onTabDrop,
   onTabReorder,
   onFileDrop,
+  leftSlot,
   rightSlot,
 }: EditorTabStripProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false);
@@ -479,16 +481,28 @@ export function EditorTabStrip({
 
   return (
     <div
-      className={`tab-strip flex shrink-0 items-end bg-surface-base transition-colors ${
-        dragOver ? 'bg-interactive-muted' : ''
+      className={`tab-strip flex shrink-0 items-end bg-surface-chrome transition-colors ${
+        dragOver ? 'bg-state-muted' : ''
       }`}
-      style={{ height: 35, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      style={{ height: 35, WebkitAppRegion: 'drag' } as React.CSSProperties}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       onContextMenu={handleStripContextMenu}
     >
-      <div ref={scrollRef} className="tab-scroll flex min-w-0 flex-1 items-end pl-3 pr-2">
+      <div
+        ref={scrollRef}
+        className={`tab-scroll flex min-w-0 flex-1 items-end pr-2 ${leftSlot ? 'pl-1' : 'pl-6'}`}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
+        {leftSlot && (
+          <div
+            className="tab-leading-slot flex h-[30px] shrink-0 items-center pr-2"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            {leftSlot}
+          </div>
+        )}
         {tabs.map((tab) => (
           <TabItem
             key={tab.id}
@@ -509,7 +523,14 @@ export function EditorTabStrip({
           />
         ))}
       </div>
-      {rightSlot && <div className="flex h-full shrink-0 items-center px-2">{rightSlot}</div>}
+      {rightSlot && (
+        <div
+          className="flex h-full shrink-0 items-center px-2"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          {rightSlot}
+        </div>
+      )}
       {ctxMenu && (
         <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxMenu.items} onClose={() => setCtxMenu(null)} />
       )}

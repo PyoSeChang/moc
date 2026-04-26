@@ -14,15 +14,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary: 'bg-accent text-on-accent hover:enabled:bg-accent-hover',
-      secondary: 'bg-surface-card text-default border border-default hover:enabled:bg-surface-hover',
-      ghost: 'bg-transparent text-secondary hover:enabled:bg-surface-hover hover:enabled:text-default',
+      secondary: 'bg-surface-card text-default border border-default hover:enabled:bg-state-hover',
+      ghost: 'bg-transparent text-secondary hover:enabled:bg-state-hover hover:enabled:text-default',
       danger: 'bg-status-error text-white hover:enabled:brightness-110',
     };
 
     const activeStyles: Record<string, string> = {
       primary: 'bg-accent text-on-accent',
-      secondary: 'bg-interactive-selected text-accent border border-accent',
-      ghost: 'bg-interactive-selected text-accent',
+      secondary: 'bg-state-selected text-accent border border-accent',
+      ghost: 'bg-state-selected text-accent',
       danger: 'bg-status-error text-white',
     };
 

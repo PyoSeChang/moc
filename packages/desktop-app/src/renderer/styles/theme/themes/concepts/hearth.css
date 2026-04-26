@@ -40,16 +40,16 @@
     --theme-background-image:
         radial-gradient(circle at top left, hsla(24, 12%, 58%, 0.10), transparent 24%),
         radial-gradient(circle at bottom right, hsla(16, 10%, 28%, 0.14), transparent 28%);
-    --theme-dark-surface-base: hsl(18, 14%, 8%);
+    --theme-dark-surface-chrome: hsl(18, 14%, 8%);
     --theme-dark-surface-panel: hsl(18, 12%, 10%);
     --theme-dark-surface-card: hsl(18, 11%, 13%);
-    --theme-dark-surface-hover: hsl(18, 10%, 18%);
-    --theme-dark-surface-modal: hsl(18, 13%, 9%);
-    --theme-dark-input-bg: hsl(18, 10%, 12%);
-    --theme-light-surface-base: hsl(28, 24%, 94%);
+    --theme-dark-state-hover-bg: hsl(18, 10%, 18%);
+    --theme-dark-surface-floating: hsl(18, 13%, 9%);
+    --theme-dark-surface-input: hsl(18, 10%, 12%);
+    --theme-light-surface-chrome: hsl(28, 24%, 94%);
     --theme-light-surface-panel: hsl(28, 18%, 97%);
     --theme-light-surface-card: hsl(28, 16%, 95%);
-    --theme-light-surface-hover: hsl(26, 14%, 89%);
-    --theme-light-surface-modal: hsl(28, 16%, 98%);
-    --theme-light-input-bg: hsl(30, 14%, 99%);
+    --theme-light-state-hover-bg: hsl(26, 14%, 89%);
+    --theme-light-surface-floating: hsl(28, 16%, 98%);
+    --theme-light-surface-input: hsl(30, 14%, 99%);
 }

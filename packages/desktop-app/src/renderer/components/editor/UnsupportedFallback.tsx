@@ -13,7 +13,7 @@ export function UnsupportedFallback({ filePath, absolutePath }: UnsupportedFallb
   const ext = filePath.split('.').pop() ?? '';
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface-base">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface-editor">
       <p className="text-sm text-muted">
         {t('editor.cannotPreview', { ext })}
       </p>

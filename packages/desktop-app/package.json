@@ -77,9 +77,7 @@
       "node_modules/node-pty/build/Release/*.exe"
     ],
     "asarUnpack": [
-      "node_modules/node-pty/build/Release/*.node",
-      "node_modules/node-pty/build/Release/*.dll",
-      "node_modules/node-pty/build/Release/*.exe"
+      "node_modules/node-pty/**/*"
     ],
     "extraResources": [
       {

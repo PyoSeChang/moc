@@ -147,7 +147,7 @@ export function ShortcutOverlay({ open, onClose }: ShortcutOverlayProps): JSX.El
       <div className="fixed inset-0 flex animate-in fade-in duration-200" style={{ zIndex: 10000 }}>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-        <div className="relative z-10 m-auto flex h-[85vh] w-[min(94vw,1080px)] overflow-hidden rounded-xl border border-subtle bg-surface-modal shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
+        <div className="relative z-10 m-auto flex h-[85vh] w-[min(94vw,1080px)] overflow-hidden rounded-xl border border-subtle bg-surface-floating shadow-2xl ring-1 ring-black/10 animate-in zoom-in-95 duration-200">
           <div className="flex w-72 shrink-0 flex-col border-r border-subtle bg-surface-panel">
             <nav className="flex-1 overflow-y-auto px-2 py-3">
               {sectionEntries.map((section) => {
@@ -157,11 +157,11 @@ export function ShortcutOverlay({ open, onClose }: ShortcutOverlayProps): JSX.El
                 return (
                   <div key={section.key} className="mb-2">
                     <button
-                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-secondary transition-colors hover:bg-surface-hover hover:text-default"
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-secondary transition-colors hover:bg-state-hover hover:text-default"
                       onClick={() => scrollToTarget(`[data-section="${section.key}"]`)}
                     >
                       <span>{section.label}</span>
-                      <span className="rounded bg-surface-base px-1.5 py-0.5 text-[11px] text-muted">
+                      <span className="rounded bg-surface-editor px-1.5 py-0.5 text-[11px] text-muted">
                         {searchQuery.trim() ? resultCount : section.shortcuts.length}
                       </span>
                     </button>
@@ -191,7 +191,7 @@ export function ShortcutOverlay({ open, onClose }: ShortcutOverlayProps): JSX.El
                   <p className="mt-1 text-xs text-secondary">{t('shortcuts.overlay.summaryBody')}</p>
                 </div>
                 <button
-                  className="rounded-md p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+                  className="rounded-md p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
                   onClick={onClose}
                 >
                   <X size={20} />
@@ -199,7 +199,7 @@ export function ShortcutOverlay({ open, onClose }: ShortcutOverlayProps): JSX.El
               </div>
 
               <div className="mt-4 grid grid-cols-[minmax(0,1fr)_220px] gap-3">
-                <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-base px-3 py-2">
+                <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-editor px-3 py-2">
                   <Search size={14} className="shrink-0 text-muted" />
                   <input
                     ref={searchRef}
@@ -231,7 +231,7 @@ export function ShortcutOverlay({ open, onClose }: ShortcutOverlayProps): JSX.El
                     <section
                       key={section.key}
                       data-section={section.key}
-                      className="overflow-hidden rounded-xl border border-subtle bg-surface-base"
+                      className="overflow-hidden rounded-xl border border-subtle bg-surface-editor"
                     >
                       <div className="flex items-center justify-between border-b border-subtle bg-surface-panel px-4 py-2.5">
                         <div>

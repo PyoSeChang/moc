@@ -11,6 +11,7 @@ import { NetworkList } from './NetworkList';
 import { FileTree } from './FileTree';
 import { ModuleSelector } from './ModuleSelector';
 import { ObjectPanel } from './ObjectPanel';
+import { BookmarkedNetworkSidebar } from './BookmarkedNetworkSidebar';
 import { useConceptStore } from '../../stores/concept-store';
 import { useArchetypeStore } from '../../stores/archetype-store';
 import { useRelationTypeStore } from '../../stores/relation-type-store';
@@ -55,8 +56,8 @@ function AppWorkspaceSidebar(): JSX.Element {
         <button
           className={`flex w-full items-center rounded px-2 py-1 text-left text-xs transition-colors ${
             currentNetwork?.kind === 'universe'
-              ? 'bg-interactive-selected text-accent'
-              : 'text-default hover:bg-surface-hover'
+              ? 'bg-state-selected text-accent'
+              : 'text-default hover:bg-state-hover'
           }`}
           onClick={() => {
             if (currentNetwork?.kind === 'universe') return;
@@ -77,7 +78,7 @@ function AppWorkspaceSidebar(): JSX.Element {
           <div className="text-xs font-medium text-secondary">{t('project.title' as never) ?? 'Projects'}</div>
           <button
             type="button"
-            className="rounded p-1 text-muted transition-colors hover:bg-surface-hover hover:text-default"
+            className="rounded p-1 text-muted transition-colors hover:bg-state-hover hover:text-default"
             onClick={() => setShowCreateProject(true)}
             title={t('project.create')}
           >
@@ -91,8 +92,8 @@ function AppWorkspaceSidebar(): JSX.Element {
                 key={project.id}
                 className={`flex w-full items-center rounded px-2 py-1 text-left text-xs transition-colors ${
                   currentProject?.id === project.id
-                    ? 'bg-interactive-selected text-accent'
-                    : 'text-default hover:bg-surface-hover'
+                    ? 'bg-state-selected text-accent'
+                    : 'text-default hover:bg-state-hover'
                 }`}
                 onClick={() => {
                   void handleOpenProjectEditor(project);
@@ -120,7 +121,7 @@ function AppWorkspaceSidebar(): JSX.Element {
 
 export function Sidebar({ project }: SidebarProps): JSX.Element {
   const { t } = useI18n();
-  const { sidebarView, sidebarWidth } = useUIStore();
+  const { sidebarView, sidebarWidth, bookmarkedSidebarNetworkId } = useUIStore();
   const { loadFileTree, fileTree, refreshFileTree, loading: fileLoading } = useFileStore();
   const { loadNetworks, loadNetworkTree } = useNetworkStore();
   const { loadModules, directories } = useModuleStore();
@@ -169,13 +170,15 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
 
   return (
     <div
-      className="flex h-full shrink-0 flex-col bg-[var(--surface-sidebar-panel)]"
+      className="sidebar-surface flex h-full shrink-0 flex-col"
       style={{ width: sidebarWidth }}
     >
-      {!project ? (
+      {!project || sidebarView === 'projects' ? (
         <ScrollArea className="flex-1">
           <AppWorkspaceSidebar />
         </ScrollArea>
+      ) : sidebarView === 'bookmarkedNetwork' && bookmarkedSidebarNetworkId ? (
+        <BookmarkedNetworkSidebar networkId={bookmarkedSidebarNetworkId} />
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="flex min-h-full flex-col py-2">
@@ -188,7 +191,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
                   </div>
                   <Tooltip content={t('fileTree.refresh')} position="bottom">
                     <button
-                      className="mr-2 shrink-0 rounded p-1 text-muted hover:bg-surface-hover hover:text-default"
+                      className="mr-2 shrink-0 rounded p-1 text-muted hover:bg-state-hover hover:text-default"
                       onClick={handleRefresh}
                     >
                       <RefreshCw size={14} />

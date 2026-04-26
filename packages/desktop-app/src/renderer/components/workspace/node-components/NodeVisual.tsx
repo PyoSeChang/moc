@@ -90,7 +90,7 @@ export const NodeVisual: React.FC<NodeVisualProps> = ({
         loading="lazy"
         draggable={false}
         className={[
-          'pointer-events-none block shrink-0 rounded-full border border-default bg-surface-base object-cover select-none',
+          'pointer-events-none block shrink-0 rounded-full border border-default bg-surface-editor object-cover select-none',
           className ?? '',
         ].join(' ').trim()}
         style={{ width: resolvedImageSize, height: resolvedImageSize }}

@@ -21,7 +21,7 @@ function iconButtonClass(active = false): string {
     'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
     active
       ? 'bg-surface-card text-accent ring-1 ring-border-subtle'
-      : 'text-secondary hover:bg-surface-hover hover:text-default',
+      : 'text-secondary hover:bg-state-hover hover:text-default',
   ].join(' ');
 }
 
@@ -103,7 +103,7 @@ export const CalendarHeaderControls: React.FC<LayoutControlsRendererProps> = ({
             <Tooltip content={jumpButtonLabel} position="bottom">
               <button
                 type="button"
-                className="flex h-8 items-center justify-center rounded-md border border-default bg-surface-base px-3 text-[11px] font-semibold text-default transition-colors hover:bg-surface-hover"
+                className="flex h-8 items-center justify-center rounded-md border border-default bg-surface-editor px-3 text-[11px] font-semibold text-default transition-colors hover:bg-state-hover"
                 onClick={todayItem.onClick}
               >
                 {jumpButtonLabel}
@@ -136,7 +136,7 @@ export const CalendarHeaderControls: React.FC<LayoutControlsRendererProps> = ({
             ))}
           </div>
         )}
-        <div className="flex items-center rounded-lg border border-subtle bg-surface-base p-0.5">
+        <div className="flex items-center rounded-lg border border-subtle bg-surface-editor p-0.5">
           {dayItem && (
             <Tooltip content={dayItem.label} position="bottom">
               <Button

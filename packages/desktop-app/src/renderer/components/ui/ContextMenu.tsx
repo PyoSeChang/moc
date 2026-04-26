@@ -68,8 +68,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[180px] rounded-md border border-default bg-surface-modal py-1 shadow-lg"
-      style={{ left: x, top: y }}
+      className="fixed z-50 min-w-[180px] rounded-md border border-default bg-surface-floating py-1 shadow-lg"
+      style={{ left: x, top: y, WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onMouseDown={(e) => e.stopPropagation()}
     >
       {items.map((item, i) => {
@@ -84,8 +84,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): JSX.Ele
               menuItem.disabled
                 ? 'cursor-default text-muted'
                 : menuItem.danger
-                  ? 'text-red-400 hover:bg-surface-hover'
-                  : 'text-default hover:bg-surface-hover'
+                  ? 'text-red-400 hover:bg-state-hover'
+                  : 'text-default hover:bg-state-hover'
             }`}
             disabled={menuItem.disabled}
             onClick={() => {

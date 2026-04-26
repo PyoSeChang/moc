@@ -11,7 +11,7 @@ interface ProjectCardProps {
 export function ProjectCard({ project, onOpen, onDelete }: ProjectCardProps): JSX.Element {
   return (
     <div
-      className="group flex cursor-pointer items-center gap-3 rounded-lg border border-subtle bg-surface-card px-4 py-3 transition-colors duration-fast hover:border-default hover:bg-surface-hover"
+      className="group flex cursor-pointer items-center gap-3 rounded-lg border border-subtle bg-surface-card px-4 py-3 transition-colors duration-fast hover:border-default hover:bg-state-hover"
       onClick={() => onOpen(project)}
     >
       <Folder size={20} className="shrink-0 text-accent" />
@@ -20,7 +20,7 @@ export function ProjectCard({ project, onOpen, onDelete }: ProjectCardProps): JS
         <p className="truncate text-xs text-muted">{project.root_dir}</p>
       </div>
       <button
-        className="shrink-0 rounded p-1 text-muted opacity-0 transition-opacity duration-fast hover:bg-surface-hover hover:text-status-error group-hover:opacity-100"
+        className="shrink-0 rounded p-1 text-muted opacity-0 transition-opacity duration-fast hover:bg-state-hover hover:text-status-error group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation();
           onDelete(project.id);

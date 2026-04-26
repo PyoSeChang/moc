@@ -200,7 +200,7 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
       <div className={cardClassName} style={cardStyle}>
         {isVirtualRecurringOccurrence && (
           <div
-            className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-default bg-surface-modal px-2 py-0.5 text-[10px] font-medium text-secondary shadow-sm"
+            className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-default bg-surface-floating px-2 py-0.5 text-[10px] font-medium text-secondary shadow-sm"
             title={t('common.recurringVirtualHint' as never)}
           >
             <Repeat2 size={10} />
@@ -229,7 +229,7 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
                 className={`shrink-0 rounded border px-2 py-0.5 text-[11px] ${
                   mode === 'browse'
                     ? 'border-default bg-accent-muted text-accent hover:border-accent'
-                    : 'border-subtle bg-surface-hover text-secondary'
+                    : 'border-subtle bg-state-hover text-secondary'
                 }`}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -262,7 +262,7 @@ export const NodeCardDefault: React.FC<NodeComponentProps> = ({
                 height: 10,
                 borderRadius: 3,
                 border: '1px solid var(--accent)',
-                background: 'var(--surface-base)',
+                background: 'var(--surface-card)',
                 cursor: handle.cursor,
                 zIndex: 3,
                 ...handle.style,

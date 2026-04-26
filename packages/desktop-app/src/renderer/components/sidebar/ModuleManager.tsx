@@ -32,7 +32,7 @@ export function ModuleManager(): JSX.Element | null {
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-secondary">{t('sidebar.directories')}</span>
         <button
-          className="rounded p-0.5 text-muted hover:bg-surface-hover hover:text-default"
+          className="rounded p-0.5 text-muted hover:bg-state-hover hover:text-default"
           onClick={handleAddDirectory}
         >
           <Plus size={14} />
@@ -41,7 +41,7 @@ export function ModuleManager(): JSX.Element | null {
 
       {directories.map((dir) => (
         <Tooltip key={dir.id} content={dir.dir_path} position="right">
-          <div className="group flex w-full items-center gap-2 rounded px-2 py-1 text-xs text-secondary transition-colors hover:bg-surface-hover hover:text-default">
+          <div className="group flex w-full items-center gap-2 rounded px-2 py-1 text-xs text-secondary transition-colors hover:bg-state-hover hover:text-default">
             <FolderOpen size={12} className="shrink-0" />
             <span className="flex-1 truncate">{folderName(dir.dir_path)}</span>
             <button

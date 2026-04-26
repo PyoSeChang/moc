@@ -48,19 +48,19 @@ const labThemes: LabTheme[] = [
     intent: '평평한 작업 공간. 편집기는 조용하게. hover는 튀지 않게. 파란색은 현재 선택과 focus에만 쓴다.',
     vars: {
       ...sharedStateVars,
-      '--surface-base': '#1f1f1f',
+      '--surface-editor': '#1f1f1f',
       '--surface-panel': '#181818',
       '--surface-card': '#252526',
-      '--surface-hover': '#2a2d2e',
-      '--surface-modal': '#252526',
-      '--surface-sidebar': '#181818',
+      '--state-hover-bg': '#2a2d2e',
+      '--surface-floating': '#252526',
+      '--surface-rail': '#181818',
       '--text-default': '#cccccc',
       '--text-secondary': '#a7a7a7',
       '--text-muted': '#808080',
       '--border-subtle': '#2b2b2b',
       '--border-default': '#3c3c3c',
       '--border-strong': '#5a5a5a',
-      '--input-bg': '#1f1f1f',
+      '--surface-input': '#1f1f1f',
       '--input-border': '#3c3c3c',
       '--accent': '#0078d4',
       '--accent-hover': '#1688dc',
@@ -75,19 +75,19 @@ const labThemes: LabTheme[] = [
     intent: '문서 가독성 우선. border는 또렷하게. 링크/선택은 분명하게. 패널은 실제 명도 차이로 분리한다.',
     vars: {
       ...sharedStateVars,
-      '--surface-base': '#0d1117',
+      '--surface-editor': '#0d1117',
       '--surface-panel': '#161b22',
       '--surface-card': '#21262d',
-      '--surface-hover': '#30363d',
-      '--surface-modal': '#161b22',
-      '--surface-sidebar': '#0d1117',
+      '--state-hover-bg': '#30363d',
+      '--surface-floating': '#161b22',
+      '--surface-rail': '#0d1117',
       '--text-default': '#e6edf3',
       '--text-secondary': '#afb8c1',
       '--text-muted': '#7d8590',
       '--border-subtle': '#30363d',
       '--border-default': '#484f58',
       '--border-strong': '#6e7681',
-      '--input-bg': '#0d1117',
+      '--surface-input': '#0d1117',
       '--input-border': '#30363d',
       '--accent': '#2f81f7',
       '--accent-hover': '#58a6ff',
@@ -102,19 +102,19 @@ const labThemes: LabTheme[] = [
     intent: '검정으로 가라앉히지 않는 회색 작업대. 캔버스는 한 단계 낮추고, 패널/카드/hover는 눈에 보이는 계단으로 쌓는다.',
     vars: {
       ...sharedStateVars,
-      '--surface-base': '#242424',
+      '--surface-editor': '#242424',
       '--surface-panel': '#2c2c2c',
       '--surface-card': '#363636',
-      '--surface-hover': '#454545',
-      '--surface-modal': '#303030',
-      '--surface-sidebar': '#262626',
+      '--state-hover-bg': '#454545',
+      '--surface-floating': '#303030',
+      '--surface-rail': '#262626',
       '--text-default': '#f0f0f0',
       '--text-secondary': '#c7c7c7',
       '--text-muted': '#9a9a9a',
       '--border-subtle': '#404040',
       '--border-default': '#545454',
       '--border-strong': '#707070',
-      '--input-bg': '#242424',
+      '--surface-input': '#242424',
       '--input-border': '#545454',
       '--accent': '#0d99ff',
       '--accent-hover': '#57b8ff',
@@ -134,19 +134,19 @@ const labThemes: LabTheme[] = [
       '--status-warning': '#9a6700',
       '--status-error': '#cf222e',
       '--status-info': '#0969da',
-      '--surface-base': '#f5f5f5',
+      '--surface-editor': '#f5f5f5',
       '--surface-panel': '#ffffff',
       '--surface-card': '#ffffff',
-      '--surface-hover': '#f0f0f0',
-      '--surface-modal': '#ffffff',
-      '--surface-sidebar': '#ffffff',
+      '--state-hover-bg': '#f0f0f0',
+      '--surface-floating': '#ffffff',
+      '--surface-rail': '#ffffff',
       '--text-default': '#1f2328',
       '--text-secondary': '#59636e',
       '--text-muted': '#818b98',
       '--border-subtle': '#d8dee4',
       '--border-default': '#c8d1da',
       '--border-strong': '#8c959f',
-      '--input-bg': '#ffffff',
+      '--surface-input': '#ffffff',
       '--input-border': '#c8d1da',
       '--accent': '#0c8ce9',
       '--accent-hover': '#0969da',
@@ -166,19 +166,19 @@ const labThemes: LabTheme[] = [
       '--status-warning': '#9a6700',
       '--status-error': '#cf222e',
       '--status-info': '#0969da',
-      '--surface-base': '#f5f5f5',
+      '--surface-editor': '#f5f5f5',
       '--surface-panel': '#ffffff',
       '--surface-card': '#f7f7f7',
-      '--surface-hover': '#eeeeee',
-      '--surface-modal': '#ffffff',
-      '--surface-sidebar': '#ffffff',
+      '--state-hover-bg': '#eeeeee',
+      '--surface-floating': '#ffffff',
+      '--surface-rail': '#ffffff',
       '--text-default': '#1f2328',
       '--text-secondary': '#59636e',
       '--text-muted': '#818b98',
       '--border-subtle': '#e0e0e0',
       '--border-default': '#d1d1d1',
       '--border-strong': '#9a9a9a',
-      '--input-bg': '#ffffff',
+      '--surface-input': '#ffffff',
       '--input-border': '#d1d1d1',
       '--accent': '#0d99ff',
       '--accent-hover': '#007be5',
@@ -279,7 +279,7 @@ function ThemeFrame({ theme, compact, children }: {
 
 function FullWorkbenchFixture({ theme }: { theme: LabTheme }): JSX.Element {
   return (
-    <div className="overflow-hidden rounded-lg border border-subtle bg-surface-base text-default shadow-2xl">
+    <div className="overflow-hidden rounded-lg border border-subtle bg-surface-editor text-default shadow-2xl">
       <FakeTitleBar />
       <div className="flex h-[620px] min-h-0">
         <FakeActivityBar />
@@ -298,7 +298,7 @@ function FullWorkbenchFixture({ theme }: { theme: LabTheme }): JSX.Element {
 
 function StateStressFixture({ theme }: { theme: LabTheme }): JSX.Element {
   return (
-    <div className="rounded-lg border border-subtle bg-surface-base p-3 text-default">
+    <div className="rounded-lg border border-subtle bg-surface-editor p-3 text-default">
       <div className="mb-3 flex items-center justify-between border-b border-subtle pb-2">
         <div>
           <div className="text-xs font-semibold">{theme.reference}</div>
@@ -320,12 +320,12 @@ function StateStressFixture({ theme }: { theme: LabTheme }): JSX.Element {
             <Button size="sm" variant="secondary">Secondary</Button>
             <Button size="sm" variant="ghost">Ghost</Button>
           </div>
-          <div className="rounded-lg border border-default bg-surface-modal p-3 shadow-lg">
+          <div className="rounded-lg border border-default bg-surface-floating p-3 shadow-lg">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-xs font-medium">떠 있는 메뉴</div>
               <MoreHorizontal size={14} className="text-muted" />
             </div>
-            <div className="rounded bg-surface-hover px-2 py-1 text-xs text-default">에디터에서 열기</div>
+            <div className="rounded bg-state-hover px-2 py-1 text-xs text-default">에디터에서 열기</div>
             <div className="px-2 py-1 text-xs text-secondary">폴더에서 보기</div>
           </div>
         </div>
@@ -355,7 +355,7 @@ function FakeTitleBar(): JSX.Element {
         <Network size={15} className="text-accent" />
         <span className="text-xs font-medium">Netior</span>
         <span className="text-muted">/</span>
-        <button className="rounded px-1.5 py-0.5 text-xs text-default hover:bg-surface-hover">
+        <button className="rounded px-1.5 py-0.5 text-xs text-default hover:bg-state-hover">
           리서치 보관함 <ChevronDown size={11} className="ml-1 inline" />
         </button>
       </div>
@@ -371,13 +371,13 @@ function FakeActivityBar(): JSX.Element {
   const icons = [Waypoints, Boxes, FolderTree, Sparkles, Terminal, Settings];
 
   return (
-    <nav className="flex w-10 shrink-0 flex-col items-center justify-between border-r border-subtle bg-[var(--surface-sidebar)] py-2">
+    <nav className="flex w-10 shrink-0 flex-col items-center justify-between border-r border-subtle bg-surface-rail py-2">
       <div className="flex flex-col gap-1">
         {icons.slice(0, 3).map((Icon, index) => (
           <button
             key={index}
             className={`flex h-8 w-8 items-center justify-center rounded ${
-              index === 0 ? 'bg-accent-muted text-accent' : 'text-secondary hover:bg-surface-hover hover:text-default'
+              index === 0 ? 'bg-accent-muted text-accent' : 'text-secondary hover:bg-state-hover hover:text-default'
             }`}
           >
             <Icon size={17} />
@@ -388,7 +388,7 @@ function FakeActivityBar(): JSX.Element {
         {icons.slice(3).map((Icon, index) => (
           <button
             key={index}
-            className="flex h-8 w-8 items-center justify-center rounded text-secondary hover:bg-surface-hover hover:text-default"
+            className="flex h-8 w-8 items-center justify-center rounded text-secondary hover:bg-state-hover hover:text-default"
           >
             <Icon size={17} />
           </button>
@@ -404,11 +404,11 @@ function FakeSidebar(): JSX.Element {
       <div className="border-b border-subtle p-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-semibold uppercase text-secondary">네트워크</span>
-          <button className="rounded p-1 text-muted hover:bg-surface-hover hover:text-default">
+          <button className="rounded p-1 text-muted hover:bg-state-hover hover:text-default">
             <PanelLeft size={14} />
           </button>
         </div>
-        <label className="flex items-center gap-2 rounded border border-input bg-input px-2 py-1.5 text-xs">
+        <label className="flex items-center gap-2 rounded border border-input bg-surface-input px-2 py-1.5 text-xs">
           <Search size={13} className="text-muted" />
           <span className="text-muted">네트워크 검색</span>
         </label>
@@ -442,8 +442,8 @@ function FakeTabs(): JSX.Element {
           key={tab}
           className={`relative h-8 min-w-36 border-x border-t px-3 text-left text-xs ${
             index === 1
-              ? 'border-default bg-surface-base text-default'
-              : 'border-transparent text-secondary hover:bg-surface-hover hover:text-default'
+              ? 'border-default bg-surface-editor text-default'
+              : 'border-transparent text-secondary hover:bg-state-hover hover:text-default'
           }`}
         >
           {tab}
@@ -455,7 +455,7 @@ function FakeTabs(): JSX.Element {
 
 function FakeCanvas({ theme }: { theme: LabTheme }): JSX.Element {
   return (
-    <section className="relative min-w-0 flex-1 overflow-hidden bg-surface-base">
+    <section className="relative min-w-0 flex-1 overflow-hidden bg-surface-editor">
       <div
         className="absolute inset-0 opacity-80"
         style={{
@@ -471,7 +471,7 @@ function FakeCanvas({ theme }: { theme: LabTheme }): JSX.Element {
       <FakeNode x={440} y={180} color={objectDots[1]} title="레퍼런스 메모" subtitle="VS Code / GitHub / Obsidian" />
       <FakeNode x={150} y={330} color={objectDots[2]} title="토큰 인벤토리" subtitle="surface / text / border" />
       <FakeNode x={500} y={300} color={objectDots[3]} title="상태 스트레스" subtitle="hover / active / focus" warning />
-      <div className="absolute left-4 top-4 rounded-lg border border-subtle bg-surface-modal px-3 py-2 text-xs shadow-lg">
+      <div className="absolute left-4 top-4 rounded-lg border border-subtle bg-surface-floating px-3 py-2 text-xs shadow-lg">
         <div className="font-medium text-default">캔버스 도구</div>
         <div className="mt-1 text-muted">탐색 / 편집 / 연결</div>
       </div>
@@ -551,7 +551,7 @@ function FakeListRow({ title, meta, active, hover, warning }: {
   const bgClass = active
     ? 'bg-accent-muted text-accent'
     : hover
-      ? 'bg-surface-hover text-default'
+      ? 'bg-state-hover text-default'
       : 'text-default';
 
   return (

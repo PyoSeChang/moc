@@ -113,7 +113,7 @@ export const Select: React.FC<SelectProps> = ({
       <div
         ref={buttonRef}
         id={id}
-        className={`flex items-center w-full ${sizeStyle} text-default bg-input border border-input rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-strong focus:border-accent ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${open ? 'border-accent' : ''
+        className={`flex items-center w-full ${sizeStyle} text-default bg-surface-input border border-input rounded-lg cursor-pointer outline-none text-left transition-all duration-fast hover:border-strong focus:border-accent ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${open ? 'border-accent' : ''
           }`}
         onClick={handleOpen}
         onKeyDown={handleKeyDown}
@@ -147,7 +147,7 @@ export const Select: React.FC<SelectProps> = ({
           >
             {searchable && (
               <div className="border-b border-subtle px-2 py-2">
-                <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-base px-2.5 py-1.5">
+                <div className="flex items-center gap-2 rounded-md border border-subtle bg-surface-editor px-2.5 py-1.5">
                   <Search size={14} className="shrink-0 text-muted" />
                   <input
                     ref={searchInputRef}
@@ -177,7 +177,7 @@ export const Select: React.FC<SelectProps> = ({
                   type="button"
                   role="option"
                   aria-selected={opt.value === value}
-                  className={`block w-full ${itemSizeStyle} text-left cursor-pointer transition-colors duration-fast hover:bg-surface-hover ${opt.value === value ? 'text-accent bg-accent-muted' : 'text-default'
+                  className={`block w-full ${itemSizeStyle} text-left cursor-pointer transition-colors duration-fast hover:bg-state-hover ${opt.value === value ? 'text-accent bg-accent-muted' : 'text-default'
                     }`}
                   onClick={() => handleSelect(opt.value)}
                 >

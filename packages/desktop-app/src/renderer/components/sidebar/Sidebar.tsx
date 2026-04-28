@@ -236,7 +236,7 @@ export function Sidebar({ project }: SidebarProps): JSX.Element {
                 canCreate={false}
               />
             )}
-            {sidebarView === 'networks' && <NetworkList projectId={project.id} kindFilter="network" />}
+            {sidebarView === 'networks' && <NetworkList projectId={project.id} kindFilter={['ontology', 'network']} />}
             {sidebarView === 'files' && (
               <>
                 <div className="flex items-center">

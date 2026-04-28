@@ -11,19 +11,23 @@ import { openNetworkViewerTab } from '../../lib/open-network-viewer-tab';
 
 interface NetworkListProps {
   projectId: string;
-  kindFilter?: NetworkKind;
+  kindFilter?: NetworkKind | NetworkKind[];
   title?: string;
   canCreate?: boolean;
 }
 
-function filterTreeByKind(nodes: NetworkTreeNode[], kind: NetworkKind): NetworkTreeNode[] {
-  return nodes.flatMap((node) => {
-    if (node.network.kind === kind) {
+function filterTreeByKind(nodes: NetworkTreeNode[], kinds: NetworkKind | NetworkKind[]): NetworkTreeNode[] {
+  const kindSet = new Set(Array.isArray(kinds) ? kinds : [kinds]);
+
+  const visit = (treeNodes: NetworkTreeNode[]): NetworkTreeNode[] => treeNodes.flatMap((node) => {
+    if (kindSet.has(node.network.kind)) {
       return [node];
     }
 
-    return filterTreeByKind(node.children, kind);
+    return visit(node.children);
   });
+
+  return visit(nodes);
 }
 
 // ─── Context Menu ────────────────────────────────────────────────

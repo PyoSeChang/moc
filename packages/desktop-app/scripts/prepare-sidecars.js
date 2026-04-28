@@ -160,25 +160,38 @@ function materializeSidecar(stagingRoot, destinationRoot) {
 }
 
 function findInstalledPackageRoot(packageId) {
-  const directPath = path.join(repoRoot, 'node_modules', ...packageId.split('/'));
-  if (fs.existsSync(path.join(directPath, 'package.json'))) {
-    return directPath;
-  }
+  const packageSegments = packageId.split('/');
+  const candidateNodeModulesRoots = [
+    path.join(repoRoot, 'node_modules'),
+    ...fs.readdirSync(path.join(repoRoot, 'packages'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(repoRoot, 'packages', entry.name, 'node_modules')),
+  ];
 
-  const pnpmStorePath = path.join(repoRoot, 'node_modules', '.pnpm');
-  if (!fs.existsSync(pnpmStorePath)) {
-    return null;
+  for (const nodeModulesRoot of candidateNodeModulesRoots) {
+    const directPath = path.join(nodeModulesRoot, ...packageSegments);
+    if (fs.existsSync(path.join(directPath, 'package.json'))) {
+      return directPath;
+    }
   }
 
   const normalizedPackageId = packageId.replace('@', '').replace('/', '+');
-  for (const entry of fs.readdirSync(pnpmStorePath, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.startsWith(`${normalizedPackageId}@`)) {
-      continue;
-    }
+  for (const nodeModulesRoot of candidateNodeModulesRoots) {
+    const virtualStorePaths = ['.pnpm', '.pnpm-codex']
+      .map((storeName) => path.join(nodeModulesRoot, storeName))
+      .filter((storePath) => fs.existsSync(storePath));
 
-    const candidatePath = path.join(pnpmStorePath, entry.name, 'node_modules', ...packageId.split('/'));
-    if (fs.existsSync(path.join(candidatePath, 'package.json'))) {
-      return candidatePath;
+    for (const virtualStorePath of virtualStorePaths) {
+      for (const entry of fs.readdirSync(virtualStorePath, { withFileTypes: true })) {
+        if (!entry.isDirectory() || !entry.name.startsWith(`${normalizedPackageId}@`)) {
+          continue;
+        }
+
+        const candidatePath = path.join(virtualStorePath, entry.name, 'node_modules', ...packageSegments);
+        if (fs.existsSync(path.join(candidatePath, 'package.json'))) {
+          return candidatePath;
+        }
+      }
     }
   }
 
